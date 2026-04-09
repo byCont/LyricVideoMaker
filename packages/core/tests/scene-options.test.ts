@@ -13,8 +13,15 @@ const scene: SceneDefinition<TestOptions> = {
   name: "Test Scene",
   options: [
     { type: "image", id: "backgroundImage", label: "Background", required: true },
-    { type: "number", id: "lyricSize", label: "Lyric Size", defaultValue: 72, min: 12, max: 100 },
-    { type: "font", id: "lyricFont", label: "Lyric Font", defaultValue: SUPPORTED_FONT_FAMILIES[0] }
+    {
+      type: "category",
+      id: "lyrics",
+      label: "Lyrics",
+      options: [
+        { type: "number", id: "lyricSize", label: "Lyric Size", defaultValue: 72, min: 12, max: 100 },
+        { type: "font", id: "lyricFont", label: "Lyric Font", defaultValue: SUPPORTED_FONT_FAMILIES[0] }
+      ]
+    }
   ],
   defaultOptions: {
     backgroundImage: "",

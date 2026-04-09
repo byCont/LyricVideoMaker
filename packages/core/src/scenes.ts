@@ -9,6 +9,8 @@ import type {
   CreateRenderJobInput,
   RenderJob,
   SceneDefinition,
+  SceneOptionCategory,
+  SceneOptionEntry,
   SceneOptionField,
   SceneValidationContext,
   SerializedSceneDefinition
@@ -39,7 +41,7 @@ export function validateSceneOptions<TOptions>(
     rawOptions && typeof rawOptions === "object" ? (rawOptions as Record<string, unknown>) : {};
   const merged = { ...asRecord(scene.defaultOptions) };
 
-  for (const field of scene.options) {
+  for (const field of getSceneOptionFields(scene.options)) {
     const rawValue = source[field.id];
     merged[field.id] = validateField(field, rawValue, merged[field.id], context);
   }
@@ -91,6 +93,14 @@ export function createSceneFrameContext(job: RenderJob, frame: number) {
   };
 }
 
+export function getSceneOptionFields(options: SceneOptionEntry[]): SceneOptionField[] {
+  return options.flatMap((option) => (isSceneOptionCategory(option) ? option.options : [option]));
+}
+
+export function isSceneOptionCategory(option: SceneOptionEntry): option is SceneOptionCategory {
+  return option.type === "category";
+}
+
 function validateField(
   field: SceneOptionField,
   rawValue: unknown,
@@ -106,6 +116,22 @@ function validateField(
   }
 
   switch (field.type) {
+    case "boolean": {
+      if (typeof rawValue === "boolean") {
+        return rawValue;
+      }
+
+      if (typeof rawValue === "string") {
+        if (rawValue === "true") {
+          return true;
+        }
+        if (rawValue === "false") {
+          return false;
+        }
+      }
+
+      throw new Error(`"${field.label}" must be true or false.`);
+    }
     case "number": {
       const numericValue = typeof rawValue === "number" ? rawValue : Number(rawValue);
       if (Number.isNaN(numericValue)) {

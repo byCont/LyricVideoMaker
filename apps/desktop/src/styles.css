@@ -93,8 +93,15 @@ button:hover:not(:disabled) {
   gap: 1rem;
 }
 
-.options-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.video-param-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.video-param-hint {
+  margin: 1rem 0 0;
+  color: rgba(247, 248, 252, 0.68);
 }
 
 .field {
@@ -138,6 +145,87 @@ button:hover:not(:disabled) {
 .scene-description {
   margin: 0 0 1rem;
   color: rgba(247, 248, 252, 0.7);
+}
+
+.scene-options {
+  display: grid;
+  gap: 1rem;
+}
+
+.top-level-options,
+.option-list {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.option-category {
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  overflow: hidden;
+}
+
+.option-category-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 0;
+  padding: 1rem 1.2rem;
+  background: rgba(255, 255, 255, 0.04);
+  color: #f7f8fc;
+  font-weight: 700;
+}
+
+.option-category-chevron {
+  font-size: 1.35rem;
+  line-height: 1;
+  color: rgba(247, 248, 252, 0.72);
+}
+
+.option-category .option-list {
+  padding: 1rem 1.2rem 1.2rem;
+}
+
+.option-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: center;
+}
+
+.option-row-multiline {
+  align-items: start;
+}
+
+.option-label {
+  color: rgba(247, 248, 252, 0.74);
+}
+
+.option-input {
+  min-width: 0;
+}
+
+.option-input input,
+.option-input select,
+.option-input textarea {
+  width: 100%;
+}
+
+.file-picker-input {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.checkbox-input {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.checkbox-input input {
+  width: 1.15rem;
+  height: 1.15rem;
+  accent-color: #8ed0ff;
 }
 
 .primary {
@@ -285,8 +373,16 @@ button:hover:not(:disabled) {
 }
 
 @media (max-width: 1120px) {
-  .field-grid,
-  .options-grid {
+  .field-grid {
     grid-template-columns: 1fr;
+  }
+
+  .video-param-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .option-row {
+    grid-template-columns: 1fr;
+    gap: 0.55rem;
   }
 }

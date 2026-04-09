@@ -1,4 +1,5 @@
 import type {
+  VideoSettings,
   RenderHistoryEntry,
   RenderProgressEvent,
   SerializedSceneDefinition
@@ -18,6 +19,7 @@ export interface StartRenderRequest {
   outputPath: string;
   sceneId: string;
   options: Record<string, unknown>;
+  video?: Partial<Pick<VideoSettings, "width" | "height" | "fps">>;
 }
 
 export interface ElectronApi {

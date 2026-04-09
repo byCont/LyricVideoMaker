@@ -26,48 +26,55 @@ export interface VideoSettings {
   durationInFrames: number;
 }
 
+interface SceneOptionFieldBase {
+  id: string;
+  label: string;
+}
+
 export type SceneOptionField =
   | {
+      type: "boolean";
+      defaultValue?: boolean;
+    } & SceneOptionFieldBase
+  | {
       type: "number";
-      id: string;
-      label: string;
       defaultValue?: number;
       min?: number;
       max?: number;
       step?: number;
-    }
+    } & SceneOptionFieldBase
   | {
       type: "text";
-      id: string;
-      label: string;
       defaultValue?: string;
       multiline?: boolean;
-    }
+    } & SceneOptionFieldBase
   | {
       type: "color";
-      id: string;
-      label: string;
       defaultValue?: string;
-    }
+    } & SceneOptionFieldBase
   | {
       type: "font";
-      id: string;
-      label: string;
       defaultValue?: string;
-    }
+    } & SceneOptionFieldBase
   | {
       type: "image";
-      id: string;
-      label: string;
       required?: boolean;
-    }
+    } & SceneOptionFieldBase
   | {
       type: "select";
-      id: string;
-      label: string;
       defaultValue?: string;
       options: { label: string; value: string }[];
-    };
+    } & SceneOptionFieldBase;
+
+export interface SceneOptionCategory {
+  type: "category";
+  id: string;
+  label: string;
+  defaultExpanded?: boolean;
+  options: SceneOptionField[];
+}
+
+export type SceneOptionEntry = SceneOptionField | SceneOptionCategory;
 
 export interface SceneAssetAccessor {
   getPath(optionId: string): string | null;
@@ -99,7 +106,7 @@ export interface SceneDefinition<TOptions> {
   name: string;
   description?: string;
   staticWhenMarkupUnchanged?: boolean;
-  options: SceneOptionField[];
+  options: SceneOptionEntry[];
   defaultOptions: TOptions;
   validate?: (raw: unknown) => TOptions;
   prepare?: (ctx: ScenePrepareContext<TOptions>) => Promise<PreparedSceneData>;
@@ -110,7 +117,7 @@ export interface SerializedSceneDefinition {
   id: string;
   name: string;
   description?: string;
-  options: SceneOptionField[];
+  options: SceneOptionEntry[];
   defaultOptions: Record<string, unknown>;
 }
 

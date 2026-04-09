@@ -105,6 +105,7 @@ function registerIpcHandlers() {
       rawOptions: request.options,
       cues,
       durationMs,
+      video: request.video,
       validationContext: {
         isFileAccessible: existsSync
       }
