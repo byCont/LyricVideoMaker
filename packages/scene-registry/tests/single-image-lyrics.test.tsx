@@ -418,6 +418,8 @@ describe("scene registry components", () => {
         placement: "right-center",
         alignment: "end",
         barCount: 4,
+        minBarScale: 25,
+        maxBarScale: 85,
         layoutMode: "split",
         backgroundPlateEnabled: true,
         backgroundPlateOpacity: 40
@@ -453,6 +455,8 @@ describe("scene registry components", () => {
       },
       options: {
         ...equalizerComponent.defaultOptions,
+        minBarScale: 25,
+        maxBarScale: 85,
         barCount: 4
       },
       frame: 1,
@@ -488,9 +492,24 @@ describe("scene registry components", () => {
       gapSize: 24
     });
     expect(equalizerInitialState.entries).toHaveLength(5);
-    expect(equalizerFrameState).toEqual({
-      values: [0.8, 0.6, 0.4, 0.2]
-    });
+
+    const entries = equalizerInitialState.entries as Array<{ type: string; value?: number }>;
+    expect(entries[0].type).toBe("bar");
+    expect(entries[0].value).toBeCloseTo(0.37);
+    expect(entries[1].type).toBe("bar");
+    expect(entries[1].value).toBeCloseTo(0.49);
+    expect(entries[2].type).toBe("gap");
+    expect(entries[3].type).toBe("bar");
+    expect(entries[3].value).toBeCloseTo(0.61);
+    expect(entries[4].type).toBe("bar");
+    expect(entries[4].value).toBeCloseTo(0.73);
+
+    const values = equalizerFrameState.values as number[];
+    expect(values).toHaveLength(4);
+    expect(values[0]).toBeCloseTo(0.73);
+    expect(values[1]).toBeCloseTo(0.61);
+    expect(values[2]).toBeCloseTo(0.49);
+    expect(values[3]).toBeCloseTo(0.37);
   });
 
   it("renders the equalizer with placement, plate, and configured bars", () => {

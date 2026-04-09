@@ -295,7 +295,7 @@ export const equalizerComponent: SceneComponentDefinition<EqualizerOptions> = {
     getFrameState({ options, prepared, frame }) {
       const preparedData = prepared as unknown as PreparedEqualizerData;
       return {
-        values: buildRenderableBars(preparedData.frames?.[frame] ?? [], options)
+        values: buildRenderableBarAmplitudes(preparedData.frames?.[frame] ?? [], options)
       };
     }
   },
@@ -362,9 +362,7 @@ function EqualizerBar({
   options: EqualizerOptions;
   isHorizontal: boolean;
 }) {
-  const minScale = clamp01(options.minBarScale / 100);
-  const maxScale = clamp01(options.maxBarScale / 100);
-  const amplitude = minScale + (maxScale - minScale) * clamp01(value);
+  const amplitude = getBarAmplitude(value, options);
   const shadowParts: string[] = [];
 
   if (options.shadowEnabled && options.shadowStrength > 0) {
@@ -509,12 +507,16 @@ function buildRenderableBars(values: number[], options: EqualizerOptions) {
   return bars.map((value) => clamp01(value));
 }
 
+function buildRenderableBarAmplitudes(values: number[], options: EqualizerOptions) {
+  return buildRenderableBars(values, options).map((value) => getBarAmplitude(value, options));
+}
+
 function createEqualizerBrowserInitialState(
   options: EqualizerOptions,
   initialValues: number[]
 ) {
   const layout = getEqualizerLayout(options);
-  const frameValues = buildRenderableBars(initialValues, options);
+  const frameValues = buildRenderableBarAmplitudes(initialValues, options);
   const barPlan = buildBarRenderPlan(frameValues, options);
   const shadowParts = buildEqualizerShadowParts(options, layout.isHorizontal);
   const borderRadius = options.capStyle === "rounded" ? `${options.cornerRadius}px` : "0";
@@ -541,6 +543,12 @@ function createEqualizerBrowserInitialState(
           }
     )
   };
+}
+
+function getBarAmplitude(value: number, options: EqualizerOptions) {
+  const minScale = clamp01(options.minBarScale / 100);
+  const maxScale = clamp01(options.maxBarScale / 100);
+  return minScale + (maxScale - minScale) * clamp01(value);
 }
 
 function getSingleBarFillStyle({
