@@ -1,4 +1,5 @@
 import type {
+  LyricCue,
   RenderHistoryEntry,
   RenderProgressEvent,
   SerializedSceneComponentDefinition,
@@ -23,14 +24,34 @@ export interface StartRenderRequest {
   video?: Partial<Pick<VideoSettings, "width" | "height" | "fps">>;
 }
 
+export interface RenderPreviewRequest {
+  audioPath: string;
+  subtitlePath: string;
+  scene: SerializedSceneDefinition;
+  video?: Partial<Pick<VideoSettings, "width" | "height" | "fps">>;
+  timeMs: number;
+}
+
+export interface RenderPreviewResponse {
+  imageDataUrl: string;
+  frame: number;
+  timeMs: number;
+  durationMs: number;
+  currentCue: LyricCue | null;
+  previousCue: LyricCue | null;
+  nextCue: LyricCue | null;
+}
+
 export interface ElectronApi {
   getBootstrapData(): Promise<AppBootstrapData>;
   pickPath(kind: FilePickKind, suggestedName?: string): Promise<string | null>;
   startRender(request: StartRenderRequest): Promise<RenderHistoryEntry>;
+  renderPreviewFrame(request: RenderPreviewRequest): Promise<RenderPreviewResponse>;
   saveScene(scene: SerializedSceneDefinition): Promise<SerializedSceneDefinition>;
   deleteScene(sceneId: string): Promise<void>;
   importScene(): Promise<SerializedSceneDefinition | null>;
   exportScene(scene: SerializedSceneDefinition): Promise<string | null>;
+  disposePreview(): Promise<void>;
   cancelRender(jobId: string): Promise<void>;
   onRenderProgress(callback: (event: RenderProgressEvent) => void): () => void;
 }

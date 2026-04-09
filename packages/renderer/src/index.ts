@@ -35,6 +35,23 @@ export interface RenderLyricVideoInput {
   onProgress?: (event: RenderProgressEvent) => void;
 }
 
+export interface CreateFramePreviewSessionInput {
+  job: RenderJob;
+  componentDefinitions: SceneComponentDefinition<Record<string, unknown>>[];
+  signal?: AbortSignal;
+}
+
+export interface FramePreviewResult {
+  png: Buffer;
+  frame: number;
+  timeMs: number;
+}
+
+export interface FramePreviewSession {
+  renderFrame(input: { frame: number }): Promise<FramePreviewResult>;
+  dispose(): Promise<void>;
+}
+
 type RenderProfileStage =
   | "prepare"
   | "frameState"
@@ -83,6 +100,10 @@ export interface PreloadedAsset {
 
 const ASSET_URL_PREFIX = "http://lyric-video.local/assets/";
 const PROGRESS_INTERVAL_MS = 250;
+
+const NOOP_PROGRESS_EMITTER: ProgressEmitter = {
+  emit() {}
+};
 
 export async function probeAudioDurationMs(audioPath: string): Promise<number> {
   const output = await runCommand("ffprobe", [
@@ -349,6 +370,143 @@ export async function renderLyricVideo({
   }
 }
 
+export async function createFramePreviewSession({
+  job,
+  componentDefinitions,
+  signal
+}: CreateFramePreviewSessionInput): Promise<FramePreviewSession> {
+  const logger = createRenderLogger(job.id, NOOP_PROGRESS_EMITTER);
+  const componentLookup = new Map(componentDefinitions.map((component) => [component.id, component]));
+  const enabledComponents = job.components.filter((component) => component.enabled);
+  const preloadedAssets = await preloadSceneAssets(enabledComponents, componentLookup, job.video, logger, signal);
+  const assets = createAssetAccessor(enabledComponents, preloadedAssets);
+  const audio = createAudioAnalysisAccessor({
+    audioPath: job.audioPath,
+    video: job.video,
+    signal,
+    logger
+  });
+
+  throwIfAborted(signal);
+
+  if (!canRenderWithLiveDom(enabledComponents, componentLookup)) {
+    throw new Error("One or more enabled scene components do not support the live DOM renderer.");
+  }
+
+  const initialLyricsRuntime = createLyricRuntime(job.lyrics, 0);
+  const prepared = await prepareSceneComponents(enabledComponents, componentLookup, {
+    video: job.video,
+    lyrics: initialLyricsRuntime,
+    assets,
+    audio,
+    signal,
+    logger
+  });
+  const preferBeginFrame = shouldUseBeginFrame();
+
+  let browser: Browser | null = null;
+  let browserContext: BrowserContext | null = null;
+  let page: Page | null = null;
+  let cdpSession: CDPSession | null = null;
+  let disposed = false;
+  let beginFrameFallbackLogged = false;
+  const lyricRuntimeCursor = createLyricRuntimeCursor(job.lyrics, 0);
+
+  try {
+    browser = await chromium.launch({
+      headless: true,
+      args: preferBeginFrame ? ["--run-all-compositor-stages-before-draw"] : []
+    });
+
+    const renderPage = await createRenderPage({
+      browser,
+      width: job.video.width,
+      height: job.video.height,
+      preferBeginFrame
+    });
+    browserContext = renderPage.context;
+    page = renderPage.page;
+
+    wirePageDiagnostics(page, logger);
+    await registerAssetRoutes(page, preloadedAssets, logger);
+    await page.setContent(renderPageShell(), { waitUntil: "domcontentloaded" });
+
+    cdpSession = await page.context().newCDPSession(page);
+    await cdpSession.send("Page.enable");
+
+    const mountWarnings = await mountLiveDomScene(
+      page,
+      createLiveDomScenePayload({
+        job,
+        components: enabledComponents,
+        componentLookup,
+        assets,
+        prepared
+      })
+    );
+
+    for (const warning of mountWarnings.warnings) {
+      logger.warn(warning);
+    }
+  } catch (error) {
+    await disposePreviewBrowserResources({ page, cdpSession, browserContext, browser });
+    throw error;
+  }
+
+  return {
+    async renderFrame({ frame }) {
+      if (disposed || !page || !cdpSession) {
+        throw new Error("Preview session has already been disposed.");
+      }
+
+      throwIfAborted(signal);
+
+      const safeFrame = Math.max(0, Math.min(job.video.durationInFrames - 1, Math.floor(frame)));
+      const timeMs = Math.min(job.video.durationMs, Math.round((safeFrame / job.video.fps) * 1000));
+      const lyrics = toBrowserLyricRuntime(lyricRuntimeCursor.getRuntimeAt(timeMs));
+      const framePayload = createLiveDomFramePayload({
+        components: enabledComponents,
+        componentLookup,
+        frame: safeFrame,
+        timeMs,
+        video: job.video,
+        lyrics,
+        assets,
+        prepared
+      });
+
+      await updateLiveDomScene(page, framePayload);
+
+      const capture = await captureFrameBuffer({
+        cdpSession,
+        fps: job.video.fps,
+        preferBeginFrame,
+        logger,
+        beginFrameFallbackLogged
+      });
+      beginFrameFallbackLogged = capture.beginFrameFallbackLogged;
+
+      return {
+        png: capture.buffer,
+        frame: safeFrame,
+        timeMs
+      };
+    },
+    async dispose() {
+      if (disposed) {
+        return;
+      }
+
+      disposed = true;
+      await disposePreviewBrowserResources({ page, cdpSession, browserContext, browser });
+      page = null;
+      cdpSession = null;
+      browserContext = null;
+      browser = null;
+    }
+  };
+}
+
 async function createRenderPage({
   browser,
   width,
@@ -575,6 +733,34 @@ async function registerAssetRoutes(
   await page.route(`${ASSET_URL_PREFIX}**`, async (route) => {
     await fulfillAssetRoute(route, assets, logger);
   });
+}
+
+async function disposePreviewBrowserResources({
+  page,
+  cdpSession,
+  browserContext,
+  browser
+}: {
+  page: Page | null;
+  cdpSession: CDPSession | null;
+  browserContext: BrowserContext | null;
+  browser: Browser | null;
+}) {
+  if (page) {
+    await page.unroute(`${ASSET_URL_PREFIX}**`);
+  }
+
+  if (cdpSession) {
+    await cdpSession.detach();
+  }
+
+  if (browserContext) {
+    await browserContext.close();
+  }
+
+  if (browser) {
+    await browser.close();
+  }
 }
 
 async function fulfillAssetRoute(

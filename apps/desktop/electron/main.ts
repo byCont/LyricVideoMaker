@@ -5,16 +5,28 @@ import { app, BrowserWindow, dialog, ipcMain } from "electron";
 import {
   SUPPORTED_FONT_FAMILIES,
   createRenderJob,
+  msToFrame,
   parseSrt,
   serializeSceneComponentDefinition,
   serializeSceneDefinition,
+  type LyricCue,
   type RenderHistoryEntry,
   type RenderProgressEvent,
   type SerializedSceneDefinition
 } from "@lyric-video-maker/core";
-import { renderLyricVideo, probeAudioDurationMs } from "@lyric-video-maker/renderer";
+import {
+  createFramePreviewSession,
+  probeAudioDurationMs,
+  renderLyricVideo,
+  type FramePreviewSession
+} from "@lyric-video-maker/renderer";
 import { builtInSceneComponents, builtInScenes } from "@lyric-video-maker/scene-registry";
-import type { StartRenderRequest, FilePickKind } from "../src/electron-api";
+import type {
+  FilePickKind,
+  RenderPreviewRequest,
+  RenderPreviewResponse,
+  StartRenderRequest
+} from "../src/electron-api";
 import {
   deleteUserScene,
   exportSceneToFile,
@@ -28,6 +40,18 @@ let userScenes: SerializedSceneDefinition[] = [];
 
 const history = new Map<string, RenderHistoryEntry>();
 const abortControllers = new Map<string, AbortController>();
+const subtitleCueCache = new Map<string, LyricCue[]>();
+const audioDurationCache = new Map<string, number>();
+
+interface PreviewSessionState {
+  key: string;
+  session: FramePreviewSession;
+  job: ReturnType<typeof createRenderJob>;
+  cues: LyricCue[];
+  durationMs: number;
+}
+
+let previewSessionState: PreviewSessionState | null = null;
 
 function createMainWindow() {
   mainWindow = new BrowserWindow({
@@ -50,6 +74,11 @@ function createMainWindow() {
   } else {
     void mainWindow.loadFile(join(__dirname, "../dist/index.html"));
   }
+
+  mainWindow.on("closed", () => {
+    mainWindow = null;
+    void disposePreviewSession();
+  });
 }
 
 app.whenReady().then(async () => {
@@ -144,9 +173,10 @@ function registerIpcHandlers() {
   });
 
   ipcMain.handle("render:start", async (_event, request: StartRenderRequest) => {
-    const subtitleSource = await readFile(request.subtitlePath, "utf8");
-    const cues = parseSrt(subtitleSource);
-    const durationMs = await probeAudioDurationMs(request.audioPath);
+    await disposePreviewSession();
+
+    const cues = await getSubtitleCues(request.subtitlePath);
+    const durationMs = await getAudioDuration(request.audioPath);
     const job = createRenderJob({
       audioPath: request.audioPath,
       subtitlePath: request.subtitlePath,
@@ -184,6 +214,39 @@ function registerIpcHandlers() {
 
   ipcMain.handle("render:cancel", async (_event, jobId: string) => {
     abortControllers.get(jobId)?.abort();
+  });
+
+  ipcMain.handle("preview:render-frame", async (_event, request: RenderPreviewRequest) => {
+    const nextSession = await getOrCreatePreviewSession(request);
+    const requestedFrame = Math.max(
+      0,
+      Math.min(
+        nextSession.job.video.durationInFrames - 1,
+        msToFrame(clamp(request.timeMs, 0, nextSession.durationMs), nextSession.job.video.fps)
+      )
+    );
+
+    try {
+      const preview = await nextSession.session.renderFrame({ frame: requestedFrame });
+      const cueSummary = getPreviewCueSummary(nextSession.cues, preview.timeMs);
+
+      return {
+        imageDataUrl: `data:image/png;base64,${preview.png.toString("base64")}`,
+        frame: preview.frame,
+        timeMs: preview.timeMs,
+        durationMs: nextSession.durationMs,
+        currentCue: cueSummary.currentCue,
+        previousCue: cueSummary.previousCue,
+        nextCue: cueSummary.nextCue
+      } satisfies RenderPreviewResponse;
+    } catch (error) {
+      await disposePreviewSession();
+      throw error;
+    }
+  });
+
+  ipcMain.handle("preview:dispose", async () => {
+    await disposePreviewSession();
   });
 }
 
@@ -272,4 +335,116 @@ function upsertUserScene(
 ) {
   const remaining = scenes.filter((scene) => scene.id !== nextScene.id);
   return [...remaining, nextScene].sort((left, right) => left.name.localeCompare(right.name));
+}
+
+async function getSubtitleCues(subtitlePath: string) {
+  const cached = subtitleCueCache.get(subtitlePath);
+  if (cached) {
+    return cached;
+  }
+
+  const subtitleSource = await readFile(subtitlePath, "utf8");
+  const cues = parseSrt(subtitleSource);
+  subtitleCueCache.set(subtitlePath, cues);
+  return cues;
+}
+
+async function getAudioDuration(audioPath: string) {
+  const cached = audioDurationCache.get(audioPath);
+  if (cached !== undefined) {
+    return cached;
+  }
+
+  const durationMs = await probeAudioDurationMs(audioPath);
+  audioDurationCache.set(audioPath, durationMs);
+  return durationMs;
+}
+
+async function getOrCreatePreviewSession(request: RenderPreviewRequest) {
+  const cues = await getSubtitleCues(request.subtitlePath);
+  const durationMs = await getAudioDuration(request.audioPath);
+  const job = createRenderJob({
+    audioPath: request.audioPath,
+    subtitlePath: request.subtitlePath,
+    outputPath: join(app.getPath("temp"), "lyric-video-preview.mp4"),
+    scene: request.scene,
+    componentDefinitions: builtInSceneComponents,
+    cues,
+    durationMs,
+    video: request.video,
+    validationContext: {
+      isFileAccessible: existsSync
+    }
+  });
+  const key = JSON.stringify({
+    audioPath: request.audioPath,
+    subtitlePath: request.subtitlePath,
+    scene: request.scene,
+    video: {
+      width: job.video.width,
+      height: job.video.height,
+      fps: job.video.fps
+    }
+  });
+
+  if (!previewSessionState || previewSessionState.key !== key) {
+    await disposePreviewSession();
+    previewSessionState = {
+      key,
+      session: await createFramePreviewSession({
+        job,
+        componentDefinitions: builtInSceneComponents
+      }),
+      job,
+      cues,
+      durationMs
+    };
+  }
+
+  return previewSessionState;
+}
+
+async function disposePreviewSession() {
+  const activeSession = previewSessionState;
+  previewSessionState = null;
+  await activeSession?.session.dispose();
+}
+
+function getPreviewCueSummary(cues: LyricCue[], timeMs: number) {
+  let currentCue: LyricCue | null = null;
+  let previousCue: LyricCue | null = null;
+  let nextCue: LyricCue | null = null;
+
+  for (const cue of cues) {
+    if (timeMs >= cue.startMs && timeMs < cue.endMs) {
+      currentCue = cue;
+      continue;
+    }
+
+    if (cue.endMs <= timeMs) {
+      previousCue = cue;
+      continue;
+    }
+
+    if (cue.startMs > timeMs) {
+      nextCue = cue;
+      break;
+    }
+  }
+
+  if (currentCue) {
+    const currentIndex = cues.findIndex((cue) => cue.index === currentCue?.index);
+    previousCue = currentIndex > 0 ? cues[currentIndex - 1] ?? null : null;
+    nextCue = currentIndex >= 0 ? cues[currentIndex + 1] ?? null : nextCue;
+  }
+
+  return {
+    currentCue,
+    previousCue,
+    nextCue
+  };
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
 }

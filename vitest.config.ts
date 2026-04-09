@@ -8,7 +8,7 @@ export default defineConfig({
   test: {
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
-    include: ["packages/**/tests/**/*.test.ts?(x)"],
+    include: ["packages/**/tests/**/*.test.ts?(x)", "apps/**/src/**/*.test.ts?(x)"],
     coverage: {
       reporter: ["text", "html"]
     }

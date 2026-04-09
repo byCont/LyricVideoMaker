@@ -1,0 +1,155 @@
+/**
+ * @vitest-environment jsdom
+ */
+
+import { createElement } from "react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { SerializedSceneDefinition } from "@lyric-video-maker/core";
+import type { ComposerState } from "./composer-types";
+import { useFramePreview } from "./use-frame-preview";
+
+describe("useFramePreview", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    window.lyricVideoApp = {
+      getBootstrapData: vi.fn(),
+      pickPath: vi.fn(),
+      startRender: vi.fn(),
+      renderPreviewFrame: vi.fn(),
+      saveScene: vi.fn(),
+      deleteScene: vi.fn(),
+      importScene: vi.fn(),
+      exportScene: vi.fn(),
+      disposePreview: vi.fn().mockResolvedValue(undefined),
+      cancelRender: vi.fn(),
+      onRenderProgress: vi.fn(() => () => undefined)
+    };
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it("requests preview frames without requiring an output path and debounces changes", async () => {
+    const renderPreviewFrame = vi.mocked(window.lyricVideoApp.renderPreviewFrame);
+    renderPreviewFrame.mockResolvedValue(createPreviewResponse(0));
+
+    render(createElement(PreviewHarness, { composer: createComposer(), paused: false }));
+
+    await act(async () => {
+      vi.advanceTimersByTime(249);
+    });
+    expect(renderPreviewFrame).not.toHaveBeenCalled();
+
+    await act(async () => {
+      vi.advanceTimersByTime(1);
+      await flushMicrotasks();
+    });
+
+    expect(renderPreviewFrame).toHaveBeenCalledTimes(1);
+    expect(renderPreviewFrame).toHaveBeenCalledWith({
+      audioPath: "song.mp3",
+      subtitlePath: "lyrics.srt",
+      scene: expect.objectContaining({ id: "scene-1" }),
+      video: expect.objectContaining({ width: 1920, height: 1080, fps: 30 }),
+      timeMs: 0
+    });
+  });
+
+  it("ignores stale preview responses when a newer request finishes later", async () => {
+    let resolveFirst: ((value: ReturnType<typeof createPreviewResponse>) => void) | undefined;
+    const renderPreviewFrame = vi
+      .mocked(window.lyricVideoApp.renderPreviewFrame)
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveFirst = resolve;
+          })
+      )
+      .mockResolvedValueOnce(createPreviewResponse(2000));
+
+    render(createElement(PreviewHarness, { composer: createComposer(), paused: false }));
+
+    await act(async () => {
+      vi.advanceTimersByTime(250);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Jump 2000" }));
+
+    await act(async () => {
+      vi.advanceTimersByTime(250);
+      await flushMicrotasks();
+    });
+
+    expect(renderPreviewFrame).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId("resolved-time").textContent).toBe("2000");
+
+    await act(async () => {
+      resolveFirst?.(createPreviewResponse(0));
+      await flushMicrotasks();
+    });
+
+    expect(screen.getByTestId("resolved-time").textContent).toBe("2000");
+  });
+});
+
+function PreviewHarness({
+  composer,
+  paused
+}: {
+  composer: ComposerState;
+  paused: boolean;
+}) {
+  const { preview, updatePreviewTime } = useFramePreview({ composer, paused });
+
+  return createElement(
+    "div",
+    null,
+    createElement("button", { onClick: () => updatePreviewTime(1000) }, "Jump 1000"),
+    createElement("button", { onClick: () => updatePreviewTime(2000) }, "Jump 2000"),
+    createElement("div", { "data-testid": "resolved-time" }, String(preview.result?.timeMs ?? ""))
+  );
+}
+
+function createComposer(): ComposerState {
+  return {
+    audioPath: "song.mp3",
+    subtitlePath: "lyrics.srt",
+    outputPath: "",
+    scene: createScene(),
+    video: {
+      width: 1920,
+      height: 1080,
+      fps: 30
+    }
+  };
+}
+
+function createScene(): SerializedSceneDefinition {
+  return {
+    id: "scene-1",
+    name: "Scene 1",
+    source: "built-in",
+    readOnly: true,
+    components: []
+  };
+}
+
+function createPreviewResponse(timeMs: number) {
+  return {
+    imageDataUrl: "data:image/png;base64,abc123",
+    frame: Math.round(timeMs / 33.33),
+    timeMs,
+    durationMs: 5000,
+    currentCue: null,
+    previousCue: null,
+    nextCue: null
+  };
+}
+
+async function flushMicrotasks() {
+  await Promise.resolve();
+  await Promise.resolve();
+}

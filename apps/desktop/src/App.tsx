@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type {
   RenderHistoryEntry,
   RenderProgressEvent,
   SceneComponentInstance,
-  SceneOptionCategory,
   SceneOptionField,
   SerializedSceneComponentDefinition,
   SerializedSceneDefinition,
@@ -16,14 +15,16 @@ import {
   isSceneOptionCategory
 } from "@lyric-video-maker/core";
 import type { AppBootstrapData } from "./electron-api";
-
-interface ComposerState {
-  audioPath: string;
-  subtitlePath: string;
-  outputPath: string;
-  scene: SerializedSceneDefinition | null;
-  video: Pick<VideoSettings, "width" | "height" | "fps">;
-}
+import type { ComposerState } from "./composer-types";
+import { useFramePreview } from "./use-frame-preview";
+import { PreviewPanel } from "./components/preview-panel";
+import {
+  FileField,
+  NumberField,
+  OptionCategorySection,
+  OptionField,
+  SelectField
+} from "./components/form-fields";
 
 interface VideoSizePreset {
   id: string;
@@ -109,10 +110,14 @@ export function App() {
   const hasActiveRender = history.some((entry) =>
     ["queued", "preparing", "rendering", "muxing"].includes(entry.status)
   );
+  const previewPaused = hasActiveRender || isSubmitting;
+  const { enabled: previewEnabled, preview, updatePreviewTime } = useFramePreview({
+    composer,
+    paused: previewPaused
+  });
   const selectedVideoSizePresetId =
     VIDEO_SIZE_PRESETS.find(
-      (preset) =>
-        preset.width === composer.video.width && preset.height === composer.video.height
+      (preset) => preset.width === composer.video.width && preset.height === composer.video.height
     )?.id ?? "custom";
   const selectedFpsPresetId =
     FPS_PRESETS.find((preset) => preset.fps === composer.video.fps)?.id ?? "custom";
@@ -199,6 +204,7 @@ export function App() {
 
     setError("");
     setIsSubmitting(true);
+    await window.lyricVideoApp.disposePreview();
 
     try {
       const entry = await window.lyricVideoApp.startRender({
@@ -455,6 +461,14 @@ export function App() {
           </p>
         </section>
 
+        <PreviewPanel
+          video={composer.video}
+          preview={preview}
+          enabled={previewEnabled}
+          paused={previewPaused}
+          onTimeChange={updatePreviewTime}
+        />
+
         <section className="panel">
           <div className="panel-header">
             <div>
@@ -659,191 +673,6 @@ export function App() {
       </main>
     </div>
   );
-}
-
-function OptionCategorySection({
-  category,
-  isExpanded,
-  onToggle,
-  children
-}: {
-  category: SceneOptionCategory;
-  isExpanded: boolean;
-  onToggle: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <section className="option-category">
-      <button type="button" className="option-category-toggle" onClick={onToggle}>
-        <span>{category.label}</span>
-        <span className="option-category-chevron">{isExpanded ? "−" : "+"}</span>
-      </button>
-      {isExpanded ? <div className="option-list">{children}</div> : null}
-    </section>
-  );
-}
-
-function NumberField({
-  label,
-  value,
-  min,
-  max,
-  step,
-  onChange
-}: {
-  label: string;
-  value: number;
-  min?: number;
-  max?: number;
-  step?: number;
-  onChange: (value: number) => void;
-}) {
-  return (
-    <label className="field">
-      <span>{label}</span>
-      <input type="number" min={min} max={max} step={step ?? 1} value={value} onChange={(event) => onChange(Number(event.target.value))} />
-    </label>
-  );
-}
-
-function SelectField({
-  label,
-  value,
-  options,
-  onChange
-}: {
-  label: string;
-  value: string;
-  options: Array<{ value: string; label: string }>;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <label className="field">
-      <span>{label}</span>
-      <select value={value} onChange={(event) => onChange(event.target.value)}>
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
-function FileField({
-  label,
-  value,
-  buttonLabel,
-  onPick
-}: {
-  label: string;
-  value: string;
-  buttonLabel: string;
-  onPick: () => void;
-}) {
-  return (
-    <div className="field file-field">
-      <span>{label}</span>
-      <div className="file-pill">{value || "Not selected"}</div>
-      <button className="secondary" onClick={onPick}>{buttonLabel}</button>
-    </div>
-  );
-}
-
-function OptionField({
-  field,
-  inputPrefix,
-  value,
-  fonts,
-  onChange,
-  onPickImage
-}: {
-  field: SceneOptionField;
-  inputPrefix: string;
-  value: unknown;
-  fonts: string[];
-  onChange: (value: unknown) => void;
-  onPickImage: () => void;
-}) {
-  const inputId = `${inputPrefix}-${field.id}`;
-
-  switch (field.type) {
-    case "boolean":
-      return (
-        <div className="option-row">
-          <label className="option-label" htmlFor={inputId}>{field.label}</label>
-          <div className="option-input checkbox-input">
-            <input id={inputId} type="checkbox" checked={Boolean(value ?? field.defaultValue ?? false)} onChange={(event) => onChange(event.target.checked)} />
-          </div>
-        </div>
-      );
-    case "number":
-      return (
-        <div className="option-row">
-          <label className="option-label" htmlFor={inputId}>{field.label}</label>
-          <div className="option-input">
-            <input id={inputId} type="number" min={field.min} max={field.max} step={field.step ?? 1} value={typeof value === "number" ? value : field.defaultValue ?? 0} onChange={(event) => onChange(Number(event.target.value))} />
-          </div>
-        </div>
-      );
-    case "text":
-      return (
-        <div className="option-row option-row-multiline">
-          <label className="option-label" htmlFor={inputId}>{field.label}</label>
-          <div className="option-input">
-            {field.multiline ? (
-              <textarea id={inputId} value={String(value ?? field.defaultValue ?? "")} onChange={(event) => onChange(event.target.value)} />
-            ) : (
-              <input id={inputId} value={String(value ?? field.defaultValue ?? "")} onChange={(event) => onChange(event.target.value)} />
-            )}
-          </div>
-        </div>
-      );
-    case "color":
-      return (
-        <div className="option-row">
-          <label className="option-label" htmlFor={inputId}>{field.label}</label>
-          <div className="option-input">
-            <input id={inputId} type="color" value={String(value ?? field.defaultValue ?? "#ffffff")} onChange={(event) => onChange(event.target.value)} />
-          </div>
-        </div>
-      );
-    case "font":
-      return (
-        <div className="option-row">
-          <label className="option-label" htmlFor={inputId}>{field.label}</label>
-          <div className="option-input">
-            <select id={inputId} value={String(value ?? field.defaultValue ?? fonts[0])} onChange={(event) => onChange(event.target.value)}>
-              {fonts.map((font) => <option key={font} value={font}>{font}</option>)}
-            </select>
-          </div>
-        </div>
-      );
-    case "image":
-      return (
-        <div className="option-row option-row-multiline">
-          <div className="option-label">{field.label}</div>
-          <div className="option-input file-picker-input">
-            <div className="file-pill">{String(value ?? "") || "Not selected"}</div>
-            <button className="secondary" onClick={onPickImage}>Pick image</button>
-          </div>
-        </div>
-      );
-    case "select":
-      return (
-        <div className="option-row">
-          <label className="option-label" htmlFor={inputId}>{field.label}</label>
-          <div className="option-input">
-            <select id={inputId} value={String(value ?? field.defaultValue ?? "")} onChange={(event) => onChange(event.target.value)}>
-              {field.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
-          </div>
-        </div>
-      );
-    default:
-      return null;
-  }
 }
 
 function upsertHistory(history: RenderHistoryEntry[], event: RenderProgressEvent | RenderHistoryEntry) {
