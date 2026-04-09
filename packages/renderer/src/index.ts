@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
+import { availableParallelism } from "node:os";
 import { performance } from "node:perf_hooks";
 import { chromium, type Browser, type BrowserContext, type CDPSession, type Page, type Route } from "playwright";
 import { createElement, type ReactElement } from "react";
@@ -31,6 +32,7 @@ import {
 export interface RenderLyricVideoInput {
   job: RenderJob;
   componentDefinitions: SceneComponentDefinition<Record<string, unknown>>[];
+  parallelism?: number;
   signal?: AbortSignal;
   onProgress?: (event: RenderProgressEvent) => void;
 }
@@ -75,6 +77,12 @@ interface FrameMuxer {
 
 interface FrameWriteQueue {
   enqueue(frame: Buffer): Promise<void>;
+  finish(): Promise<void>;
+  abort(): Promise<void>;
+}
+
+interface OrderedFrameWriteQueue {
+  enqueue(frame: { frame: number; buffer: Buffer }): Promise<number>;
   finish(): Promise<void>;
   abort(): Promise<void>;
 }
@@ -127,6 +135,7 @@ export async function probeAudioDurationMs(audioPath: string): Promise<number> {
 export async function renderLyricVideo({
   job,
   componentDefinitions,
+  parallelism,
   signal,
   onProgress
 }: RenderLyricVideoInput): Promise<string> {
@@ -135,39 +144,57 @@ export async function renderLyricVideo({
   const profiler = createRenderProfiler();
   const componentLookup = new Map(componentDefinitions.map((component) => [component.id, component]));
   const enabledComponents = job.components.filter((component) => component.enabled);
-  const preloadedAssets = await preloadSceneAssets(enabledComponents, componentLookup, job.video, logger, signal);
-  const assets = createAssetAccessor(enabledComponents, preloadedAssets);
-  const audio = createAudioAnalysisAccessor({
-    audioPath: job.audioPath,
-    video: job.video,
-    signal,
-    logger
-  });
+  const renderController = new AbortController();
+  const renderSignal = renderController.signal;
+  const forwardAbort = () => {
+    if (!renderController.signal.aborted) {
+      renderController.abort();
+    }
+  };
+  if (signal?.aborted) {
+    forwardAbort();
+  } else {
+    signal?.addEventListener("abort", forwardAbort, { once: true });
+  }
 
-  progress.emit({
-    jobId: job.id,
-    status: "preparing",
-    progress: 0,
-    message: "Preparing scene components"
-  });
-
-  logger.info(
-    `Starting render at ${job.video.width}x${job.video.height} ${job.video.fps}fps with ${job.video.durationInFrames} frames.`
-  );
-
-  let browser = null;
-  let browserContext: BrowserContext | null = null;
-  let page: Page | null = null;
-  let cdpSession: CDPSession | null = null;
   let muxer: FrameMuxer | null = null;
   let frameQueue: FrameWriteQueue | null = null;
+  let orderedFrameQueue: OrderedFrameWriteQueue | null = null;
   let muxerFinished = false;
+  let workerFailure: unknown = null;
+  const workerSessions: FramePreviewSession[] = [];
   try {
-    throwIfAborted(signal);
+    throwIfAborted(renderSignal);
 
     if (!canRenderWithLiveDom(enabledComponents, componentLookup)) {
       throw new Error("One or more enabled scene components do not support the live DOM renderer.");
     }
+
+    const preloadedAssets = await preloadSceneAssets(
+      enabledComponents,
+      componentLookup,
+      job.video,
+      logger,
+      renderSignal
+    );
+    const assets = createAssetAccessor(enabledComponents, preloadedAssets);
+    const audio = createAudioAnalysisAccessor({
+      audioPath: job.audioPath,
+      video: job.video,
+      signal: renderSignal,
+      logger
+    });
+
+    progress.emit({
+      jobId: job.id,
+      status: "preparing",
+      progress: 0,
+      message: "Preparing scene components"
+    });
+
+    logger.info(
+      `Starting render at ${job.video.width}x${job.video.height} ${job.video.fps}fps with ${job.video.durationInFrames} frames.`
+    );
 
     const initialLyricsRuntime = createLyricRuntime(job.lyrics, 0);
     const prepared =
@@ -177,122 +204,108 @@ export async function renderLyricVideo({
           lyrics: initialLyricsRuntime,
           assets,
           audio,
-          signal,
+          signal: renderSignal,
           logger
         });
       })) ?? {};
-
-    const preferBeginFrame = shouldUseBeginFrame();
-
-    browser = await chromium.launch({
-      headless: true,
-      args: preferBeginFrame ? ["--run-all-compositor-stages-before-draw"] : []
+    const scenePayload = createLiveDomScenePayload({
+      job,
+      components: enabledComponents,
+      componentLookup,
+      assets,
+      prepared
+    });
+    const workerCount = resolveRenderParallelism({
+      parallelism,
+      totalFrames: job.video.durationInFrames
     });
 
-    const renderPage = await createRenderPage({
-      browser,
-      width: job.video.width,
-      height: job.video.height,
-      preferBeginFrame
-    });
-    browserContext = renderPage.context;
-    page = renderPage.page;
+    logger.info(`Using ${workerCount} Chromium render worker${workerCount === 1 ? "" : "s"}.`);
 
-    wirePageDiagnostics(page, logger);
-    await registerAssetRoutes(page, preloadedAssets, logger);
-
-    await page.setContent(renderPageShell(), { waitUntil: "domcontentloaded" });
-
-    cdpSession = await page.context().newCDPSession(page);
-    await cdpSession.send("Page.enable");
-
-    const mountWarnings = await measureAsync(profiler, "browserUpdate", async () => {
-      const scenePayload = createLiveDomScenePayload({
-        job,
-        components: enabledComponents,
-        componentLookup,
-        assets,
-        prepared
-      });
-
-      return await mountLiveDomScene(page!, scenePayload);
-    });
-
-    for (const warning of mountWarnings.warnings) {
-      logger.warn(warning);
+    for (let workerIndex = 0; workerIndex < workerCount; workerIndex += 1) {
+      workerSessions.push(
+        await createLiveDomRenderSession({
+          job,
+          componentLookup,
+          components: enabledComponents,
+          assets,
+          preloadedAssets,
+          prepared,
+          scenePayload,
+          signal: renderSignal,
+          logger,
+          profiler
+        })
+      );
     }
 
-    muxer = startFrameMuxer(job, signal, logger);
+    muxer = startFrameMuxer(job, renderSignal, logger);
     frameQueue = createFrameWriteQueue({
       muxer,
       profiler,
-      signal
+      signal: renderSignal
     });
-
-    const lyricRuntimeCursor = createLyricRuntimeCursor(job.lyrics, 0);
+    orderedFrameQueue = createOrderedFrameWriteQueue({
+      totalFrames: job.video.durationInFrames,
+      frameQueue,
+      signal: renderSignal,
+      profiler,
+      maxPendingFrames: Math.max(4, workerCount * 2)
+    });
     const renderStartMs = performance.now();
     let lastProgressEmitMs = renderStartMs - PROGRESS_INTERVAL_MS;
-    let beginFrameFallbackLogged = false;
-
-    for (let frame = 0; frame < job.video.durationInFrames; frame += 1) {
-      throwIfAborted(signal);
-
-      const timeMs = Math.min(job.video.durationMs, Math.round((frame / job.video.fps) * 1000));
-      const lyrics = toBrowserLyricRuntime(lyricRuntimeCursor.getRuntimeAt(timeMs));
-      const framePayload = measureSync(profiler, "frameState", () =>
-        createLiveDomFramePayload({
-          components: enabledComponents,
-          componentLookup,
-          frame,
-          timeMs,
-          video: job.video,
-          lyrics,
-          assets,
-          prepared
-        })
-      );
-
-      await measureAsync(profiler, "browserUpdate", async () => {
-        await updateLiveDomScene(page!, framePayload);
-      });
-
-      const frameImage = await measureAsync(profiler, "capture", async () => {
-        const capture = await captureFrameBuffer({
-          cdpSession: cdpSession!,
-          fps: job.video.fps,
-          preferBeginFrame,
-          logger,
-          beginFrameFallbackLogged
-        });
-        beginFrameFallbackLogged = capture.beginFrameFallbackLogged;
-        return capture.buffer;
-      });
-
-      await frameQueue.enqueue(frameImage);
+    const emitRenderProgress = (framesWritten: number) => {
+      if (framesWritten <= 0) {
+        return;
+      }
 
       const nowMs = performance.now();
-      const isLastFrame = frame + 1 === job.video.durationInFrames;
+      const isLastFrame = framesWritten >= job.video.durationInFrames;
       if (isLastFrame || nowMs - lastProgressEmitMs >= PROGRESS_INTERVAL_MS) {
-        const framesRendered = frame + 1;
         const elapsedMs = Math.max(nowMs - renderStartMs, 1);
-        const renderFps = (framesRendered * 1000) / elapsedMs;
-        const framesRemaining = job.video.durationInFrames - framesRendered;
+        const renderFps = (framesWritten * 1000) / elapsedMs;
+        const framesRemaining = job.video.durationInFrames - framesWritten;
         const etaMs = framesRemaining > 0 ? Math.round((framesRemaining / renderFps) * 1000) : 0;
 
         progress.emit({
           jobId: job.id,
           status: "rendering",
-          progress: (framesRendered / job.video.durationInFrames) * 85,
-          message: `Rendering frame ${framesRendered} of ${job.video.durationInFrames}`,
+          progress: (framesWritten / job.video.durationInFrames) * 85,
+          message: `Rendering frame ${framesWritten} of ${job.video.durationInFrames}`,
           etaMs,
           renderFps: Number(renderFps.toFixed(2))
         });
 
         lastProgressEmitMs = nowMs;
       }
-    }
+    };
 
-    throwIfAborted(signal);
+    await Promise.all(
+      workerSessions.map((worker, workerIndex) =>
+        renderWorkerFrames({
+          worker,
+          workerIndex,
+          workerCount,
+          totalFrames: job.video.durationInFrames,
+          orderedFrameQueue: orderedFrameQueue!,
+          signal: renderSignal,
+          abort: () => {
+            if (!renderController.signal.aborted) {
+              renderController.abort();
+            }
+          },
+          onError: (error) => {
+            if (!workerFailure) {
+              workerFailure = error;
+            }
+          },
+          onFramesWritten: emitRenderProgress
+        })
+      )
+    );
+
+    throwIfAborted(renderSignal);
+    emitRenderProgress(job.video.durationInFrames);
 
     progress.emit({
       jobId: job.id,
@@ -301,13 +314,13 @@ export async function renderLyricVideo({
       message: "Muxing frames with source audio"
     });
 
-    if (!frameQueue) {
-      throw new Error("Frame write queue was not initialized.");
+    if (!orderedFrameQueue) {
+      throw new Error("Ordered frame queue was not initialized.");
     }
+    const activeOrderedFrameQueue = orderedFrameQueue;
 
-    const activeFrameQueue = frameQueue;
     await measureAsync(profiler, "muxFinalize", async () => {
-      await activeFrameQueue.finish();
+      await activeOrderedFrameQueue.finish();
       muxerFinished = true;
     });
 
@@ -322,7 +335,7 @@ export async function renderLyricVideo({
 
     return job.outputPath;
   } catch (error) {
-    if (isAbortError(error)) {
+    if (isAbortError(error) && !workerFailure) {
       logger.warn("Render cancelled.");
       progress.emit({
         jobId: job.id,
@@ -333,7 +346,11 @@ export async function renderLyricVideo({
       throw error;
     }
 
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const failure = workerFailure ?? error;
+    const errorMessage = failure instanceof Error ? failure.message : String(failure);
+    if (!renderController.signal.aborted) {
+      renderController.abort();
+    }
     logger.error(errorMessage);
     progress.emit({
       jobId: job.id,
@@ -344,27 +361,16 @@ export async function renderLyricVideo({
     });
     throw error;
   } finally {
-    if (frameQueue && !muxerFinished) {
+    if (orderedFrameQueue && !muxerFinished) {
+      await orderedFrameQueue.abort();
+    } else if (frameQueue && !muxerFinished) {
       await frameQueue.abort();
     } else if (muxer && !muxerFinished) {
       await muxer.abort();
     }
 
-    if (page) {
-      await page.unroute(`${ASSET_URL_PREFIX}**`);
-    }
-
-    if (cdpSession) {
-      await cdpSession.detach();
-    }
-
-    if (browserContext) {
-      await browserContext.close();
-    }
-
-    if (browser) {
-      await browser.close();
-    }
+    await Promise.allSettled(workerSessions.map((worker) => worker.dispose()));
+    signal?.removeEventListener("abort", forwardAbort);
 
     logRenderProfile(profiler, job, logger);
   }
@@ -400,8 +406,50 @@ export async function createFramePreviewSession({
     assets,
     audio,
     signal,
+      logger
+  });
+  return await createLiveDomRenderSession({
+    job,
+    componentLookup,
+    components: enabledComponents,
+    assets,
+    preloadedAssets,
+    prepared,
+    scenePayload: createLiveDomScenePayload({
+      job,
+      components: enabledComponents,
+      componentLookup,
+      assets,
+      prepared
+    }),
+    signal,
     logger
   });
+}
+
+async function createLiveDomRenderSession({
+  job,
+  componentLookup,
+  components,
+  assets,
+  preloadedAssets,
+  prepared,
+  scenePayload,
+  signal,
+  logger,
+  profiler
+}: {
+  job: RenderJob;
+  componentLookup: Map<string, SceneComponentDefinition<Record<string, unknown>>>;
+  components: ValidatedSceneComponentInstance[];
+  assets: Pick<SceneAssetAccessor, "getUrl">;
+  preloadedAssets: Map<string, PreloadedAsset>;
+  prepared: PreparedSceneStackData;
+  scenePayload: ReturnType<typeof createLiveDomScenePayload>;
+  signal?: AbortSignal;
+  logger: RenderLogger;
+  profiler?: RenderProfiler;
+}): Promise<FramePreviewSession> {
   const preferBeginFrame = shouldUseBeginFrame();
 
   let browser: Browser | null = null;
@@ -434,16 +482,9 @@ export async function createFramePreviewSession({
     cdpSession = await page.context().newCDPSession(page);
     await cdpSession.send("Page.enable");
 
-    const mountWarnings = await mountLiveDomScene(
-      page,
-      createLiveDomScenePayload({
-        job,
-        components: enabledComponents,
-        componentLookup,
-        assets,
-        prepared
-      })
-    );
+    const mountWarnings = await maybeMeasureAsync(profiler, "browserUpdate", async () => {
+      return await mountLiveDomScene(page!, scenePayload);
+    });
 
     for (const warning of mountWarnings.warnings) {
       logger.warn(warning);
@@ -464,25 +505,31 @@ export async function createFramePreviewSession({
       const safeFrame = Math.max(0, Math.min(job.video.durationInFrames - 1, Math.floor(frame)));
       const timeMs = Math.min(job.video.durationMs, Math.round((safeFrame / job.video.fps) * 1000));
       const lyrics = toBrowserLyricRuntime(lyricRuntimeCursor.getRuntimeAt(timeMs));
-      const framePayload = createLiveDomFramePayload({
-        components: enabledComponents,
-        componentLookup,
-        frame: safeFrame,
-        timeMs,
-        video: job.video,
-        lyrics,
-        assets,
-        prepared
+      const framePayload = maybeMeasureSync(profiler, "frameState", () =>
+        createLiveDomFramePayload({
+          components,
+          componentLookup,
+          frame: safeFrame,
+          timeMs,
+          video: job.video,
+          lyrics,
+          assets,
+          prepared
+        })
+      );
+
+      await maybeMeasureAsync(profiler, "browserUpdate", async () => {
+        await updateLiveDomScene(page!, framePayload);
       });
 
-      await updateLiveDomScene(page, framePayload);
-
-      const capture = await captureFrameBuffer({
-        cdpSession,
-        fps: job.video.fps,
-        preferBeginFrame,
-        logger,
-        beginFrameFallbackLogged
+      const capture = await maybeMeasureAsync(profiler, "capture", async () => {
+        return await captureFrameBuffer({
+          cdpSession: cdpSession!,
+          fps: job.video.fps,
+          preferBeginFrame,
+          logger,
+          beginFrameFallbackLogged
+        });
       });
       beginFrameFallbackLogged = capture.beginFrameFallbackLogged;
 
@@ -725,6 +772,133 @@ export function areAllComponentsStaticWhenMarkupUnchanged(
   );
 }
 
+export function resolveRenderParallelism({
+  parallelism,
+  totalFrames
+}: {
+  parallelism?: number;
+  totalFrames: number;
+}) {
+  const requested =
+    normalizePositiveInteger(parallelism) ??
+    normalizePositiveInteger(process.env.LYRIC_VIDEO_RENDER_WORKERS) ??
+    Math.min(4, Math.max(1, Math.floor(availableParallelism() / 2)));
+  const maxWorkersFromFrames = Math.max(1, Math.floor(totalFrames / 2));
+
+  return Math.max(1, Math.min(requested, totalFrames, maxWorkersFromFrames));
+}
+
+export function createOrderedFrameWriteQueue({
+  totalFrames,
+  frameQueue,
+  signal,
+  profiler,
+  maxPendingFrames = 4
+}: {
+  totalFrames: number;
+  frameQueue: FrameWriteQueue;
+  signal?: AbortSignal;
+  profiler?: RenderProfiler;
+  maxPendingFrames?: number;
+}): OrderedFrameWriteQueue {
+  let nextFrameToWrite = 0;
+  let finished = false;
+  let writeError: unknown;
+  let pendingFrames = new Map<number, Buffer>();
+  let spaceResolvers: (() => void)[] = [];
+  let flushChain = Promise.resolve();
+
+  return {
+    async enqueue(frame) {
+      if (finished) {
+        throw new Error("Cannot enqueue frames after the ordered frame queue has finished.");
+      }
+
+      throwIfAborted(signal);
+      if (writeError) {
+        throw writeError;
+      }
+
+      const waitStartMs = profiler?.enabled ? performance.now() : 0;
+      while (pendingFrames.size >= maxPendingFrames && frame.frame !== nextFrameToWrite) {
+        await new Promise<void>((resolve) => {
+          spaceResolvers.push(resolve);
+        });
+        throwIfAborted(signal);
+        if (writeError) {
+          throw writeError;
+        }
+      }
+
+      if (profiler?.enabled) {
+        profiler.stages.queueWait += performance.now() - waitStartMs;
+      }
+
+      if (frame.frame < nextFrameToWrite || pendingFrames.has(frame.frame)) {
+        throw new Error(`Frame ${frame.frame} was submitted more than once.`);
+      }
+
+      pendingFrames.set(frame.frame, frame.buffer);
+      flushChain = flushChain
+        .then(async () => {
+          await flushPendingFrames();
+        })
+        .catch((error) => {
+          writeError = error;
+          throw error;
+        });
+
+      await flushChain;
+      if (writeError) {
+        throw writeError;
+      }
+
+      return nextFrameToWrite;
+    },
+    async finish() {
+      finished = true;
+      await flushChain;
+
+      if (writeError) {
+        throw writeError;
+      }
+
+      if (nextFrameToWrite !== totalFrames) {
+        throw new Error(
+          `Render finished with missing frames. Expected ${totalFrames}, wrote ${nextFrameToWrite}.`
+        );
+      }
+
+      await frameQueue.finish();
+    },
+    async abort() {
+      finished = true;
+      pendingFrames.clear();
+      releaseSpaceResolvers();
+      await frameQueue.abort();
+    }
+  };
+
+  async function flushPendingFrames() {
+    while (pendingFrames.has(nextFrameToWrite)) {
+      const nextFrame = pendingFrames.get(nextFrameToWrite);
+      pendingFrames.delete(nextFrameToWrite);
+      releaseSpaceResolvers();
+
+      await frameQueue.enqueue(nextFrame!);
+      nextFrameToWrite += 1;
+    }
+  }
+
+  function releaseSpaceResolvers() {
+    const resolvers = spaceResolvers;
+    spaceResolvers = [];
+    for (const resolve of resolvers) {
+      resolve();
+    }
+  }
+}
+
 async function registerAssetRoutes(
   page: Page,
   assets: Map<string, PreloadedAsset>,
@@ -885,6 +1059,46 @@ function shouldUseBeginFrame() {
   return process.env.LYRIC_VIDEO_RENDER_USE_BEGIN_FRAME !== "0";
 }
 
+async function renderWorkerFrames({
+  worker,
+  workerIndex,
+  workerCount,
+  totalFrames,
+  orderedFrameQueue,
+  signal,
+  abort,
+  onError,
+  onFramesWritten
+}: {
+  worker: FramePreviewSession;
+  workerIndex: number;
+  workerCount: number;
+  totalFrames: number;
+  orderedFrameQueue: OrderedFrameWriteQueue;
+  signal?: AbortSignal;
+  abort: () => void;
+  onError: (error: unknown) => void;
+  onFramesWritten: (framesWritten: number) => void;
+}) {
+  try {
+    for (let frame = workerIndex; frame < totalFrames; frame += workerCount) {
+      throwIfAborted(signal);
+      const renderedFrame = await worker.renderFrame({ frame });
+      const framesWritten = await orderedFrameQueue.enqueue({
+        frame: renderedFrame.frame,
+        buffer: renderedFrame.png
+      });
+      onFramesWritten(framesWritten);
+    }
+  } catch (error) {
+    if (!isAbortError(error)) {
+      onError(error);
+    }
+    abort();
+    throw error;
+  }
+}
+
 function createProgressEmitter(onProgress: RenderLyricVideoInput["onProgress"]): ProgressEmitter {
   let lastStatus: RenderStatus | null = null;
   let lastProgress = Number.NaN;
@@ -1001,6 +1215,30 @@ function createRenderProfiler(): RenderProfiler {
       muxFinalize: 0
     }
   };
+}
+
+function maybeMeasureSync<T>(
+  profiler: RenderProfiler | undefined,
+  stage: RenderProfileStage,
+  run: () => T
+): T {
+  if (!profiler) {
+    return run();
+  }
+
+  return measureSync(profiler, stage, run);
+}
+
+async function maybeMeasureAsync<T>(
+  profiler: RenderProfiler | undefined,
+  stage: RenderProfileStage,
+  run: () => Promise<T>
+): Promise<T> {
+  if (!profiler) {
+    return await run();
+  }
+
+  return await measureAsync(profiler, stage, run);
 }
 
 function measureSync<T>(
@@ -1301,6 +1539,19 @@ function getMimeType(path: string): string {
 function getExtensionSuffix(path: string): string {
   const match = /\.[^./\\]+$/.exec(path);
   return match ? match[0] : "";
+}
+
+function normalizePositiveInteger(value: number | string | undefined) {
+  if (typeof value === "number") {
+    return Number.isInteger(value) && value > 0 ? value : undefined;
+  }
+
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
+  }
+
+  return undefined;
 }
 
 async function normalizeImageAsset(
