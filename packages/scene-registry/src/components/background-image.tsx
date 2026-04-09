@@ -10,6 +10,14 @@ export const backgroundImageComponent: SceneComponentDefinition<BackgroundImageO
   name: "Background Image",
   description: "Covers the frame with one full-song image.",
   staticWhenMarkupUnchanged: true,
+  browserRuntime: {
+    runtimeId: "background-image",
+    getInitialState({ instance, assets }) {
+      return {
+        imageUrl: assets.getUrl(instance.id, "imagePath")
+      };
+    }
+  },
   options: [{ type: "image", id: "imagePath", label: "Background Image", required: true }],
   defaultOptions: {
     imagePath: ""

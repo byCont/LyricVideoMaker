@@ -1,10 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { performance } from "node:perf_hooks";
-import { chromium, type CDPSession, type Page, type Route } from "playwright";
+import { chromium, type Browser, type BrowserContext, type CDPSession, type Page, type Route } from "playwright";
 import { createElement, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
+  type BrowserLyricRuntime,
   createLyricRuntime,
   createLyricRuntimeCursor,
   type PreparedSceneStackData,
@@ -18,6 +19,14 @@ import {
   type ValidatedSceneComponentInstance
 } from "@lyric-video-maker/core";
 import { createAudioAnalysisAccessor } from "./audio-analysis";
+import {
+  canRenderWithLiveDom,
+  createLiveDomFramePayload,
+  createLiveDomScenePayload,
+  mountLiveDomScene,
+  renderPageShell,
+  updateLiveDomScene
+} from "./live-dom";
 
 export interface RenderLyricVideoInput {
   job: RenderJob;
@@ -26,7 +35,14 @@ export interface RenderLyricVideoInput {
   onProgress?: (event: RenderProgressEvent) => void;
 }
 
-type RenderProfileStage = "prepare" | "markup" | "domUpdate" | "screenshot" | "muxing";
+type RenderProfileStage =
+  | "prepare"
+  | "frameState"
+  | "browserUpdate"
+  | "capture"
+  | "queueWait"
+  | "muxWrite"
+  | "muxFinalize";
 
 interface RenderProfiler {
   enabled: boolean;
@@ -36,6 +52,12 @@ interface RenderProfiler {
 
 interface FrameMuxer {
   writeFrame(frame: Buffer): Promise<void>;
+  finish(): Promise<void>;
+  abort(): Promise<void>;
+}
+
+interface FrameWriteQueue {
+  enqueue(frame: Buffer): Promise<void>;
   finish(): Promise<void>;
   abort(): Promise<void>;
 }
@@ -100,7 +122,6 @@ export async function renderLyricVideo({
     signal,
     logger
   });
-  let muxerFinished = false;
 
   progress.emit({
     jobId: job.id,
@@ -114,19 +135,25 @@ export async function renderLyricVideo({
   );
 
   let browser = null;
+  let browserContext: BrowserContext | null = null;
   let page: Page | null = null;
   let cdpSession: CDPSession | null = null;
   let muxer: FrameMuxer | null = null;
-
+  let frameQueue: FrameWriteQueue | null = null;
+  let muxerFinished = false;
   try {
     throwIfAborted(signal);
 
-    const initialLyrics = createLyricRuntime(job.lyrics, 0);
+    if (!canRenderWithLiveDom(enabledComponents, componentLookup)) {
+      throw new Error("One or more enabled scene components do not support the live DOM renderer.");
+    }
+
+    const initialLyricsRuntime = createLyricRuntime(job.lyrics, 0);
     const prepared =
       (await measureAsync(profiler, "prepare", async () => {
         return await prepareSceneComponents(enabledComponents, componentLookup, {
           video: job.video,
-          lyrics: initialLyrics,
+          lyrics: initialLyricsRuntime,
           assets,
           audio,
           signal,
@@ -134,82 +161,93 @@ export async function renderLyricVideo({
         });
       })) ?? {};
 
+    const preferBeginFrame = shouldUseBeginFrame();
+
     browser = await chromium.launch({
-      headless: true
+      headless: true,
+      args: preferBeginFrame ? ["--run-all-compositor-stages-before-draw"] : []
     });
 
-    page = await browser.newPage({
-      viewport: {
-        width: job.video.width,
-        height: job.video.height
-      },
-      deviceScaleFactor: 1
+    const renderPage = await createRenderPage({
+      browser,
+      width: job.video.width,
+      height: job.video.height,
+      preferBeginFrame
     });
+    browserContext = renderPage.context;
+    page = renderPage.page;
 
     wirePageDiagnostics(page, logger);
     await registerAssetRoutes(page, preloadedAssets, logger);
 
-    await measureAsync(profiler, "domUpdate", async () => {
-      await page!.setContent(renderPageShell(), { waitUntil: "domcontentloaded" });
-    });
+    await page.setContent(renderPageShell(), { waitUntil: "domcontentloaded" });
 
     cdpSession = await page.context().newCDPSession(page);
     await cdpSession.send("Page.enable");
 
+    const mountWarnings = await measureAsync(profiler, "browserUpdate", async () => {
+      const scenePayload = createLiveDomScenePayload({
+        job,
+        components: enabledComponents,
+        componentLookup,
+        assets,
+        prepared
+      });
+
+      return await mountLiveDomScene(page!, scenePayload);
+    });
+
+    for (const warning of mountWarnings.warnings) {
+      logger.warn(warning);
+    }
+
     muxer = startFrameMuxer(job, signal, logger);
+    frameQueue = createFrameWriteQueue({
+      muxer,
+      profiler,
+      signal
+    });
+
     const lyricRuntimeCursor = createLyricRuntimeCursor(job.lyrics, 0);
     const renderStartMs = performance.now();
     let lastProgressEmitMs = renderStartMs - PROGRESS_INTERVAL_MS;
-    let previousMarkup: string | null = null;
-    let previousFrameImage: Buffer | null = null;
-    const stackStaticWhenMarkupUnchanged = areAllComponentsStaticWhenMarkupUnchanged(
-      enabledComponents,
-      componentLookup
-    );
+    let beginFrameFallbackLogged = false;
 
     for (let frame = 0; frame < job.video.durationInFrames; frame += 1) {
       throwIfAborted(signal);
 
       const timeMs = Math.min(job.video.durationMs, Math.round((frame / job.video.fps) * 1000));
-      const lyrics = lyricRuntimeCursor.getRuntimeAt(timeMs);
-      const markup = measureSync(profiler, "markup", () =>
-        buildCompositeFrameMarkup({
-          job,
-          componentLookup,
+      const lyrics = toBrowserLyricRuntime(lyricRuntimeCursor.getRuntimeAt(timeMs));
+      const framePayload = measureSync(profiler, "frameState", () =>
+        createLiveDomFramePayload({
           components: enabledComponents,
+          componentLookup,
           frame,
           timeMs,
+          video: job.video,
           lyrics,
           assets,
           prepared
         })
       );
-      const markupChanged = markup !== previousMarkup;
 
-      if (markupChanged) {
-        const domUpdateResult = await measureAsync(profiler, "domUpdate", async () => {
-          return await updatePageMarkup(page!, markup);
-        });
-
-        for (const warning of domUpdateResult.warnings) {
-          logger.warn(warning);
-        }
-
-        previousMarkup = markup;
-      }
-
-      const frameImage: Buffer =
-        stackStaticWhenMarkupUnchanged && !markupChanged && previousFrameImage
-          ? previousFrameImage
-          : await measureAsync(profiler, "screenshot", async () => {
-              return await captureFrameBuffer(cdpSession!);
-            });
-
-      previousFrameImage = frameImage;
-
-      await measureAsync(profiler, "muxing", async () => {
-        await muxer!.writeFrame(frameImage);
+      await measureAsync(profiler, "browserUpdate", async () => {
+        await updateLiveDomScene(page!, framePayload);
       });
+
+      const frameImage = await measureAsync(profiler, "capture", async () => {
+        const capture = await captureFrameBuffer({
+          cdpSession: cdpSession!,
+          fps: job.video.fps,
+          preferBeginFrame,
+          logger,
+          beginFrameFallbackLogged
+        });
+        beginFrameFallbackLogged = capture.beginFrameFallbackLogged;
+        return capture.buffer;
+      });
+
+      await frameQueue.enqueue(frameImage);
 
       const nowMs = performance.now();
       const isLastFrame = frame + 1 === job.video.durationInFrames;
@@ -242,13 +280,13 @@ export async function renderLyricVideo({
       message: "Muxing frames with source audio"
     });
 
-    if (!muxer) {
-      throw new Error("Frame muxer was not initialized.");
+    if (!frameQueue) {
+      throw new Error("Frame write queue was not initialized.");
     }
 
-    const activeMuxer = muxer;
-    await measureAsync(profiler, "muxing", async () => {
-      await activeMuxer.finish();
+    const activeFrameQueue = frameQueue;
+    await measureAsync(profiler, "muxFinalize", async () => {
+      await activeFrameQueue.finish();
       muxerFinished = true;
     });
 
@@ -285,7 +323,9 @@ export async function renderLyricVideo({
     });
     throw error;
   } finally {
-    if (muxer && !muxerFinished) {
+    if (frameQueue && !muxerFinished) {
+      await frameQueue.abort();
+    } else if (muxer && !muxerFinished) {
       await muxer.abort();
     }
 
@@ -297,11 +337,63 @@ export async function renderLyricVideo({
       await cdpSession.detach();
     }
 
+    if (browserContext) {
+      await browserContext.close();
+    }
+
     if (browser) {
       await browser.close();
     }
 
     logRenderProfile(profiler, job, logger);
+  }
+}
+
+async function createRenderPage({
+  browser,
+  width,
+  height,
+  preferBeginFrame
+}: {
+  browser: Browser;
+  width: number;
+  height: number;
+  preferBeginFrame: boolean;
+}): Promise<{ context: BrowserContext; page: Page }> {
+  const context = await browser.newContext({
+    viewport: {
+      width,
+      height
+    },
+    deviceScaleFactor: 1
+  });
+
+  if (!preferBeginFrame) {
+    const page = await context.newPage();
+    return { context, page };
+  }
+
+  const browserSession = await browser.newBrowserCDPSession();
+
+  try {
+    const internalContext = (context as BrowserContext & {
+      _connection?: { toImpl?: (object: unknown) => { _browserContextId?: string } };
+    })._connection?.toImpl?.(context);
+    const browserContextId = internalContext?._browserContextId;
+    if (!browserContextId) {
+      throw new Error("Playwright did not expose the Chromium browserContextId required for BeginFrameControl.");
+    }
+
+    const pagePromise = context.waitForEvent("page");
+    await browserSession.send("Target.createTarget", {
+      url: "about:blank",
+      browserContextId,
+      enableBeginFrameControl: true
+    });
+    const page = await pagePromise;
+    return { context, page };
+  } finally {
+    await browserSession.detach();
   }
 }
 
@@ -381,107 +473,6 @@ export function buildCompositeFrameMarkup({
 
 function renderFrameMarkup(markup: ReactElement): string {
   return renderToStaticMarkup(markup);
-}
-
-function renderPageShell(): string {
-  return `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <style>
-      html, body, #app {
-        margin: 0;
-        width: 100%;
-        height: 100%;
-        overflow: hidden;
-        background: #000;
-      }
-      * {
-        box-sizing: border-box;
-      }
-      body {
-        font-synthesis-weight: none;
-        text-rendering: geometricPrecision;
-      }
-    </style>
-  </head>
-  <body>
-    <div id="app"></div>
-    <script>
-      window.__replaceFrameMarkup = async function replaceFrameMarkup(markup) {
-        const app = document.getElementById("app");
-        if (!app) {
-          throw new Error("Render shell app container is missing.");
-        }
-
-        app.innerHTML = markup;
-
-        const pendingImages = Array.from(app.querySelectorAll("img"));
-        const warnings = [];
-        if (pendingImages.length > 0) {
-          await Promise.all(
-            pendingImages.map(
-              (image) =>
-                new Promise((resolve) => {
-                  if (image.complete) {
-                    if (!image.naturalWidth) {
-                      warnings.push("Image failed to decode: " + (image.currentSrc || image.src));
-                    }
-                    resolve();
-                    return;
-                  }
-
-                  image.addEventListener(
-                    "load",
-                    () => {
-                      if (!image.naturalWidth) {
-                        warnings.push("Image loaded without pixels: " + (image.currentSrc || image.src));
-                      }
-                      resolve();
-                    },
-                    { once: true }
-                  );
-                  image.addEventListener(
-                    "error",
-                    () => {
-                      warnings.push("Image failed to load: " + (image.currentSrc || image.src));
-                      resolve();
-                    },
-                    { once: true }
-                  );
-                })
-            )
-          );
-        }
-
-        if (document.fonts && document.fonts.ready) {
-          await document.fonts.ready;
-        }
-
-        return { warnings };
-      };
-    </script>
-  </body>
-</html>`;
-}
-
-async function updatePageMarkup(
-  page: Page,
-  markup: string
-): Promise<{ warnings: string[] }> {
-  return await page.evaluate(async (nextMarkup) => {
-    const replaceFrameMarkup = (
-      window as Window & {
-        __replaceFrameMarkup?: (markup: string) => Promise<{ warnings: string[] }>;
-      }
-    ).__replaceFrameMarkup;
-
-    if (!replaceFrameMarkup) {
-      throw new Error("Render shell has not been initialized.");
-    }
-
-    return await replaceFrameMarkup(nextMarkup);
-  }, markup);
 }
 
 async function prepareSceneComponents(
@@ -642,7 +633,46 @@ function getAssetKey(instanceId: string, optionId: string) {
   return `${instanceId}:${optionId}`;
 }
 
-async function captureFrameBuffer(cdpSession: CDPSession): Promise<Buffer> {
+async function captureFrameBuffer({
+  cdpSession,
+  fps,
+  preferBeginFrame,
+  logger,
+  beginFrameFallbackLogged
+}: {
+  cdpSession: CDPSession;
+  fps: number;
+  preferBeginFrame: boolean;
+  logger: RenderLogger;
+  beginFrameFallbackLogged: boolean;
+}): Promise<{ buffer: Buffer; beginFrameFallbackLogged: boolean }> {
+  if (preferBeginFrame) {
+    try {
+      const frame = await cdpSession.send("HeadlessExperimental.beginFrame", {
+        interval: 1000 / Math.max(fps, 1),
+        noDisplayUpdates: false,
+        screenshot: {
+          format: "png",
+          optimizeForSpeed: true
+        }
+      });
+
+      if (frame?.screenshotData) {
+        return {
+          buffer: Buffer.from(frame.screenshotData, "base64"),
+          beginFrameFallbackLogged
+        };
+      }
+    } catch (error) {
+      if (!beginFrameFallbackLogged) {
+        logger.warn(
+          `HeadlessExperimental.beginFrame failed; falling back to Page.captureScreenshot. ${error instanceof Error ? error.message : String(error)}`
+        );
+        beginFrameFallbackLogged = true;
+      }
+    }
+  }
+
   const screenshot = await cdpSession.send("Page.captureScreenshot", {
     format: "png",
     fromSurface: true,
@@ -650,7 +680,23 @@ async function captureFrameBuffer(cdpSession: CDPSession): Promise<Buffer> {
     optimizeForSpeed: true
   });
 
-  return Buffer.from(screenshot.data, "base64");
+  return {
+    buffer: Buffer.from(screenshot.data, "base64"),
+    beginFrameFallbackLogged
+  };
+}
+
+function toBrowserLyricRuntime(
+  lyrics: Pick<BrowserLyricRuntime, "current" | "next">
+): BrowserLyricRuntime {
+  return {
+    current: lyrics.current,
+    next: lyrics.next
+  };
+}
+
+function shouldUseBeginFrame() {
+  return process.env.LYRIC_VIDEO_RENDER_USE_BEGIN_FRAME !== "0";
 }
 
 function createProgressEmitter(onProgress: RenderLyricVideoInput["onProgress"]): ProgressEmitter {
@@ -761,10 +807,12 @@ function createRenderProfiler(): RenderProfiler {
     totalStartMs: performance.now(),
     stages: {
       prepare: 0,
-      markup: 0,
-      domUpdate: 0,
-      screenshot: 0,
-      muxing: 0
+      frameState: 0,
+      browserUpdate: 0,
+      capture: 0,
+      queueWait: 0,
+      muxWrite: 0,
+      muxFinalize: 0
     }
   };
 }
@@ -823,10 +871,12 @@ function logRenderProfile(
         renderedFps: Number(renderedFps.toFixed(2)),
         stagesMs: {
           prepare: roundMs(profiler.stages.prepare),
-          markup: roundMs(profiler.stages.markup),
-          domUpdate: roundMs(profiler.stages.domUpdate),
-          screenshot: roundMs(profiler.stages.screenshot),
-          muxing: roundMs(profiler.stages.muxing)
+          frameState: roundMs(profiler.stages.frameState),
+          browserUpdate: roundMs(profiler.stages.browserUpdate),
+          capture: roundMs(profiler.stages.capture),
+          queueWait: roundMs(profiler.stages.queueWait),
+          muxWrite: roundMs(profiler.stages.muxWrite),
+          muxFinalize: roundMs(profiler.stages.muxFinalize)
         }
       },
       null,
@@ -837,6 +887,82 @@ function logRenderProfile(
 
 function roundMs(value: number): number {
   return Number(value.toFixed(2));
+}
+
+function createFrameWriteQueue({
+  muxer,
+  profiler,
+  signal,
+  maxBufferedFrames = 3
+}: {
+  muxer: FrameMuxer;
+  profiler: RenderProfiler;
+  signal?: AbortSignal;
+  maxBufferedFrames?: number;
+}): FrameWriteQueue {
+  let bufferedFrames = 0;
+  let writeError: unknown;
+  let spaceResolvers: (() => void)[] = [];
+  let writeChain = Promise.resolve();
+
+  return {
+    async enqueue(frame) {
+      throwIfAborted(signal);
+      if (writeError) {
+        throw writeError;
+      }
+
+      const waitStartMs = profiler.enabled ? performance.now() : 0;
+      while (bufferedFrames >= maxBufferedFrames) {
+        await new Promise<void>((resolve) => {
+          spaceResolvers.push(resolve);
+        });
+        throwIfAborted(signal);
+        if (writeError) {
+          throw writeError;
+        }
+      }
+
+      if (profiler.enabled) {
+        profiler.stages.queueWait += performance.now() - waitStartMs;
+      }
+
+      bufferedFrames += 1;
+      writeChain = writeChain
+        .then(async () => {
+          await measureAsync(profiler, "muxWrite", async () => {
+            await muxer.writeFrame(frame);
+          });
+        })
+        .catch((error) => {
+          writeError = error;
+          throw error;
+        })
+        .finally(() => {
+          bufferedFrames = Math.max(0, bufferedFrames - 1);
+          const resolvers = spaceResolvers;
+          spaceResolvers = [];
+          for (const resolve of resolvers) {
+            resolve();
+          }
+        });
+    },
+    async finish() {
+      await writeChain;
+      if (writeError) {
+        throw writeError;
+      }
+      await muxer.finish();
+    },
+    async abort() {
+      const resolvers = spaceResolvers;
+      spaceResolvers = [];
+      for (const resolve of resolvers) {
+        resolve();
+      }
+      await muxer.abort();
+    }
+  };
 }
 
 function startFrameMuxer(

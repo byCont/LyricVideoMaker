@@ -29,6 +29,55 @@ export const lyricsByLineComponent: SceneComponentDefinition<LyricsByLineOptions
   name: "Lyrics by Line",
   description: "Shows the current subtitle line with timing-aware fades and typography.",
   staticWhenMarkupUnchanged: false,
+  browserRuntime: {
+    runtimeId: "lyrics-by-line",
+    getInitialState({ options }) {
+      const lyricBlockStyles = getLyricBlockStyles(options.lyricPosition, options.horizontalPadding);
+
+      return {
+        alignItems: lyricBlockStyles.alignItems,
+        padding: lyricBlockStyles.padding,
+        horizontalPadding: lyricBlockStyles.horizontalPadding,
+        color: options.lyricColor,
+        fontFamily: `"${options.lyricFont}", sans-serif`,
+        whiteSpace: options.forceSingleLine ? "nowrap" : "pre-wrap"
+      };
+    },
+    getFrameState({ options, lyrics, timeMs, video }) {
+      const activeCue = lyrics.current;
+      const activeText = getRenderedLyricText(
+        activeCue?.lines ?? [],
+        activeCue?.text ?? "",
+        options.forceSingleLine
+      );
+      const lyricBlockStyles = getLyricBlockStyles(options.lyricPosition, options.horizontalPadding);
+      const lyricFontSize = getRenderedLyricFontSize(
+        activeText,
+        options,
+        video.width,
+        lyricBlockStyles.horizontalPadding
+      );
+      const lyricOpacity = activeCue
+        ? getLyricOpacity(activeCue.startMs, activeCue.endMs, timeMs, options)
+        : 0;
+      const letterShadow =
+        options.shadowEnabled && options.shadowIntensity > 0
+          ? createTextShadow(lyricFontSize, options.shadowColor, options.shadowIntensity)
+          : "none";
+      const letterStroke =
+        options.borderEnabled && options.borderThickness > 0
+          ? `${options.borderThickness}px ${options.borderColor}`
+          : "";
+
+      return {
+        text: activeText,
+        opacity: lyricOpacity,
+        fontSize: lyricFontSize,
+        textShadow: letterShadow,
+        webkitTextStroke: letterStroke
+      };
+    }
+  },
   options: [
     {
       type: "category",

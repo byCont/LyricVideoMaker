@@ -166,6 +166,109 @@ describe("scene registry components", () => {
     });
   });
 
+  it("builds live DOM lyric frame state with stable text and opacity data", () => {
+    const lyrics = createLyricRuntime(
+      [
+        {
+          index: 1,
+          startMs: 1000,
+          endMs: 2000,
+          text: "Styled line",
+          lines: ["Styled line"]
+        }
+      ],
+      1050
+    );
+
+    const initialState = lyricsByLineComponent.browserRuntime?.getInitialState?.({
+      instance: {
+        id: "lyrics-1",
+        componentId: "lyrics-by-line",
+        componentName: "Lyrics by Line",
+        enabled: true,
+        options: {}
+      },
+      options: {
+        ...lyricsByLineComponent.defaultOptions,
+        lyricPosition: "top",
+        horizontalPadding: 96,
+        lyricFont: "Montserrat"
+      },
+      video: {
+        width: 1920,
+        height: 1080,
+        fps: 30,
+        durationMs: 2000,
+        durationInFrames: 60
+      },
+      lyrics: {
+        current: lyrics.current,
+        next: lyrics.next
+      },
+      assets: {
+        getUrl: vi.fn()
+      },
+      prepared: {}
+    });
+
+    const frameState = lyricsByLineComponent.browserRuntime?.getFrameState?.({
+      instance: {
+        id: "lyrics-1",
+        componentId: "lyrics-by-line",
+        componentName: "Lyrics by Line",
+        enabled: true,
+        options: {}
+      },
+      options: {
+        ...lyricsByLineComponent.defaultOptions,
+        lyricPosition: "top",
+        horizontalPadding: 96,
+        fadeInDurationMs: 200,
+        fadeInEasing: "linear",
+        fadeOutDurationMs: 400,
+        fadeOutEasing: "ease-in",
+        borderEnabled: true,
+        borderColor: "#33ccff",
+        borderThickness: 5,
+        shadowEnabled: true,
+        shadowColor: "#ff0000",
+        shadowIntensity: 60
+      },
+      frame: 31,
+      timeMs: 1050,
+      video: {
+        width: 1920,
+        height: 1080,
+        fps: 30,
+        durationMs: 2000,
+        durationInFrames: 60
+      },
+      lyrics: {
+        current: lyrics.current,
+        next: lyrics.next
+      },
+      assets: {
+        getUrl: vi.fn()
+      },
+      prepared: {}
+    });
+
+    const lyricInitialState = initialState as Record<string, unknown>;
+    const lyricFrameState = frameState as Record<string, unknown>;
+
+    expect(lyricInitialState).toMatchObject({
+      alignItems: "flex-start",
+      padding: "110px 96px 0",
+      fontFamily: "\"Montserrat\", sans-serif"
+    });
+    expect(lyricFrameState).toMatchObject({
+      text: "Styled line",
+      opacity: 0.25,
+      webkitTextStroke: "5px #33ccff"
+    });
+    expect(String(lyricFrameState.textShadow)).toContain("rgba(255, 0, 0, 0.6)");
+  });
+
   it("forces multi-line lyrics onto a single fitted line when enabled", () => {
     const lyrics = createLyricRuntime(
       [
@@ -298,6 +401,95 @@ describe("scene registry components", () => {
         [0.1, 0.2, 0.3, 0.4],
         [0.4, 0.3, 0.2, 0.1]
       ]
+    });
+  });
+
+  it("builds live DOM equalizer state with static layout and per-frame values", () => {
+    const initialState = equalizerComponent.browserRuntime?.getInitialState?.({
+      instance: {
+        id: "equalizer-1",
+        componentId: "equalizer",
+        componentName: "Equalizer",
+        enabled: true,
+        options: {}
+      },
+      options: {
+        ...equalizerComponent.defaultOptions,
+        placement: "right-center",
+        alignment: "end",
+        barCount: 4,
+        layoutMode: "split",
+        backgroundPlateEnabled: true,
+        backgroundPlateOpacity: 40
+      },
+      video: {
+        width: 1920,
+        height: 1080,
+        fps: 30,
+        durationMs: 2000,
+        durationInFrames: 60
+      },
+      lyrics: {
+        current: null,
+        next: null
+      },
+      assets: {
+        getUrl: vi.fn()
+      },
+      prepared: {
+        frames: [
+          [0.2, 0.4, 0.6, 0.8]
+        ]
+      }
+    });
+
+    const frameState = equalizerComponent.browserRuntime?.getFrameState?.({
+      instance: {
+        id: "equalizer-1",
+        componentId: "equalizer",
+        componentName: "Equalizer",
+        enabled: true,
+        options: {}
+      },
+      options: {
+        ...equalizerComponent.defaultOptions,
+        barCount: 4
+      },
+      frame: 1,
+      timeMs: 33,
+      video: {
+        width: 1920,
+        height: 1080,
+        fps: 30,
+        durationMs: 2000,
+        durationInFrames: 60
+      },
+      lyrics: {
+        current: null,
+        next: null
+      },
+      assets: {
+        getUrl: vi.fn()
+      },
+      prepared: {
+        frames: [
+          [0.2, 0.4, 0.6, 0.8],
+          [0.8, 0.6, 0.4, 0.2]
+        ]
+      }
+    });
+
+    const equalizerInitialState = initialState as Record<string, unknown>;
+    const equalizerFrameState = frameState as Record<string, unknown>;
+
+    expect(equalizerInitialState).toMatchObject({
+      isHorizontal: false,
+      layoutMode: "split",
+      gapSize: 24
+    });
+    expect(equalizerInitialState.entries).toHaveLength(5);
+    expect(equalizerFrameState).toEqual({
+      values: [0.8, 0.6, 0.4, 0.2]
     });
   });
 

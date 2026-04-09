@@ -14,14 +14,18 @@ const audioPath = join(workspace, "tone.mp3");
 const subtitlePath = join(workspace, "lyrics.srt");
 const imagePath = join(workspace, "background.png");
 const outputPath = join(workspace, "output.mp4");
+const benchmarkMode = process.env.LYRIC_VIDEO_BENCHMARK_MODE ?? "standard";
+const useBeginFrame = process.env.LYRIC_VIDEO_RENDER_USE_BEGIN_FRAME !== "0";
 
 try {
+  const benchmark = createBenchmarkScenario(benchmarkMode);
+
   await runFfmpeg([
     "-y",
     "-f",
     "lavfi",
     "-i",
-    "sine=frequency=440:duration=2.4",
+    `sine=frequency=440:duration=${benchmark.audioDurationSeconds}`,
     "-q:a",
     "2",
     audioPath
@@ -38,13 +42,7 @@ try {
   ]);
   await writeFile(
     subtitlePath,
-    `1
-00:00:00,000 --> 00:00:01,000
-Hello
-
-2
-00:00:01,100 --> 00:00:02,300
-World`,
+    benchmark.subtitleText,
     "utf8"
   );
 
@@ -61,32 +59,7 @@ World`,
     },
     scene: {
       ...singleImageLyricsScene,
-      components: [
-        {
-          id: "background-image-1",
-          componentId: "background-image",
-          enabled: true,
-          options: {
-            imagePath
-          }
-        },
-        {
-          id: "background-color-1",
-          componentId: "background-color",
-          enabled: false,
-          options: {}
-        },
-        {
-          id: "lyrics-by-line-1",
-          componentId: "lyrics-by-line",
-          enabled: true,
-          options: {
-            lyricSize: 72,
-            lyricFont: "Montserrat",
-            lyricColor: "#ffffff"
-          }
-        }
-      ]
+      components: benchmark.buildComponents({ imagePath, durationMs })
     }
   });
 
@@ -102,6 +75,8 @@ World`,
   console.log(
     JSON.stringify(
       {
+        mode: benchmarkMode,
+        useBeginFrame,
         durationMs,
         frames: job.video.durationInFrames,
         elapsedMs: Number(elapsedMs.toFixed(2)),
@@ -131,4 +106,118 @@ async function runFfmpeg(args) {
       reject(new Error(Buffer.concat(stderr).toString("utf8")));
     });
   });
+}
+
+function createBenchmarkScenario(mode) {
+  switch (mode) {
+    case "full-frame":
+      return {
+        audioDurationSeconds: 4,
+        subtitleText: `1
+00:00:00,000 --> 00:00:04,000
+Full frame benchmark lyric`,
+        buildComponents({ imagePath, durationMs }) {
+          return [
+            {
+              id: "background-image-1",
+              componentId: "background-image",
+              enabled: true,
+              options: {
+                imagePath
+              }
+            },
+            {
+              id: "lyrics-by-line-1",
+              componentId: "lyrics-by-line",
+              enabled: true,
+              options: {
+                lyricSize: 72,
+                lyricFont: "Montserrat",
+                lyricColor: "#ffffff",
+                fadeInDurationMs: durationMs,
+                fadeOutDurationMs: durationMs
+              }
+            }
+          ];
+        }
+      };
+    case "equalizer":
+      return {
+        audioDurationSeconds: 4,
+        subtitleText: `1
+00:00:00,000 --> 00:00:04,000
+Equalizer benchmark lyric`,
+        buildComponents({ imagePath }) {
+          return [
+            {
+              id: "background-image-1",
+              componentId: "background-image",
+              enabled: true,
+              options: {
+                imagePath
+              }
+            },
+            {
+              id: "lyrics-by-line-1",
+              componentId: "lyrics-by-line",
+              enabled: true,
+              options: {
+                lyricSize: 72,
+                lyricFont: "Montserrat",
+                lyricColor: "#ffffff"
+              }
+            },
+            {
+              id: "equalizer-1",
+              componentId: "equalizer",
+              enabled: true,
+              options: {
+                ...builtInSceneComponents.find((component) => component.id === "equalizer").defaultOptions,
+                barCount: 32
+              }
+            }
+          ];
+        }
+      };
+    case "standard":
+    default:
+      return {
+        audioDurationSeconds: 2.4,
+        subtitleText: `1
+00:00:00,000 --> 00:00:01,000
+Hello
+
+2
+00:00:01,100 --> 00:00:02,300
+World`,
+        buildComponents({ imagePath }) {
+          return [
+            {
+              id: "background-image-1",
+              componentId: "background-image",
+              enabled: true,
+              options: {
+                imagePath
+              }
+            },
+            {
+              id: "background-color-1",
+              componentId: "background-color",
+              enabled: false,
+              options: {}
+            },
+            {
+              id: "lyrics-by-line-1",
+              componentId: "lyrics-by-line",
+              enabled: true,
+              options: {
+                lyricSize: 72,
+                lyricFont: "Montserrat",
+                lyricColor: "#ffffff"
+              }
+            }
+          ];
+        }
+      };
+  }
 }

@@ -18,6 +18,11 @@ export interface LyricRuntime {
   getCueProgress(cue: LyricCue, ms: number): number;
 }
 
+export interface BrowserLyricRuntime {
+  current: LyricCue | null;
+  next: LyricCue | null;
+}
+
 export interface VideoSettings {
   width: number;
   height: number;
@@ -142,6 +147,36 @@ export interface SceneRenderProps<TOptions> {
   prepared: PreparedSceneComponentData;
 }
 
+export interface SceneBrowserInitialStateContext<TOptions> {
+  instance: ValidatedSceneComponentInstance;
+  options: TOptions;
+  video: VideoSettings;
+  lyrics: BrowserLyricRuntime;
+  assets: Pick<SceneAssetAccessor, "getUrl">;
+  prepared: PreparedSceneComponentData;
+}
+
+export interface SceneBrowserFrameStateContext<TOptions> {
+  instance: ValidatedSceneComponentInstance;
+  options: TOptions;
+  frame: number;
+  timeMs: number;
+  video: VideoSettings;
+  lyrics: BrowserLyricRuntime;
+  assets: Pick<SceneAssetAccessor, "getUrl">;
+  prepared: PreparedSceneComponentData;
+}
+
+export interface SceneBrowserRuntimeDefinition<TOptions> {
+  runtimeId: string;
+  getInitialState?: (
+    ctx: SceneBrowserInitialStateContext<TOptions>
+  ) => Record<string, unknown> | null;
+  getFrameState?: (
+    ctx: SceneBrowserFrameStateContext<TOptions>
+  ) => Record<string, unknown> | null;
+}
+
 export interface SceneComponentDefinition<TOptions> {
   id: string;
   name: string;
@@ -151,6 +186,7 @@ export interface SceneComponentDefinition<TOptions> {
   defaultOptions: TOptions;
   validate?: (raw: unknown) => TOptions;
   prepare?: (ctx: ScenePrepareContext<TOptions>) => Promise<PreparedSceneComponentData>;
+  browserRuntime?: SceneBrowserRuntimeDefinition<TOptions>;
   Component: (props: SceneRenderProps<TOptions>) => React.ReactElement | null;
 }
 

@@ -286,6 +286,19 @@ export const equalizerComponent: SceneComponentDefinition<EqualizerOptions> = {
 
     return options;
   },
+  browserRuntime: {
+    runtimeId: "equalizer",
+    getInitialState({ options, prepared }) {
+      const preparedData = prepared as unknown as PreparedEqualizerData;
+      return createEqualizerBrowserInitialState(options, preparedData.frames?.[0] ?? []);
+    },
+    getFrameState({ options, prepared, frame }) {
+      const preparedData = prepared as unknown as PreparedEqualizerData;
+      return {
+        values: buildRenderableBars(preparedData.frames?.[frame] ?? [], options)
+      };
+    }
+  },
   async prepare({ audio, options }) {
     const spectrum = await audio.getSpectrum({
       bandCount: options.barCount,
@@ -496,6 +509,40 @@ function buildRenderableBars(values: number[], options: EqualizerOptions) {
   return bars.map((value) => clamp01(value));
 }
 
+function createEqualizerBrowserInitialState(
+  options: EqualizerOptions,
+  initialValues: number[]
+) {
+  const layout = getEqualizerLayout(options);
+  const frameValues = buildRenderableBars(initialValues, options);
+  const barPlan = buildBarRenderPlan(frameValues, options);
+  const shadowParts = buildEqualizerShadowParts(options, layout.isHorizontal);
+  const borderRadius = options.capStyle === "rounded" ? `${options.cornerRadius}px` : "0";
+  const opacity = clamp01(options.opacity / 100);
+
+  return {
+    wrapperStyle: layout.wrapperStyle,
+    trackStyle: layout.trackStyle,
+    plateStyle: options.backgroundPlateEnabled ? layout.plateStyle : null,
+    isHorizontal: layout.isHorizontal,
+    layoutMode: options.layoutMode,
+    growthDirection: options.growthDirection,
+    borderRadius,
+    opacity,
+    boxShadow: shadowParts.join(", ") || "none",
+    gapSize: Math.max(12, options.barGap * 4),
+    entries: barPlan.map((entry, index) =>
+      entry.type === "gap"
+        ? { type: "gap" as const }
+        : {
+            type: "bar" as const,
+            color: getBarColor(entry.colorIndex, frameValues.length, options),
+            value: entry.value
+          }
+    )
+  };
+}
+
 function getSingleBarFillStyle({
   isHorizontal,
   amplitude,
@@ -548,6 +595,29 @@ function getSingleBarFillStyle({
   }
 
   return style;
+}
+
+function buildEqualizerShadowParts(
+  options: EqualizerOptions,
+  isHorizontal: boolean
+) {
+  const shadowParts: string[] = [];
+
+  if (options.shadowEnabled && options.shadowStrength > 0) {
+    shadowParts.push(
+      isHorizontal
+        ? `0 ${Math.max(2, options.shadowStrength / 8)}px ${Math.max(4, options.shadowStrength / 2)}px ${withAlpha(options.shadowColor, 0.45)}`
+        : `${Math.max(2, options.shadowStrength / 8)}px 0 ${Math.max(4, options.shadowStrength / 2)}px ${withAlpha(options.shadowColor, 0.45)}`
+    );
+  }
+
+  if (options.glowEnabled && options.glowStrength > 0) {
+    shadowParts.push(
+      `0 0 ${Math.max(6, options.glowStrength / 1.5)}px ${withAlpha(options.glowColor, 0.75)}`
+    );
+  }
+
+  return shadowParts;
 }
 
 function getEqualizerLayout(options: EqualizerOptions) {
