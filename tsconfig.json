@@ -1,0 +1,17 @@
+{
+  "files": [],
+  "references": [
+    {
+      "path": "./packages/core"
+    },
+    {
+      "path": "./packages/scene-registry"
+    },
+    {
+      "path": "./packages/renderer"
+    },
+    {
+      "path": "./apps/desktop"
+    }
+  ]
+}

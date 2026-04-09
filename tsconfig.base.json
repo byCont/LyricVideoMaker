@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "jsx": "react-jsx",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "baseUrl": ".",
+    "paths": {
+      "@lyric-video-maker/core": [
+        "packages/core/src/index.ts"
+      ],
+      "@lyric-video-maker/scene-registry": [
+        "packages/scene-registry/src/index.ts"
+      ],
+      "@lyric-video-maker/renderer": [
+        "packages/renderer/src/index.ts"
+      ]
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "name": "@lyric-video-maker/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist-electron/main.js",
+  "scripts": {
+    "build": "vite build && tsup electron/main.ts electron/preload.ts --format cjs --out-dir dist-electron --external electron",
+    "dev": "npm run build && electron ."
+  },
+  "dependencies": {
+    "@lyric-video-maker/core": "file:../../packages/core",
+    "@lyric-video-maker/renderer": "file:../../packages/renderer",
+    "@lyric-video-maker/scene-registry": "file:../../packages/scene-registry",
+    "electron": "^35.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  }
+}

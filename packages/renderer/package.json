@@ -1,0 +1,24 @@
+{
+  "name": "@lyric-video-maker/renderer",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs"
+  },
+  "dependencies": {
+    "@lyric-video-maker/core": "file:../core",
+    "playwright": "^1.51.1"
+  },
+  "peerDependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  }
+}

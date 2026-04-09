@@ -1,0 +1,47 @@
+import {
+  createLyricRuntime,
+  frameToMs,
+  getCueAt,
+  getCueProgress,
+  getCuesInRange,
+  getNextCue,
+  msToFrame
+} from "../src/timeline";
+import type { LyricCue } from "../src/types";
+
+const cues: LyricCue[] = [
+  { index: 1, startMs: 0, endMs: 1000, text: "One", lines: ["One"] },
+  { index: 2, startMs: 1500, endMs: 2500, text: "Two", lines: ["Two"] },
+  { index: 3, startMs: 2500, endMs: 4000, text: "Three", lines: ["Three"] }
+];
+
+describe("timeline helpers", () => {
+  it("finds current and next cues around boundaries", () => {
+    expect(getCueAt(cues, 0)?.text).toBe("One");
+    expect(getCueAt(cues, 999)?.text).toBe("One");
+    expect(getCueAt(cues, 1000)).toBeNull();
+    expect(getNextCue(cues, 1000)?.text).toBe("Two");
+    expect(getCueAt(cues, 2500)?.text).toBe("Three");
+  });
+
+  it("finds overlapping cue ranges", () => {
+    expect(getCuesInRange(cues, 900, 2600).map((cue) => cue.text)).toEqual(["One", "Two", "Three"]);
+  });
+
+  it("computes cue progress with clamping", () => {
+    expect(getCueProgress(cues[0], -100)).toBe(0);
+    expect(getCueProgress(cues[0], 500)).toBe(0.5);
+    expect(getCueProgress(cues[0], 1500)).toBe(1);
+  });
+
+  it("converts time and frames", () => {
+    expect(msToFrame(1000, 30)).toBe(30);
+    expect(frameToMs(30, 30)).toBe(1000);
+  });
+
+  it("builds a frame runtime", () => {
+    const runtime = createLyricRuntime(cues, 1600);
+    expect(runtime.current?.text).toBe("Two");
+    expect(runtime.next?.text).toBe("Three");
+  });
+});
