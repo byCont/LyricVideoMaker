@@ -38,7 +38,6 @@ export function WorkspaceNavPanel({
       <div className="panel-header workspace-sidebar-header">
         <div>
           <p className="eyebrow">Workspace</p>
-          <h2>Composer</h2>
         </div>
         <span className="workspace-sidebar-badge">{selectedScene.components.length} components</span>
       </div>

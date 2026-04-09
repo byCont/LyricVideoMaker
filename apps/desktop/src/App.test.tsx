@@ -90,11 +90,11 @@ describe("App", () => {
 
     expect(await screen.findByRole("heading", { name: "General" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "General" })).toBeTruthy();
-    expect(screen.getByText("Single-frame preview")).toBeTruthy();
-    expect(screen.getByText("Timeline")).toBeTruthy();
+    expect(screen.getByAltText("Single-frame scene preview")).toBeTruthy();
+    expect(screen.getByRole("slider")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Previous Cue" })).toBeTruthy();
-    expect(screen.getAllByText("Current Cue")).toHaveLength(2);
-    expect(screen.getAllByText("Next Cue")).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Current Cue" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Next Cue" })).toBeTruthy();
   });
 
   it("switches the bottom inspector when selecting scene and component items", async () => {

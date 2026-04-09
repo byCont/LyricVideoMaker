@@ -60,6 +60,7 @@ function createMainWindow() {
     minWidth: 1200,
     minHeight: 760,
     backgroundColor: "#0d1021",
+    show: false,
     webPreferences: {
       preload: join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -74,6 +75,11 @@ function createMainWindow() {
   } else {
     void mainWindow.loadFile(join(__dirname, "../dist/index.html"));
   }
+
+  mainWindow.once("ready-to-show", () => {
+    mainWindow?.maximize();
+    mainWindow?.show();
+  });
 
   mainWindow.on("closed", () => {
     mainWindow = null;

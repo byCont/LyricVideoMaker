@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import type {
   RenderHistoryEntry,
   SceneComponentInstance
@@ -30,6 +30,10 @@ import type { WorkspaceSelection } from "./workspace-types";
 import { isComponentSelection } from "./workspace-types";
 
 const ACTIVE_RENDER_STATUSES = new Set(["queued", "preparing", "rendering", "muxing"]);
+const SIDEBAR_MIN_WIDTH = 280;
+const SIDEBAR_MAX_GUTTER = 540;
+const INSPECTOR_MIN_HEIGHT = 250;
+const INSPECTOR_MAX_GUTTER = 240;
 
 export function App() {
   const [bootstrap, setBootstrap] = useState<AppBootstrapData | null>(null);
@@ -41,6 +45,23 @@ export function App() {
   const [selection, setSelection] = useState<WorkspaceSelection>({ type: "general" });
   const [renderDialogEntry, setRenderDialogEntry] = useState<RenderHistoryEntry | null>(null);
   const [isRenderDialogOpen, setIsRenderDialogOpen] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(340);
+  const [inspectorHeight, setInspectorHeight] = useState(340);
+  const [activeResizeHandle, setActiveResizeHandle] = useState<"sidebar" | "inspector" | null>(
+    null
+  );
+  const workspaceRef = useRef<HTMLElement | null>(null);
+  const mainPaneRef = useRef<HTMLElement | null>(null);
+  const resizeStateRef = useRef<
+    | {
+        handle: "sidebar" | "inspector";
+        startX: number;
+        startY: number;
+        startWidth: number;
+        startHeight: number;
+      }
+    | null
+  >(null);
 
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
@@ -63,6 +84,55 @@ export function App() {
     });
 
     return () => unsubscribe?.();
+  }, []);
+
+  useEffect(() => {
+    function handlePointerMove(event: MouseEvent) {
+      const resizeState = resizeStateRef.current;
+      if (!resizeState) {
+        return;
+      }
+
+      if (resizeState.handle === "sidebar") {
+        const containerWidth = workspaceRef.current?.clientWidth ?? window.innerWidth;
+        const maxWidth = Math.max(SIDEBAR_MIN_WIDTH, containerWidth - SIDEBAR_MAX_GUTTER);
+        setSidebarWidth(
+          clamp(
+            resizeState.startWidth + event.clientX - resizeState.startX,
+            SIDEBAR_MIN_WIDTH,
+            maxWidth
+          )
+        );
+        return;
+      }
+
+      const containerHeight = mainPaneRef.current?.clientHeight ?? window.innerHeight;
+      const maxHeight = Math.max(INSPECTOR_MIN_HEIGHT, containerHeight - INSPECTOR_MAX_GUTTER);
+      setInspectorHeight(
+        clamp(
+          resizeState.startHeight - (event.clientY - resizeState.startY),
+          INSPECTOR_MIN_HEIGHT,
+          maxHeight
+        )
+      );
+    }
+
+    function stopResize() {
+      resizeStateRef.current = null;
+      setActiveResizeHandle(null);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    }
+
+    window.addEventListener("mousemove", handlePointerMove);
+    window.addEventListener("mouseup", stopResize);
+
+    return () => {
+      window.removeEventListener("mousemove", handlePointerMove);
+      window.removeEventListener("mouseup", stopResize);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
   }, []);
 
   const scenes = bootstrap?.scenes ?? [];
@@ -507,10 +577,23 @@ export function App() {
     return null;
   }
 
+  function startResize(handle: "sidebar" | "inspector", event: React.MouseEvent<HTMLDivElement>) {
+    resizeStateRef.current = {
+      handle,
+      startX: event.clientX,
+      startY: event.clientY,
+      startWidth: sidebarWidth,
+      startHeight: inspectorHeight
+    };
+    setActiveResizeHandle(handle);
+    document.body.style.cursor = handle === "sidebar" ? "col-resize" : "row-resize";
+    document.body.style.userSelect = "none";
+  }
+
   return (
-    <div className="app-shell">
-      <main className="workspace">
-        <div className="workspace-top">
+    <div className={`app-shell${activeResizeHandle ? ` is-resizing-${activeResizeHandle}` : ""}`}>
+      <main className="workspace-shell" ref={workspaceRef}>
+        <aside className="workspace-pane workspace-sidebar-pane" style={{ width: sidebarWidth }}>
           <WorkspaceNavPanel
             selectedScene={selectedScene}
             selection={selection}
@@ -525,17 +608,39 @@ export function App() {
             onDuplicateComponent={duplicateSceneComponent}
             onRemoveComponent={removeSceneComponent}
           />
+        </aside>
 
-          <PreviewPanel
-            video={composer.video}
-            preview={preview}
-            enabled={previewEnabled}
-            paused={previewPaused}
-            onTimeChange={updatePreviewTime}
+        <div
+          className="workspace-splitter workspace-splitter-vertical"
+          role="separator"
+          aria-label="Resize navigation panel"
+          aria-orientation="vertical"
+          onMouseDown={(event) => startResize("sidebar", event)}
+        />
+
+        <section className="workspace-main-pane" ref={mainPaneRef}>
+          <div className="workspace-pane workspace-preview-pane">
+            <PreviewPanel
+              video={composer.video}
+              preview={preview}
+              enabled={previewEnabled}
+              paused={previewPaused}
+              onTimeChange={updatePreviewTime}
+            />
+          </div>
+
+          <div
+            className="workspace-splitter workspace-splitter-horizontal"
+            role="separator"
+            aria-label="Resize inspector panel"
+            aria-orientation="horizontal"
+            onMouseDown={(event) => startResize("inspector", event)}
           />
-        </div>
 
-        <div className="workspace-bottom">{renderInspector()}</div>
+          <div className="workspace-pane workspace-inspector-pane" style={{ height: inspectorHeight }}>
+            {renderInspector()}
+          </div>
+        </section>
       </main>
 
       <RenderProgressDialog
@@ -578,4 +683,8 @@ function mergeRenderEntry(
     renderFps: Number.isFinite(event.progress) ? event.renderFps : current.renderFps,
     error: event.error ?? current.error
   } satisfies RenderHistoryEntry;
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
 }
