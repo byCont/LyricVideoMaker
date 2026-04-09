@@ -153,29 +153,6 @@ export function App() {
 
   return (
     <div className="app-shell">
-      <aside className="hero-panel">
-        <p className="eyebrow">Lyric Video Composer v1</p>
-        <h1>Local full-song lyric video rendering with one HTML/CSS scene contract.</h1>
-        <p className="lede">
-          Import an <code>.mp3</code> and <code>.srt</code>, choose a built-in scene, fill the schema-driven
-          options, and render an <code>.mp4</code> locally through Chromium and <code>ffmpeg</code>.
-        </p>
-        <div className="hero-stats">
-          <div>
-            <span>Scenes</span>
-            <strong>{bootstrap.scenes.length}</strong>
-          </div>
-          <div>
-            <span>Fonts</span>
-            <strong>{bootstrap.fonts.length}</strong>
-          </div>
-          <div>
-            <span>History</span>
-            <strong>{history.length}</strong>
-          </div>
-        </div>
-      </aside>
-
       <main className="workspace">
         <section className="panel">
           <div className="panel-header">
@@ -284,8 +261,14 @@ export function App() {
                     </div>
                     <p className="history-message">{entry.message}</p>
                     <div className="progress-track">
-                      <div className="progress-value" style={{ width: `${entry.progress}%` }} />
+                      <div className="progress-value" style={{ width: `${Math.max(0, Math.min(100, entry.progress))}%` }} />
                     </div>
+                    {entry.status === "rendering" ? (
+                      <div className="history-stats">
+                        <span>{entry.renderFps ? `${entry.renderFps.toFixed(2)} fps` : "Measuring speed..."}</span>
+                        <span>{entry.etaMs !== undefined ? `ETA ${formatEta(entry.etaMs)}` : "ETA calculating..."}</span>
+                      </div>
+                    ) : null}
                     <div className="history-footer">
                       <span>{new Date(entry.createdAt).toLocaleString()}</span>
                       {active ? (
@@ -295,6 +278,20 @@ export function App() {
                       ) : null}
                     </div>
                     {entry.error ? <p className="history-error">{entry.error}</p> : null}
+                    {entry.logs && entry.logs.length > 0 ? (
+                      <details className="history-logs">
+                        <summary>Logs ({entry.logs.length})</summary>
+                        <div className="history-log-list">
+                          {entry.logs.map((log, index) => (
+                            <div key={`${log.timestamp}-${index}`} className={`history-log history-log-${log.level}`}>
+                              <span>{new Date(log.timestamp).toLocaleTimeString()}</span>
+                              <strong>{log.level}</strong>
+                              <p>{log.message}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </details>
+                    ) : null}
                   </li>
                 );
               })
@@ -419,18 +416,26 @@ function upsertHistory(
   history: RenderHistoryEntry[],
   event: RenderProgressEvent | RenderHistoryEntry
 ): RenderHistoryEntry[] {
+  const currentEntry =
+    "sceneId" in event ? history.find((entry) => entry.id === event.id) : history.find((entry) => entry.id === event.jobId);
   const nextEntry: RenderHistoryEntry =
     "sceneId" in event
       ? event
       : {
           id: event.jobId,
-          sceneId: history.find((entry) => entry.id === event.jobId)?.sceneId ?? "unknown-scene",
-          outputPath: event.outputPath ?? history.find((entry) => entry.id === event.jobId)?.outputPath ?? "",
-          createdAt: history.find((entry) => entry.id === event.jobId)?.createdAt ?? new Date().toISOString(),
-          status: event.status,
-          progress: event.progress,
-          message: event.message,
-          error: event.error
+          sceneId: currentEntry?.sceneId ?? "unknown-scene",
+          outputPath: event.outputPath ?? currentEntry?.outputPath ?? "",
+          createdAt: currentEntry?.createdAt ?? new Date().toISOString(),
+          status: Number.isFinite(event.progress) ? event.status : currentEntry?.status ?? event.status,
+          progress: Number.isFinite(event.progress) ? event.progress : currentEntry?.progress ?? 0,
+          message:
+            event.logEntry && !Number.isFinite(event.progress)
+              ? currentEntry?.message ?? event.message
+              : event.message,
+          etaMs: Number.isFinite(event.progress) ? event.etaMs : currentEntry?.etaMs,
+          renderFps: Number.isFinite(event.progress) ? event.renderFps : currentEntry?.renderFps,
+          error: event.error ?? currentEntry?.error,
+          logs: event.logEntry ? [...(currentEntry?.logs ?? []), event.logEntry] : currentEntry?.logs
         };
 
   const withoutEntry = history.filter((entry) => entry.id !== nextEntry.id);
@@ -443,4 +448,11 @@ function getFileName(path: string) {
 
 function stripExtension(fileName: string) {
   return fileName.replace(/\.[^/.]+$/, "");
+}
+
+function formatEta(etaMs: number) {
+  const totalSeconds = Math.max(0, Math.round(etaMs / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }

@@ -1,5 +1,3 @@
-import { extname } from "node:path";
-import { readFile } from "node:fs/promises";
 import React from "react";
 import type { SceneDefinition } from "@lyric-video-maker/core";
 import { SUPPORTED_FONT_FAMILIES } from "@lyric-video-maker/core";
@@ -15,6 +13,7 @@ export const singleImageLyricsScene: SceneDefinition<SingleImageLyricsOptions> =
   id: "single-image-lyrics",
   name: "Single Image Lyrics",
   description: "A full-song lyric video with one background image and bottom-safe lyrics.",
+  staticWhenMarkupUnchanged: false,
   options: [
     { type: "image", id: "backgroundImage", label: "Background Image", required: true },
     { type: "number", id: "lyricSize", label: "Lyric Size", defaultValue: 72, min: 24, max: 180, step: 1 },
@@ -27,17 +26,9 @@ export const singleImageLyricsScene: SceneDefinition<SingleImageLyricsOptions> =
     lyricFont: SUPPORTED_FONT_FAMILIES[0],
     lyricColor: "#FFFFFF"
   },
-  async prepare({ options, signal }) {
-    signal?.throwIfAborted?.();
-
-    return {
-      backgroundImageUrl: await readFileAsDataUrl(options.backgroundImage)
-    };
-  },
-  Component: ({ options, lyrics, prepared, video }) => {
+  Component: ({ options, lyrics, assets, video }) => {
     const activeText = lyrics.current?.text ?? "";
-    const backgroundImageUrl =
-      typeof prepared.backgroundImageUrl === "string" ? prepared.backgroundImageUrl : null;
+    const backgroundImageUrl = assets.getUrl("backgroundImage");
 
     return (
       <div
@@ -104,24 +95,3 @@ export const singleImageLyricsScene: SceneDefinition<SingleImageLyricsOptions> =
     );
   }
 };
-
-async function readFileAsDataUrl(path: string): Promise<string> {
-  const file = await readFile(path);
-  const mimeType = getMimeType(path);
-  return `data:${mimeType};base64,${file.toString("base64")}`;
-}
-
-function getMimeType(path: string): string {
-  switch (extname(path).toLowerCase()) {
-    case ".png":
-      return "image/png";
-    case ".webp":
-      return "image/webp";
-    case ".gif":
-      return "image/gif";
-    case ".jpg":
-    case ".jpeg":
-    default:
-      return "image/jpeg";
-  }
-}

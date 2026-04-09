@@ -120,7 +120,8 @@ function registerIpcHandlers() {
       createdAt: job.createdAt,
       status: "queued",
       progress: 0,
-      message: "Queued"
+      message: "Queued",
+      logs: []
     };
     upsertHistory(entry);
 
@@ -168,15 +169,20 @@ function handleProgress(
   event: RenderProgressEvent
 ) {
   const current = history.get(job.id);
+  const nextLogs = event.logEntry ? [...(current?.logs ?? []), event.logEntry] : current?.logs;
+  const hasFiniteProgress = Number.isFinite(event.progress);
   const entry: RenderHistoryEntry = {
     id: job.id,
     sceneId: job.sceneId,
     outputPath: job.outputPath,
     createdAt: job.createdAt,
-    status: event.status,
-    progress: event.progress,
-    message: event.message,
-    error: event.error
+    status: hasFiniteProgress ? event.status : current?.status ?? event.status,
+    progress: hasFiniteProgress ? event.progress : current?.progress ?? 0,
+    message: event.logEntry && !hasFiniteProgress ? current?.message ?? event.message : event.message,
+    etaMs: hasFiniteProgress ? event.etaMs : current?.etaMs,
+    renderFps: hasFiniteProgress ? event.renderFps : current?.renderFps,
+    error: event.error ?? current?.error,
+    logs: nextLogs
   };
 
   upsertHistory({

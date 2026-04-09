@@ -1,5 +1,6 @@
 import {
   createLyricRuntime,
+  createLyricRuntimeCursor,
   frameToMs,
   getCueAt,
   getCueProgress,
@@ -43,5 +44,25 @@ describe("timeline helpers", () => {
     const runtime = createLyricRuntime(cues, 1600);
     expect(runtime.current?.text).toBe("Two");
     expect(runtime.next?.text).toBe("Three");
+  });
+
+  it("advances through cues with a sequential runtime cursor", () => {
+    const cursor = createLyricRuntimeCursor(cues, 0);
+
+    expect(cursor.getRuntimeAt(500).current?.text).toBe("One");
+    expect(cursor.getRuntimeAt(1100).current).toBeNull();
+    expect(cursor.getRuntimeAt(1100).next?.text).toBe("Two");
+    expect(cursor.getRuntimeAt(1600).current?.text).toBe("Two");
+    expect(cursor.getRuntimeAt(3200).current?.text).toBe("Three");
+    expect(cursor.getRuntimeAt(4500).current).toBeNull();
+    expect(cursor.getRuntimeAt(4500).next).toBeNull();
+  });
+
+  it("resets the sequential runtime cursor when time goes backwards", () => {
+    const cursor = createLyricRuntimeCursor(cues, 3200);
+
+    expect(cursor.getRuntimeAt(3200).current?.text).toBe("Three");
+    expect(cursor.getRuntimeAt(400).current?.text).toBe("One");
+    expect(cursor.getRuntimeAt(400).next?.text).toBe("Two");
   });
 });

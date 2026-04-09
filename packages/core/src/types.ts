@@ -98,6 +98,7 @@ export interface SceneDefinition<TOptions> {
   id: string;
   name: string;
   description?: string;
+  staticWhenMarkupUnchanged?: boolean;
   options: SceneOptionField[];
   defaultOptions: TOptions;
   validate?: (raw: unknown) => TOptions;
@@ -134,6 +135,14 @@ export type RenderStatus =
   | "failed"
   | "cancelled";
 
+export type RenderLogLevel = "info" | "warning" | "error";
+
+export interface RenderLogEntry {
+  timestamp: string;
+  level: RenderLogLevel;
+  message: string;
+}
+
 export interface RenderHistoryEntry {
   id: string;
   sceneId: string;
@@ -142,7 +151,10 @@ export interface RenderHistoryEntry {
   status: RenderStatus;
   progress: number;
   message: string;
+  etaMs?: number;
+  renderFps?: number;
   error?: string;
+  logs?: RenderLogEntry[];
 }
 
 export interface RenderProgressEvent {
@@ -150,8 +162,11 @@ export interface RenderProgressEvent {
   status: RenderStatus;
   progress: number;
   message: string;
+  etaMs?: number;
+  renderFps?: number;
   outputPath?: string;
   error?: string;
+  logEntry?: RenderLogEntry;
 }
 
 export interface SceneValidationContext {

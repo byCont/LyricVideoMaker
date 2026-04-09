@@ -57,8 +57,7 @@ export function createLyricRuntimeCursor(
   initialMs = 0
 ): LyricRuntimeCursor {
   let lastMs = Number.NEGATIVE_INFINITY;
-  let currentIndex = -1;
-  let nextIndex = 0;
+  let cursorIndex = 0;
 
   sync(initialMs);
 
@@ -66,10 +65,10 @@ export function createLyricRuntimeCursor(
     getRuntimeAt(ms) {
       sync(ms);
 
+      const candidateCue = cursorIndex < cues.length ? cues[cursorIndex] : null;
       const currentCue =
-        currentIndex >= 0 && ms >= cues[currentIndex].startMs && ms < cues[currentIndex].endMs
-          ? cues[currentIndex]
-          : null;
+        candidateCue && ms >= candidateCue.startMs && ms < candidateCue.endMs ? candidateCue : null;
+      const nextIndex = currentCue ? cursorIndex + 1 : cursorIndex;
       const nextCue = nextIndex < cues.length ? cues[nextIndex] : null;
 
       return {
@@ -86,53 +85,11 @@ export function createLyricRuntimeCursor(
 
   function sync(ms: number) {
     if (ms < lastMs) {
-      currentIndex = -1;
-      nextIndex = 0;
+      cursorIndex = 0;
     }
 
-    while (currentIndex >= 0 && ms < cues[currentIndex].startMs) {
-      currentIndex -= 1;
-    }
-
-    while (currentIndex + 1 < cues.length && cues[currentIndex + 1].endMs <= ms) {
-      currentIndex += 1;
-    }
-
-    if (
-      currentIndex + 1 < cues.length &&
-      ms >= cues[currentIndex + 1].startMs &&
-      ms < cues[currentIndex + 1].endMs
-    ) {
-      currentIndex += 1;
-    }
-
-    if (currentIndex >= 0 && ms >= cues[currentIndex].endMs) {
-      currentIndex += 1;
-    }
-
-    if (currentIndex >= cues.length) {
-      currentIndex = cues.length - 1;
-    }
-
-    const currentCue =
-      currentIndex >= 0 && ms >= cues[currentIndex].startMs && ms < cues[currentIndex].endMs
-        ? cues[currentIndex]
-        : null;
-
-    if (!currentCue && currentIndex >= 0 && ms >= cues[currentIndex].endMs) {
-      while (currentIndex + 1 < cues.length && cues[currentIndex + 1].endMs <= ms) {
-        currentIndex += 1;
-      }
-    }
-
-    nextIndex = currentIndex >= 0 ? currentIndex + 1 : 0;
-    while (nextIndex < cues.length && cues[nextIndex].startMs <= ms) {
-      nextIndex += 1;
-    }
-
-    if (currentIndex < 0 && cues[0] && ms >= cues[0].startMs && ms < cues[0].endMs) {
-      currentIndex = 0;
-      nextIndex = 1;
+    while (cursorIndex < cues.length && cues[cursorIndex].endMs <= ms) {
+      cursorIndex += 1;
     }
 
     lastMs = ms;

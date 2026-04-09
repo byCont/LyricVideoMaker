@@ -8,6 +8,7 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
+    "benchmark:renderer": "npm run build && node packages/renderer/tests/render-benchmark.mjs",
     "dev": "npm run dev --workspace @lyric-video-maker/desktop",
     "test": "vitest run",
     "test:watch": "vitest",

@@ -44,8 +44,7 @@ button:hover:not(:disabled) {
 
 .app-shell {
   min-height: 100vh;
-  display: grid;
-  grid-template-columns: 380px 1fr;
+  display: block;
 }
 
 .app-shell.loading {
@@ -53,51 +52,12 @@ button:hover:not(:disabled) {
   place-items: center;
 }
 
-.hero-panel {
-  padding: 3rem 2.25rem;
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
-  backdrop-filter: blur(18px);
-}
-
-.hero-panel h1 {
-  margin: 0.5rem 0 1rem;
-  font-size: 2.5rem;
-  line-height: 0.98;
-  letter-spacing: -0.05em;
-}
-
-.lede {
-  color: rgba(247, 248, 252, 0.76);
-  line-height: 1.6;
-}
-
-.hero-stats {
-  margin-top: 2rem;
-  display: grid;
-  gap: 1rem;
-}
-
-.hero-stats div {
-  padding: 1rem 1.2rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.hero-stats span,
 .eyebrow {
   display: block;
   text-transform: uppercase;
   letter-spacing: 0.2em;
   font-size: 0.72rem;
   color: rgba(247, 248, 252, 0.56);
-}
-
-.hero-stats strong {
-  display: block;
-  margin-top: 0.35rem;
-  font-size: 2rem;
 }
 
 .workspace {
@@ -271,11 +231,60 @@ button:hover:not(:disabled) {
   background: linear-gradient(90deg, #8ed0ff 0%, #6de0a5 100%);
 }
 
-@media (max-width: 1120px) {
-  .app-shell {
-    grid-template-columns: 1fr;
-  }
+.history-stats {
+  margin-top: 0.7rem;
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  color: rgba(247, 248, 252, 0.76);
+  font-size: 0.92rem;
+}
 
+.history-logs {
+  margin-top: 0.9rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  padding-top: 0.85rem;
+}
+
+.history-logs summary {
+  cursor: pointer;
+  color: rgba(247, 248, 252, 0.86);
+}
+
+.history-log-list {
+  margin-top: 0.85rem;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.history-log {
+  padding: 0.7rem 0.85rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.history-log span,
+.history-log strong {
+  margin-right: 0.6rem;
+  font-size: 0.82rem;
+}
+
+.history-log p {
+  margin: 0.45rem 0 0;
+  color: rgba(247, 248, 252, 0.78);
+  word-break: break-word;
+}
+
+.history-log-warning {
+  border-color: rgba(255, 214, 102, 0.18);
+}
+
+.history-log-error {
+  border-color: rgba(255, 124, 124, 0.22);
+}
+
+@media (max-width: 1120px) {
   .field-grid,
   .options-grid {
     grid-template-columns: 1fr;

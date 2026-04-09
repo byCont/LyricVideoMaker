@@ -28,6 +28,8 @@ describe("singleImageLyricsScene", () => {
       1500
     );
 
+    const getUrl = vi.fn(() => "file:///background.png");
+
     render(
       singleImageLyricsScene.Component({
         frame: 45,
@@ -47,14 +49,13 @@ describe("singleImageLyricsScene", () => {
         },
         lyrics,
         assets: {
-          getUrl: () => null
+          getUrl
         },
-        prepared: {
-          backgroundImageUrl: "data:image/png;base64,abc"
-        }
+        prepared: {}
       })
     );
 
     expect(screen.getByText("Second line")).toBeInTheDocument();
+    expect(getUrl).toHaveBeenCalledWith("backgroundImage");
   });
 });
