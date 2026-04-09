@@ -21,9 +21,9 @@ export default defineConfig({
       react: resolve(__dirname, "node_modules/react/index.js"),
       "react/jsx-dev-runtime": resolve(__dirname, "node_modules/react/jsx-dev-runtime.js"),
       "react/jsx-runtime": resolve(__dirname, "node_modules/react/jsx-runtime.js"),
-      "react-dom": resolve(__dirname, "node_modules/react-dom/index.js"),
       "react-dom/client": resolve(__dirname, "node_modules/react-dom/client.js"),
-      "react-dom/server": resolve(__dirname, "node_modules/react-dom/server.node.js")
+      "react-dom/server": resolve(__dirname, "node_modules/react-dom/server.node.js"),
+      "react-dom": resolve(__dirname, "node_modules/react-dom/index.js")
     }
   }
 });

@@ -2,46 +2,62 @@ import {
   DEFAULT_VIDEO_FPS,
   DEFAULT_VIDEO_HEIGHT,
   DEFAULT_VIDEO_WIDTH,
+  SCENE_FILE_VERSION,
   SUPPORTED_FONT_FAMILIES
 } from "./constants";
 import { createLyricRuntime, durationMsToFrameCount } from "./timeline";
 import type {
   CreateRenderJobInput,
   RenderJob,
+  SceneComponentDefinition,
+  SceneComponentInstance,
   SceneDefinition,
+  SceneFileData,
   SceneOptionCategory,
   SceneOptionEntry,
   SceneOptionField,
   SceneValidationContext,
-  SerializedSceneDefinition
+  SerializedSceneComponentDefinition,
+  SerializedSceneDefinition,
+  ValidatedSceneComponentInstance
 } from "./types";
 
-export function serializeSceneDefinition<TOptions>(
-  scene: SceneDefinition<TOptions>
-): SerializedSceneDefinition {
+export function serializeSceneComponentDefinition<TOptions>(
+  component: SceneComponentDefinition<TOptions>
+): SerializedSceneComponentDefinition {
   return {
-    id: scene.id,
-    name: scene.name,
-    description: scene.description,
-    options: scene.options,
-    defaultOptions: asRecord(scene.defaultOptions)
+    id: component.id,
+    name: component.name,
+    description: component.description,
+    options: component.options,
+    defaultOptions: asRecord(component.defaultOptions)
+  };
+}
+
+export function serializeSceneDefinition(scene: SceneDefinition): SerializedSceneDefinition {
+  return {
+    ...scene,
+    components: scene.components.map((component) => ({
+      ...component,
+      options: { ...component.options }
+    }))
   };
 }
 
 export function validateSceneOptions<TOptions>(
-  scene: SceneDefinition<TOptions>,
+  component: SceneComponentDefinition<TOptions>,
   rawOptions: unknown,
   context: SceneValidationContext = {}
 ): TOptions {
-  if (scene.validate) {
-    return scene.validate(rawOptions);
+  if (component.validate) {
+    return component.validate(rawOptions);
   }
 
   const source =
     rawOptions && typeof rawOptions === "object" ? (rawOptions as Record<string, unknown>) : {};
-  const merged = { ...asRecord(scene.defaultOptions) };
+  const merged = { ...asRecord(component.defaultOptions) };
 
-  for (const field of getSceneOptionFields(scene.options)) {
+  for (const field of getSceneOptionFields(component.options)) {
     const rawValue = source[field.id];
     merged[field.id] = validateField(field, rawValue, merged[field.id], context);
   }
@@ -49,22 +65,55 @@ export function validateSceneOptions<TOptions>(
   return merged as TOptions;
 }
 
-export function createRenderJob<TOptions>({
+export function validateSceneComponents(
+  scene: SerializedSceneDefinition,
+  componentDefinitions: SceneComponentDefinition<Record<string, unknown>>[],
+  context: SceneValidationContext = {}
+): ValidatedSceneComponentInstance[] {
+  const componentLookup = new Map(componentDefinitions.map((component) => [component.id, component]));
+  const seenInstanceIds = new Set<string>();
+
+  return scene.components.map((instance, index) => {
+    if (!instance.id.trim()) {
+      throw new Error(`Scene component at index ${index} is missing an instance id.`);
+    }
+
+    if (seenInstanceIds.has(instance.id)) {
+      throw new Error(`Scene component instance id "${instance.id}" is duplicated.`);
+    }
+    seenInstanceIds.add(instance.id);
+
+    const definition = componentLookup.get(instance.componentId);
+    if (!definition) {
+      throw new Error(`Unknown scene component "${instance.componentId}".`);
+    }
+
+    return {
+      id: instance.id,
+      componentId: instance.componentId,
+      componentName: definition.name,
+      enabled: instance.enabled !== false,
+      options: asRecord(validateSceneOptions(definition, instance.options, context))
+    } satisfies ValidatedSceneComponentInstance;
+  });
+}
+
+export function createRenderJob({
   audioPath,
   subtitlePath,
   outputPath,
   scene,
-  rawOptions,
+  componentDefinitions,
   cues,
   durationMs,
   createdAt = new Date(),
   video,
   validationContext
-}: CreateRenderJobInput<TOptions>): RenderJob {
+}: CreateRenderJobInput): RenderJob {
   const fps = video?.fps ?? DEFAULT_VIDEO_FPS;
   const width = video?.width ?? DEFAULT_VIDEO_WIDTH;
   const height = video?.height ?? DEFAULT_VIDEO_HEIGHT;
-  const validatedOptions = validateSceneOptions(scene, rawOptions, validationContext);
+  const validatedComponents = validateSceneComponents(scene, componentDefinitions, validationContext);
 
   return {
     id: `job-${createdAt.getTime()}`,
@@ -72,7 +121,8 @@ export function createRenderJob<TOptions>({
     subtitlePath,
     outputPath,
     sceneId: scene.id,
-    options: asRecord(validatedOptions),
+    sceneName: scene.name,
+    components: validatedComponents,
     lyrics: cues,
     createdAt: createdAt.toISOString(),
     video: {
@@ -99,6 +149,62 @@ export function getSceneOptionFields(options: SceneOptionEntry[]): SceneOptionFi
 
 export function isSceneOptionCategory(option: SceneOptionEntry): option is SceneOptionCategory {
   return option.type === "category";
+}
+
+export function createSceneFileData(scene: SerializedSceneDefinition): SceneFileData {
+  return {
+    version: SCENE_FILE_VERSION,
+    scene: serializeSceneDefinition(scene)
+  };
+}
+
+export function parseSceneFileData(raw: unknown): SerializedSceneDefinition {
+  if (!raw || typeof raw !== "object") {
+    throw new Error("Scene file is not a valid object.");
+  }
+
+  const candidate = raw as Partial<SceneFileData>;
+  if (candidate.version !== SCENE_FILE_VERSION) {
+    throw new Error(`Unsupported scene file version "${String(candidate.version)}".`);
+  }
+
+  const scene = candidate.scene;
+  if (!scene || typeof scene !== "object") {
+    throw new Error("Scene file does not contain a valid scene payload.");
+  }
+
+  const sceneRecord = scene as Partial<SerializedSceneDefinition>;
+  if (!sceneRecord.id || !sceneRecord.name || !Array.isArray(sceneRecord.components)) {
+    throw new Error("Scene payload is missing required fields.");
+  }
+
+  return {
+    id: String(sceneRecord.id),
+    name: String(sceneRecord.name),
+    description: sceneRecord.description ? String(sceneRecord.description) : undefined,
+    source: sceneRecord.source === "built-in" ? "built-in" : "user",
+    readOnly: sceneRecord.readOnly === true,
+    filePath: sceneRecord.filePath ? String(sceneRecord.filePath) : undefined,
+    components: sceneRecord.components.map(parseSceneComponentInstance)
+  };
+}
+
+function parseSceneComponentInstance(raw: unknown): SceneComponentInstance {
+  if (!raw || typeof raw !== "object") {
+    throw new Error("Scene component entry is invalid.");
+  }
+
+  const candidate = raw as Partial<SceneComponentInstance>;
+  if (!candidate.id || !candidate.componentId) {
+    throw new Error("Scene component entry is missing required fields.");
+  }
+
+  return {
+    id: String(candidate.id),
+    componentId: String(candidate.componentId),
+    enabled: candidate.enabled !== false,
+    options: asRecord(candidate.options)
+  };
 }
 
 function validateField(

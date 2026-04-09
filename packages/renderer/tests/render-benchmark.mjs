@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { performance } from "node:perf_hooks";
 import { createRenderJob, parseSrt } from "../../core/dist/index.js";
-import { singleImageLyricsScene } from "../../scene-registry/dist/index.js";
+import { builtInSceneComponents, singleImageLyricsScene } from "../../scene-registry/dist/index.js";
 import { probeAudioDurationMs, renderLyricVideo } from "../dist/index.js";
 
 process.env.LYRIC_VIDEO_RENDER_DEBUG = "1";
@@ -53,24 +53,47 @@ World`,
     audioPath,
     subtitlePath,
     outputPath,
-    scene: singleImageLyricsScene,
-    rawOptions: {
-      backgroundImage: imagePath,
-      lyricSize: 72,
-      lyricFont: "Montserrat",
-      lyricColor: "#ffffff"
-    },
+    componentDefinitions: builtInSceneComponents,
     cues: parseSrt(await readFile(subtitlePath, "utf8")),
     durationMs,
     validationContext: {
       isFileAccessible: () => true
+    },
+    scene: {
+      ...singleImageLyricsScene,
+      components: [
+        {
+          id: "background-image-1",
+          componentId: "background-image",
+          enabled: true,
+          options: {
+            imagePath
+          }
+        },
+        {
+          id: "background-color-1",
+          componentId: "background-color",
+          enabled: false,
+          options: {}
+        },
+        {
+          id: "lyrics-by-line-1",
+          componentId: "lyrics-by-line",
+          enabled: true,
+          options: {
+            lyricSize: 72,
+            lyricFont: "Montserrat",
+            lyricColor: "#ffffff"
+          }
+        }
+      ]
     }
   });
 
   const startMs = performance.now();
   await renderLyricVideo({
     job,
-    scene: singleImageLyricsScene
+    componentDefinitions: builtInSceneComponents
   });
   const elapsedMs = performance.now() - startMs;
 

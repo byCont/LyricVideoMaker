@@ -6,15 +6,25 @@ import {
   SUPPORTED_FONT_FAMILIES,
   createRenderJob,
   parseSrt,
+  serializeSceneComponentDefinition,
   serializeSceneDefinition,
   type RenderHistoryEntry,
-  type RenderProgressEvent
+  type RenderProgressEvent,
+  type SerializedSceneDefinition
 } from "@lyric-video-maker/core";
 import { renderLyricVideo, probeAudioDurationMs } from "@lyric-video-maker/renderer";
-import { builtInScenes, getSceneDefinition } from "@lyric-video-maker/scene-registry";
+import { builtInSceneComponents, builtInScenes } from "@lyric-video-maker/scene-registry";
 import type { StartRenderRequest, FilePickKind } from "../src/electron-api";
+import {
+  deleteUserScene,
+  exportSceneToFile,
+  importUserScene,
+  loadUserScenes,
+  saveUserScene
+} from "./scene-library";
 
 let mainWindow: BrowserWindow | null = null;
+let userScenes: SerializedSceneDefinition[] = [];
 
 const history = new Map<string, RenderHistoryEntry>();
 const abortControllers = new Map<string, AbortController>();
@@ -42,7 +52,8 @@ function createMainWindow() {
   }
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  userScenes = await loadUserScenes(app.getPath("userData"));
   registerIpcHandlers();
   createMainWindow();
 
@@ -61,7 +72,11 @@ app.on("window-all-closed", () => {
 
 function registerIpcHandlers() {
   ipcMain.handle("app:get-bootstrap-data", () => ({
-    scenes: builtInScenes.map((scene) => serializeSceneDefinition(scene)),
+    scenes: [
+      ...builtInScenes.map((scene) => serializeSceneDefinition(scene)),
+      ...userScenes.map((scene) => serializeSceneDefinition(scene))
+    ],
+    components: builtInSceneComponents.map((component) => serializeSceneComponentDefinition(component)),
     fonts: [...SUPPORTED_FONT_FAMILIES],
     history: getHistory()
   }));
@@ -88,12 +103,47 @@ function registerIpcHandlers() {
     }
   );
 
-  ipcMain.handle("render:start", async (_event, request: StartRenderRequest) => {
-    const scene = getSceneDefinition(request.sceneId);
-    if (!scene) {
-      throw new Error(`Unknown scene "${request.sceneId}".`);
+  ipcMain.handle("scene:save", async (_event, scene: SerializedSceneDefinition) => {
+    const saved = await saveUserScene(app.getPath("userData"), scene);
+    userScenes = upsertUserScene(userScenes, saved);
+    return saved;
+  });
+
+  ipcMain.handle("scene:delete", async (_event, sceneId: string) => {
+    await deleteUserScene(app.getPath("userData"), sceneId);
+    userScenes = userScenes.filter((scene) => scene.id !== sceneId);
+  });
+
+  ipcMain.handle("scene:import", async () => {
+    const result = await dialog.showOpenDialog(mainWindow!, {
+      properties: ["openFile"],
+      filters: [{ name: "Scene JSON", extensions: ["json"] }]
+    });
+
+    if (result.canceled || !result.filePaths[0]) {
+      return null;
     }
 
+    const imported = await importUserScene(app.getPath("userData"), result.filePaths[0]);
+    userScenes = upsertUserScene(userScenes, imported);
+    return imported;
+  });
+
+  ipcMain.handle("scene:export", async (_event, scene: SerializedSceneDefinition) => {
+    const result = await dialog.showSaveDialog(mainWindow!, {
+      defaultPath: `${scene.name || "scene"}.json`,
+      filters: [{ name: "Scene JSON", extensions: ["json"] }]
+    });
+
+    if (result.canceled || !result.filePath) {
+      return null;
+    }
+
+    await exportSceneToFile(scene, result.filePath);
+    return result.filePath;
+  });
+
+  ipcMain.handle("render:start", async (_event, request: StartRenderRequest) => {
     const subtitleSource = await readFile(request.subtitlePath, "utf8");
     const cues = parseSrt(subtitleSource);
     const durationMs = await probeAudioDurationMs(request.audioPath);
@@ -101,8 +151,8 @@ function registerIpcHandlers() {
       audioPath: request.audioPath,
       subtitlePath: request.subtitlePath,
       outputPath: request.outputPath,
-      scene,
-      rawOptions: request.options,
+      scene: request.scene,
+      componentDefinitions: builtInSceneComponents,
       cues,
       durationMs,
       video: request.video,
@@ -117,6 +167,7 @@ function registerIpcHandlers() {
     const entry: RenderHistoryEntry = {
       id: job.id,
       sceneId: job.sceneId,
+      sceneName: job.sceneName,
       outputPath: job.outputPath,
       createdAt: job.createdAt,
       status: "queued",
@@ -126,7 +177,7 @@ function registerIpcHandlers() {
     };
     upsertHistory(entry);
 
-    void runRenderJob(job, scene, controller);
+    void runRenderJob(job, controller);
 
     return entry;
   });
@@ -138,13 +189,12 @@ function registerIpcHandlers() {
 
 async function runRenderJob(
   job: ReturnType<typeof createRenderJob>,
-  scene: NonNullable<ReturnType<typeof getSceneDefinition>>,
   controller: AbortController
 ) {
   try {
     await renderLyricVideo({
       job,
-      scene,
+      componentDefinitions: builtInSceneComponents,
       signal: controller.signal,
       onProgress: (event) => handleProgress(job, event)
     });
@@ -175,6 +225,7 @@ function handleProgress(
   const entry: RenderHistoryEntry = {
     id: job.id,
     sceneId: job.sceneId,
+    sceneName: job.sceneName,
     outputPath: job.outputPath,
     createdAt: job.createdAt,
     status: hasFiniteProgress ? event.status : current?.status ?? event.status,
@@ -213,4 +264,12 @@ function getFileFilters(kind: FilePickKind) {
     default:
       return [];
   }
+}
+
+function upsertUserScene(
+  scenes: SerializedSceneDefinition[],
+  nextScene: SerializedSceneDefinition
+) {
+  const remaining = scenes.filter((scene) => scene.id !== nextScene.id);
+  return [...remaining, nextScene].sort((left, right) => left.name.localeCompare(right.name));
 }

@@ -2,23 +2,25 @@ import { readFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { performance } from "node:perf_hooks";
 import { chromium, type CDPSession, type Page, type Route } from "playwright";
-import type { ReactElement } from "react";
+import { createElement, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   createLyricRuntime,
   createLyricRuntimeCursor,
+  type PreparedSceneStackData,
   type RenderJob,
   type RenderLogEntry,
   type RenderLogLevel,
   type RenderProgressEvent,
   type RenderStatus,
   type SceneAssetAccessor,
-  type SceneDefinition
+  type SceneComponentDefinition,
+  type ValidatedSceneComponentInstance
 } from "@lyric-video-maker/core";
 
 export interface RenderLyricVideoInput {
   job: RenderJob;
-  scene: SceneDefinition<Record<string, unknown>>;
+  componentDefinitions: SceneComponentDefinition<Record<string, unknown>>[];
   signal?: AbortSignal;
   onProgress?: (event: RenderProgressEvent) => void;
 }
@@ -41,13 +43,14 @@ interface ProgressEmitter {
   emit(event: RenderProgressEvent): void;
 }
 
-interface RenderLogger {
+export interface RenderLogger {
   info(message: string): void;
   warn(message: string): void;
   error(message: string): void;
 }
 
-interface PreloadedAsset {
+export interface PreloadedAsset {
+  instanceId: string;
   optionId: string;
   path: string;
   url: string;
@@ -79,22 +82,24 @@ export async function probeAudioDurationMs(audioPath: string): Promise<number> {
 
 export async function renderLyricVideo({
   job,
-  scene,
+  componentDefinitions,
   signal,
   onProgress
 }: RenderLyricVideoInput): Promise<string> {
   const progress = createProgressEmitter(onProgress);
   const logger = createRenderLogger(job.id, progress);
   const profiler = createRenderProfiler();
-  const preloadedAssets = await preloadSceneAssets(scene, job.options, job.video, logger, signal);
-  const assets = createAssetAccessor(job.options, preloadedAssets);
+  const componentLookup = new Map(componentDefinitions.map((component) => [component.id, component]));
+  const enabledComponents = job.components.filter((component) => component.enabled);
+  const preloadedAssets = await preloadSceneAssets(enabledComponents, componentLookup, job.video, logger, signal);
+  const assets = createAssetAccessor(enabledComponents, preloadedAssets);
   let muxerFinished = false;
 
   progress.emit({
     jobId: job.id,
     status: "preparing",
     progress: 0,
-    message: "Preparing scene assets"
+    message: "Preparing scene components"
   });
 
   logger.info(
@@ -112,15 +117,13 @@ export async function renderLyricVideo({
     const initialLyrics = createLyricRuntime(job.lyrics, 0);
     const prepared =
       (await measureAsync(profiler, "prepare", async () => {
-        return (
-          (await scene.prepare?.({
-            options: job.options,
-            video: job.video,
-            lyrics: initialLyrics,
-            assets,
-            signal
-          })) ?? {}
-        );
+        return await prepareSceneComponents(enabledComponents, componentLookup, {
+          video: job.video,
+          lyrics: initialLyrics,
+          assets,
+          signal,
+          logger
+        });
       })) ?? {};
 
     browser = await chromium.launch({
@@ -151,6 +154,10 @@ export async function renderLyricVideo({
     let lastProgressEmitMs = renderStartMs - PROGRESS_INTERVAL_MS;
     let previousMarkup: string | null = null;
     let previousFrameImage: Buffer | null = null;
+    const stackStaticWhenMarkupUnchanged = areAllComponentsStaticWhenMarkupUnchanged(
+      enabledComponents,
+      componentLookup
+    );
 
     for (let frame = 0; frame < job.video.durationInFrames; frame += 1) {
       throwIfAborted(signal);
@@ -158,17 +165,16 @@ export async function renderLyricVideo({
       const timeMs = Math.min(job.video.durationMs, Math.round((frame / job.video.fps) * 1000));
       const lyrics = lyricRuntimeCursor.getRuntimeAt(timeMs);
       const markup = measureSync(profiler, "markup", () =>
-        renderFrameMarkup(
-          scene.Component({
-            options: job.options,
-            frame,
-            timeMs,
-            video: job.video,
-            lyrics,
-            assets,
-            prepared
-          })
-        )
+        buildCompositeFrameMarkup({
+          job,
+          componentLookup,
+          components: enabledComponents,
+          frame,
+          timeMs,
+          lyrics,
+          assets,
+          prepared
+        })
       );
       const markupChanged = markup !== previousMarkup;
 
@@ -185,7 +191,7 @@ export async function renderLyricVideo({
       }
 
       const frameImage: Buffer =
-        scene.staticWhenMarkupUnchanged && !markupChanged && previousFrameImage
+        stackStaticWhenMarkupUnchanged && !markupChanged && previousFrameImage
           ? previousFrameImage
           : await measureAsync(profiler, "screenshot", async () => {
               return await captureFrameBuffer(cdpSession!);
@@ -289,6 +295,80 @@ export async function renderLyricVideo({
 
     logRenderProfile(profiler, job, logger);
   }
+}
+
+export function buildCompositeFrameMarkup({
+  job,
+  componentLookup,
+  components,
+  frame,
+  timeMs,
+  lyrics,
+  assets,
+  prepared
+}: {
+  job: RenderJob;
+  componentLookup: Map<string, SceneComponentDefinition<Record<string, unknown>>>;
+  components: ValidatedSceneComponentInstance[];
+  frame: number;
+  timeMs: number;
+  lyrics: ReturnType<typeof createLyricRuntime>;
+  assets: Pick<SceneAssetAccessor, "getUrl">;
+  prepared: PreparedSceneStackData;
+}): string {
+  const layerElements = components.map((instance) => {
+    const definition = componentLookup.get(instance.componentId);
+    if (!definition) {
+      throw new Error(`Scene component definition "${instance.componentId}" is not registered.`);
+    }
+
+    const renderedLayer = definition.Component({
+      instance,
+      options: instance.options,
+      frame,
+      timeMs,
+      video: job.video,
+      lyrics,
+      assets,
+      prepared: prepared[instance.id] ?? {}
+    });
+
+    if (!renderedLayer) {
+      return null;
+    }
+
+    return createElement(
+      "div",
+      {
+        key: instance.id,
+        "data-scene-component-id": instance.componentId,
+        style: {
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          overflow: "hidden"
+        }
+      },
+      renderedLayer
+    );
+  });
+
+  return renderFrameMarkup(
+    createElement(
+      "div",
+      {
+        style: {
+          position: "relative",
+          width: job.video.width,
+          height: job.video.height,
+          overflow: "hidden",
+          background: "#09090f"
+        }
+      },
+      layerElements
+    )
+  );
 }
 
 function renderFrameMarkup(markup: ReactElement): string {
@@ -396,42 +476,94 @@ async function updatePageMarkup(
   }, markup);
 }
 
-async function preloadSceneAssets(
-  scene: SceneDefinition<Record<string, unknown>>,
-  options: Record<string, unknown>,
+async function prepareSceneComponents(
+  components: ValidatedSceneComponentInstance[],
+  componentLookup: Map<string, SceneComponentDefinition<Record<string, unknown>>>,
+  context: {
+    video: RenderJob["video"];
+    lyrics: ReturnType<typeof createLyricRuntime>;
+    assets: SceneAssetAccessor;
+    signal?: AbortSignal;
+    logger: RenderLogger;
+  }
+): Promise<PreparedSceneStackData> {
+  const prepared: PreparedSceneStackData = {};
+
+  for (const instance of components) {
+    const definition = componentLookup.get(instance.componentId);
+    if (!definition) {
+      throw new Error(`Scene component definition "${instance.componentId}" is not registered.`);
+    }
+
+    prepared[instance.id] =
+      (await definition.prepare?.({
+        instance,
+        options: instance.options,
+        video: context.video,
+        lyrics: context.lyrics,
+        assets: context.assets,
+        signal: context.signal
+      })) ?? {};
+
+    context.logger.info(`Prepared component "${instance.componentName}" (${instance.id}).`);
+  }
+
+  return prepared;
+}
+
+export async function preloadSceneAssets(
+  components: ValidatedSceneComponentInstance[],
+  componentLookup: Map<string, SceneComponentDefinition<Record<string, unknown>>>,
   video: RenderJob["video"],
   logger: RenderLogger,
   signal?: AbortSignal
 ): Promise<Map<string, PreloadedAsset>> {
   const assets = new Map<string, PreloadedAsset>();
 
-  for (const field of scene.options) {
-    if (field.type !== "image") {
-      continue;
+  for (const instance of components) {
+    const definition = componentLookup.get(instance.componentId);
+    if (!definition) {
+      throw new Error(`Scene component definition "${instance.componentId}" is not registered.`);
     }
 
-    const optionValue = options[field.id];
-    if (typeof optionValue !== "string" || !optionValue) {
-      continue;
+    for (const field of definition.options) {
+      if (field.type !== "image") {
+        continue;
+      }
+
+      const optionValue = instance.options[field.id];
+      if (typeof optionValue !== "string" || !optionValue) {
+        continue;
+      }
+
+      const normalizedBody = await normalizeImageAsset(optionValue, video, signal, logger);
+      const originalBody = normalizedBody ? null : await readFile(optionValue);
+      const asset = {
+        instanceId: instance.id,
+        optionId: field.id,
+        path: optionValue,
+        url: `${ASSET_URL_PREFIX}${encodeURIComponent(instance.id)}-${encodeURIComponent(field.id)}${getExtensionSuffix(optionValue)}`,
+        contentType: normalizedBody ? "image/png" : getMimeType(optionValue),
+        body: normalizedBody ?? originalBody!
+      } satisfies PreloadedAsset;
+
+      assets.set(getAssetKey(instance.id, field.id), asset);
+      logger.info(
+        `Preloaded image asset "${instance.id}/${field.id}" from ${optionValue}${normalizedBody ? " (normalized)" : ""}`
+      );
     }
-
-    const normalizedBody = await normalizeImageAsset(optionValue, video, signal, logger);
-    const originalBody = normalizedBody ? null : await readFile(optionValue);
-    const asset = {
-      optionId: field.id,
-      path: optionValue,
-      url: `${ASSET_URL_PREFIX}${encodeURIComponent(field.id)}${getExtensionSuffix(optionValue)}`,
-      contentType: normalizedBody ? "image/png" : getMimeType(optionValue),
-      body: normalizedBody ?? originalBody!
-    } satisfies PreloadedAsset;
-
-    assets.set(field.id, asset);
-    logger.info(
-      `Preloaded image asset "${field.id}" from ${optionValue}${normalizedBody ? " (normalized)" : ""}`
-    );
   }
 
   return assets;
+}
+
+export function areAllComponentsStaticWhenMarkupUnchanged(
+  components: ValidatedSceneComponentInstance[],
+  componentLookup: Map<string, SceneComponentDefinition<Record<string, unknown>>>
+) {
+  return components.every(
+    (instance) => componentLookup.get(instance.componentId)?.staticWhenMarkupUnchanged === true
+  );
 }
 
 async function registerAssetRoutes(
@@ -475,18 +607,29 @@ async function fulfillAssetRoute(
 }
 
 function createAssetAccessor(
-  options: Record<string, unknown>,
+  components: ValidatedSceneComponentInstance[],
   preloadedAssets: Map<string, PreloadedAsset>
 ): SceneAssetAccessor {
+  const componentLookup = new Map(components.map((component) => [component.id, component]));
+
   return {
-    getPath(optionId) {
-      const value = options[optionId];
+    getPath(instanceId, optionId) {
+      const instance = componentLookup.get(instanceId);
+      if (!instance) {
+        return null;
+      }
+
+      const value = instance.options[optionId];
       return typeof value === "string" ? value : null;
     },
-    getUrl(optionId) {
-      return preloadedAssets.get(optionId)?.url ?? null;
+    getUrl(instanceId, optionId) {
+      return preloadedAssets.get(getAssetKey(instanceId, optionId))?.url ?? null;
     }
   };
+}
+
+function getAssetKey(instanceId: string, optionId: string) {
+  return `${instanceId}:${optionId}`;
 }
 
 async function captureFrameBuffer(cdpSession: CDPSession): Promise<Buffer> {

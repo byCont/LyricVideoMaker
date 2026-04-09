@@ -1,24 +1,27 @@
 import React from "react";
-import type { SceneDefinition } from "@lyric-video-maker/core";
+import type { SceneComponentDefinition, SceneDefinition } from "@lyric-video-maker/core";
 import { SUPPORTED_FONT_FAMILIES } from "@lyric-video-maker/core";
 
 type LyricFadeEasing = "linear" | "ease-in" | "ease-out" | "ease-in-out";
 type LyricVerticalPosition = "top" | "middle" | "bottom";
 
-export interface SingleImageLyricsOptions {
-  backgroundImage: string;
-  backgroundEnabled: boolean;
-  backgroundTopColor: string;
-  backgroundTopOpacity: number;
-  backgroundBottomColor: string;
-  backgroundBottomOpacity: number;
+export interface BackgroundImageOptions {
+  imagePath: string;
+}
+
+export interface BackgroundColorOptions {
+  topColor: string;
+  topOpacity: number;
+  bottomColor: string;
+  bottomOpacity: number;
+}
+
+export interface LyricsByLineOptions {
   lyricSize: number;
   lyricFont: string;
   lyricColor: string;
-  fadeInEnabled: boolean;
   fadeInDurationMs: number;
   fadeInEasing: LyricFadeEasing;
-  fadeOutEnabled: boolean;
   fadeOutDurationMs: number;
   fadeOutEasing: LyricFadeEasing;
   lyricPosition: LyricVerticalPosition;
@@ -30,34 +33,64 @@ export interface SingleImageLyricsOptions {
   shadowIntensity: number;
 }
 
-export const singleImageLyricsScene: SceneDefinition<SingleImageLyricsOptions> = {
-  id: "single-image-lyrics",
-  name: "Single Image Lyrics",
-  description: "A full-song lyric video with one background image and stylable lyric placement.",
-  staticWhenMarkupUnchanged: false,
+export const backgroundImageComponent: SceneComponentDefinition<BackgroundImageOptions> = {
+  id: "background-image",
+  name: "Background Image",
+  description: "Covers the frame with one full-song image.",
+  staticWhenMarkupUnchanged: true,
+  options: [{ type: "image", id: "imagePath", label: "Background Image", required: true }],
+  defaultOptions: {
+    imagePath: ""
+  },
+  Component: ({ instance, assets }) => {
+    const imageUrl = assets.getUrl(instance.id, "imagePath");
+    if (!imageUrl) {
+      return null;
+    }
+
+    return (
+      <img
+        src={imageUrl}
+        alt=""
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          transform: "scale(1.03)"
+        }}
+      />
+    );
+  }
+};
+
+export const backgroundColorComponent: SceneComponentDefinition<BackgroundColorOptions> = {
+  id: "background-color",
+  name: "Background Color",
+  description: "Adds a gradient color wash over the full frame.",
+  staticWhenMarkupUnchanged: true,
   options: [
-    { type: "image", id: "backgroundImage", label: "Background Image", required: true },
     {
       type: "category",
       id: "background",
       label: "Background",
       defaultExpanded: false,
       options: [
-        { type: "boolean", id: "backgroundEnabled", label: "Enable Background", defaultValue: false },
-        { type: "color", id: "backgroundTopColor", label: "Color Top", defaultValue: "#09090f" },
+        { type: "color", id: "topColor", label: "Color Top", defaultValue: "#09090f" },
         {
           type: "number",
-          id: "backgroundTopOpacity",
+          id: "topOpacity",
           label: "Color Top Opacity",
           defaultValue: 60,
           min: 0,
           max: 100,
           step: 1
         },
-        { type: "color", id: "backgroundBottomColor", label: "Color Bottom", defaultValue: "#09090f" },
+        { type: "color", id: "bottomColor", label: "Color Bottom", defaultValue: "#09090f" },
         {
           type: "number",
-          id: "backgroundBottomOpacity",
+          id: "bottomOpacity",
           label: "Color Bottom Opacity",
           defaultValue: 60,
           min: 0,
@@ -65,7 +98,34 @@ export const singleImageLyricsScene: SceneDefinition<SingleImageLyricsOptions> =
           step: 1
         }
       ]
-    },
+    }
+  ],
+  defaultOptions: {
+    topColor: "#09090f",
+    topOpacity: 60,
+    bottomColor: "#09090f",
+    bottomOpacity: 60
+  },
+  Component: ({ options }) => (
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        background: `linear-gradient(180deg, ${withAlpha(options.topColor, options.topOpacity / 100)} 0%, ${withAlpha(
+          options.bottomColor,
+          options.bottomOpacity / 100
+        )} 100%)`
+      }}
+    />
+  )
+};
+
+export const lyricsByLineComponent: SceneComponentDefinition<LyricsByLineOptions> = {
+  id: "lyrics-by-line",
+  name: "Lyrics by Line",
+  description: "Shows the current subtitle line with timing-aware fades and typography.",
+  staticWhenMarkupUnchanged: false,
+  options: [
     {
       type: "category",
       id: "lyrics",
@@ -93,7 +153,6 @@ export const singleImageLyricsScene: SceneDefinition<SingleImageLyricsOptions> =
       label: "Fade In",
       defaultExpanded: false,
       options: [
-        { type: "boolean", id: "fadeInEnabled", label: "Enable Fade In", defaultValue: true },
         {
           type: "number",
           id: "fadeInDurationMs",
@@ -123,7 +182,6 @@ export const singleImageLyricsScene: SceneDefinition<SingleImageLyricsOptions> =
       label: "Fade Out",
       defaultExpanded: false,
       options: [
-        { type: "boolean", id: "fadeOutEnabled", label: "Enable Fade Out", defaultValue: true },
         {
           type: "number",
           id: "fadeOutDurationMs",
@@ -187,19 +245,11 @@ export const singleImageLyricsScene: SceneDefinition<SingleImageLyricsOptions> =
     }
   ],
   defaultOptions: {
-    backgroundImage: "",
-    backgroundEnabled: false,
-    backgroundTopColor: "#09090f",
-    backgroundTopOpacity: 60,
-    backgroundBottomColor: "#09090f",
-    backgroundBottomOpacity: 60,
     lyricSize: 72,
     lyricFont: SUPPORTED_FONT_FAMILIES[0],
     lyricColor: "#FFFFFF",
-    fadeInEnabled: true,
     fadeInDurationMs: 180,
     fadeInEasing: "ease-out",
-    fadeOutEnabled: true,
     fadeOutDurationMs: 180,
     fadeOutEasing: "ease-in",
     lyricPosition: "bottom",
@@ -210,10 +260,9 @@ export const singleImageLyricsScene: SceneDefinition<SingleImageLyricsOptions> =
     shadowColor: "#000000",
     shadowIntensity: 55
   },
-  Component: ({ options, lyrics, assets, video, timeMs }) => {
+  Component: ({ options, lyrics, timeMs }) => {
     const activeCue = lyrics.current;
     const activeText = activeCue?.text ?? "";
-    const backgroundImageUrl = assets.getUrl("backgroundImage");
     const lyricOpacity = activeCue
       ? getLyricOpacity(activeCue.startMs, activeCue.endMs, timeMs, options)
       : 0;
@@ -226,80 +275,74 @@ export const singleImageLyricsScene: SceneDefinition<SingleImageLyricsOptions> =
       options.borderEnabled && options.borderThickness > 0
         ? `${options.borderThickness}px ${options.borderColor}`
         : undefined;
-    const backgroundOverlay =
-      options.backgroundEnabled
-        ? `linear-gradient(180deg, ${withAlpha(options.backgroundTopColor, options.backgroundTopOpacity / 100)} 0%, ${withAlpha(
-            options.backgroundBottomColor,
-            options.backgroundBottomOpacity / 100
-          )} 100%)`
-        : null;
 
     return (
       <div
         style={{
-          position: "relative",
-          width: video.width,
-          height: video.height,
-          overflow: "hidden",
-          background: "#09090f",
+          position: "absolute",
+          inset: 0,
+          display: "flex",
+          alignItems: lyricBlockStyles.alignItems,
+          justifyContent: "center",
+          padding: lyricBlockStyles.padding,
+          boxSizing: "border-box",
           color: options.lyricColor,
           fontFamily: `"${options.lyricFont}", sans-serif`
         }}
       >
-        {backgroundImageUrl ? (
-          <img
-            src={backgroundImageUrl}
-            alt=""
-            style={{
-              position: "absolute",
-              inset: 0,
-              width: "100%",
-              height: "100%",
-              objectFit: "cover",
-              transform: "scale(1.03)"
-            }}
-          />
-        ) : null}
-        {backgroundOverlay ? (
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              background: backgroundOverlay
-            }}
-          />
-        ) : null}
         <div
           style={{
-            position: "absolute",
-            inset: 0,
-            display: "flex",
-            alignItems: lyricBlockStyles.alignItems,
-            justifyContent: "center",
-            padding: lyricBlockStyles.padding,
-            boxSizing: "border-box"
+            maxWidth: "100%",
+            textAlign: "center",
+            fontSize: options.lyricSize,
+            fontWeight: 700,
+            lineHeight: 1.15,
+            letterSpacing: "-0.03em",
+            textShadow: letterShadow,
+            whiteSpace: "pre-wrap",
+            opacity: lyricOpacity,
+            WebkitTextStroke: letterStroke
           }}
         >
-          <div
-            style={{
-              maxWidth: "100%",
-              textAlign: "center",
-              fontSize: options.lyricSize,
-              fontWeight: 700,
-              lineHeight: 1.15,
-              letterSpacing: "-0.03em",
-              textShadow: letterShadow,
-              whiteSpace: "pre-wrap",
-              opacity: lyricOpacity,
-              WebkitTextStroke: letterStroke
-            }}
-          >
-            {activeText}
-          </div>
+          {activeText}
         </div>
       </div>
     );
   }
+};
+
+export const builtInSceneComponents: SceneComponentDefinition<Record<string, unknown>>[] = [
+  backgroundImageComponent as unknown as SceneComponentDefinition<Record<string, unknown>>,
+  backgroundColorComponent as unknown as SceneComponentDefinition<Record<string, unknown>>,
+  lyricsByLineComponent as unknown as SceneComponentDefinition<Record<string, unknown>>
+];
+
+export const singleImageLyricsScene: SceneDefinition = {
+  id: "single-image-lyrics",
+  name: "Single Image Lyrics",
+  description: "A full-song lyric video with one background image, optional color wash, and stylable lyric placement.",
+  source: "built-in",
+  readOnly: true,
+  components: [
+    {
+      id: "background-image-1",
+      componentId: "background-image",
+      enabled: true,
+      options: {}
+    },
+    {
+      id: "background-color-1",
+      componentId: "background-color",
+      enabled: false,
+      options: {}
+    },
+    {
+      id: "lyrics-by-line-1",
+      componentId: "lyrics-by-line",
+      enabled: true,
+      options: {}
+    }
+  ]
 };
 
 function getLyricBlockStyles(position: LyricVerticalPosition) {
@@ -328,21 +371,12 @@ function getLyricOpacity(
   cueEndMs: number,
   timeMs: number,
   options: Pick<
-    SingleImageLyricsOptions,
-    | "fadeInEnabled"
-    | "fadeInDurationMs"
-    | "fadeInEasing"
-    | "fadeOutEnabled"
-    | "fadeOutDurationMs"
-    | "fadeOutEasing"
+    LyricsByLineOptions,
+    "fadeInDurationMs" | "fadeInEasing" | "fadeOutDurationMs" | "fadeOutEasing"
   >
 ) {
-  const fadeInOpacity = options.fadeInEnabled
-    ? getFadeInOpacity(cueStartMs, timeMs, options.fadeInDurationMs, options.fadeInEasing)
-    : 1;
-  const fadeOutOpacity = options.fadeOutEnabled
-    ? getFadeOutOpacity(cueEndMs, timeMs, options.fadeOutDurationMs, options.fadeOutEasing)
-    : 1;
+  const fadeInOpacity = getFadeInOpacity(cueStartMs, timeMs, options.fadeInDurationMs, options.fadeInEasing);
+  const fadeOutOpacity = getFadeOutOpacity(cueEndMs, timeMs, options.fadeOutDurationMs, options.fadeOutEasing);
   return Math.max(0, Math.min(1, Math.min(fadeInOpacity, fadeOutOpacity)));
 }
 

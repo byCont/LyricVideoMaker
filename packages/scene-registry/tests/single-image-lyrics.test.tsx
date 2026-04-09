@@ -4,55 +4,33 @@
 
 import { render, screen } from "@testing-library/react";
 import { createLyricRuntime } from "@lyric-video-maker/core";
-import { singleImageLyricsScene } from "../src/single-image-lyrics";
+import {
+  backgroundColorComponent,
+  backgroundImageComponent,
+  lyricsByLineComponent,
+  singleImageLyricsScene
+} from "../src/single-image-lyrics";
 
-describe("singleImageLyricsScene", () => {
-  it("renders the current lyric for a given timestamp", () => {
-    const lyrics = createLyricRuntime(
-      [
-        {
-          index: 1,
-          startMs: 0,
-          endMs: 1000,
-          text: "First line",
-          lines: ["First line"]
-        },
-        {
-          index: 2,
-          startMs: 1200,
-          endMs: 2000,
-          text: "Second line",
-          lines: ["Second line"]
-        }
-      ],
-      1500
-    );
-
+describe("scene registry components", () => {
+  it("renders the background image component with the instance-scoped asset url", () => {
     const getUrl = vi.fn(() => "file:///background.png");
 
     render(
-      singleImageLyricsScene.Component({
-        frame: 45,
-        timeMs: 1500,
-        options: {
-          backgroundImage: "cover.png",
-          lyricSize: 64,
-          lyricFont: "Montserrat",
-          lyricColor: "#ffffff",
-          fadeInEnabled: true,
-          fadeInDurationMs: 180,
-          fadeInEasing: "ease-out",
-          fadeOutEnabled: true,
-          fadeOutDurationMs: 180,
-          fadeOutEasing: "ease-in",
-          lyricPosition: "bottom",
-          borderEnabled: false,
-          borderColor: "#000000",
-          borderThickness: 4,
-          shadowEnabled: true,
-          shadowColor: "#000000",
-          shadowIntensity: 55
+      backgroundImageComponent.Component({
+        instance: {
+          id: "bg-1",
+          componentId: "background-image",
+          componentName: "Background Image",
+          enabled: true,
+          options: {
+            imagePath: "cover.png"
+          }
         },
+        options: {
+          imagePath: "cover.png"
+        },
+        frame: 0,
+        timeMs: 0,
         video: {
           width: 1920,
           height: 1080,
@@ -60,7 +38,7 @@ describe("singleImageLyricsScene", () => {
           durationMs: 2000,
           durationInFrames: 60
         },
-        lyrics,
+        lyrics: createLyricRuntime([], 0),
         assets: {
           getUrl
         },
@@ -68,11 +46,52 @@ describe("singleImageLyricsScene", () => {
       })
     );
 
-    expect(screen.getByText("Second line")).toBeInTheDocument();
-    expect(getUrl).toHaveBeenCalledWith("backgroundImage");
+    expect(document.querySelector("img")).toHaveAttribute("src", "file:///background.png");
+    expect(getUrl).toHaveBeenCalledWith("bg-1", "imagePath");
   });
 
-  it("applies fade timing, position, border, and shadow options to the lyric text", () => {
+  it("renders the background color gradient component", () => {
+    render(
+      backgroundColorComponent.Component({
+        instance: {
+          id: "color-1",
+          componentId: "background-color",
+          componentName: "Background Color",
+          enabled: true,
+          options: {}
+        },
+        options: {
+          topColor: "#000000",
+          topOpacity: 50,
+          bottomColor: "#ffffff",
+          bottomOpacity: 75
+        },
+        frame: 0,
+        timeMs: 0,
+        video: {
+          width: 1920,
+          height: 1080,
+          fps: 30,
+          durationMs: 2000,
+          durationInFrames: 60
+        },
+        lyrics: createLyricRuntime([], 0),
+        assets: {
+          getUrl: vi.fn()
+        },
+        prepared: {}
+      })
+    );
+
+    const gradient = document.querySelector('[style*="linear-gradient"]');
+    expect(gradient).toHaveStyle({
+      position: "absolute",
+      inset: "0"
+    });
+    expect((gradient as HTMLElement).style.background).toContain("linear-gradient");
+  });
+
+  it("renders the lyrics component with fade timing, position, border, and shadow", () => {
     const lyrics = createLyricRuntime(
       [
         {
@@ -87,18 +106,20 @@ describe("singleImageLyricsScene", () => {
     );
 
     render(
-      singleImageLyricsScene.Component({
-        frame: 31,
-        timeMs: 1050,
+      lyricsByLineComponent.Component({
+        instance: {
+          id: "lyrics-1",
+          componentId: "lyrics-by-line",
+          componentName: "Lyrics by Line",
+          enabled: true,
+          options: {}
+        },
         options: {
-          backgroundImage: "cover.png",
           lyricSize: 80,
           lyricFont: "Montserrat",
           lyricColor: "#ffffff",
-          fadeInEnabled: true,
           fadeInDurationMs: 200,
           fadeInEasing: "linear",
-          fadeOutEnabled: false,
           fadeOutDurationMs: 400,
           fadeOutEasing: "ease-in",
           lyricPosition: "top",
@@ -109,6 +130,8 @@ describe("singleImageLyricsScene", () => {
           shadowColor: "#ff0000",
           shadowIntensity: 60
         },
+        frame: 31,
+        timeMs: 1050,
         video: {
           width: 1920,
           height: 1080,
@@ -118,7 +141,7 @@ describe("singleImageLyricsScene", () => {
         },
         lyrics,
         assets: {
-          getUrl: vi.fn(() => "file:///background.png")
+          getUrl: vi.fn()
         },
         prepared: {}
       })
@@ -138,5 +161,28 @@ describe("singleImageLyricsScene", () => {
       alignItems: "flex-start",
       padding: "110px 140px 0"
     });
+  });
+
+  it("defines the preset scene as stacked components in the expected order", () => {
+    expect(singleImageLyricsScene.components).toEqual([
+      {
+        id: "background-image-1",
+        componentId: "background-image",
+        enabled: true,
+        options: {}
+      },
+      {
+        id: "background-color-1",
+        componentId: "background-color",
+        enabled: false,
+        options: {}
+      },
+      {
+        id: "lyrics-by-line-1",
+        componentId: "lyrics-by-line",
+        enabled: true,
+        options: {}
+      }
+    ]);
   });
 });

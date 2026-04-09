@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createRenderJob, parseSrt } from "../../core/dist/index.js";
-import { singleImageLyricsScene } from "../../scene-registry/dist/index.js";
+import { builtInSceneComponents, singleImageLyricsScene } from "../../scene-registry/dist/index.js";
 import { probeAudioDurationMs, renderLyricVideo } from "../dist/index.js";
 
 const workspace = await mkdtemp(join(tmpdir(), "lyric-video-smoke-"));
@@ -50,23 +50,46 @@ World`,
     audioPath,
     subtitlePath,
     outputPath,
-    scene: singleImageLyricsScene,
-    rawOptions: {
-      backgroundImage: imagePath,
-      lyricSize: 72,
-      lyricFont: "Montserrat",
-      lyricColor: "#ffffff"
-    },
+    componentDefinitions: builtInSceneComponents,
     cues: parseSrt(await readFile(subtitlePath, "utf8")),
     durationMs,
     validationContext: {
       isFileAccessible: () => true
+    },
+    scene: {
+      ...singleImageLyricsScene,
+      components: [
+        {
+          id: "background-image-1",
+          componentId: "background-image",
+          enabled: true,
+          options: {
+            imagePath
+          }
+        },
+        {
+          id: "background-color-1",
+          componentId: "background-color",
+          enabled: false,
+          options: {}
+        },
+        {
+          id: "lyrics-by-line-1",
+          componentId: "lyrics-by-line",
+          enabled: true,
+          options: {
+            lyricSize: 72,
+            lyricFont: "Montserrat",
+            lyricColor: "#ffffff"
+          }
+        }
+      ]
     }
   });
 
   await renderLyricVideo({
     job,
-    scene: singleImageLyricsScene
+    componentDefinitions: builtInSceneComponents
   });
 
   await access(outputPath);

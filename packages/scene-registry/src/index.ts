@@ -1,12 +1,28 @@
-import type { SceneDefinition } from "@lyric-video-maker/core";
-import { singleImageLyricsScene } from "./single-image-lyrics";
+import type { SceneComponentDefinition, SceneDefinition } from "@lyric-video-maker/core";
+import {
+  backgroundColorComponent,
+  backgroundImageComponent,
+  builtInSceneComponents,
+  lyricsByLineComponent,
+  singleImageLyricsScene
+} from "./single-image-lyrics";
 
-export { singleImageLyricsScene };
+export {
+  backgroundColorComponent,
+  backgroundImageComponent,
+  builtInSceneComponents,
+  lyricsByLineComponent,
+  singleImageLyricsScene
+};
 
-export const builtInScenes: SceneDefinition<Record<string, unknown>>[] = [
-  singleImageLyricsScene as unknown as SceneDefinition<Record<string, unknown>>
-];
+export const builtInScenes: SceneDefinition[] = [singleImageLyricsScene];
 
-export function getSceneDefinition(sceneId: string): SceneDefinition<Record<string, unknown>> | undefined {
+export function getSceneDefinition(sceneId: string): SceneDefinition | undefined {
   return builtInScenes.find((scene) => scene.id === sceneId);
+}
+
+export function getSceneComponentDefinition(
+  componentId: string
+): SceneComponentDefinition<Record<string, unknown>> | undefined {
+  return builtInSceneComponents.find((component) => component.id === componentId);
 }

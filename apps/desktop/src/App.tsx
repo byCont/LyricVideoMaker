@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type {
-  VideoSettings,
   RenderHistoryEntry,
   RenderProgressEvent,
+  SceneComponentInstance,
   SceneOptionCategory,
-  SceneOptionEntry,
   SceneOptionField,
-  SerializedSceneDefinition
+  SerializedSceneComponentDefinition,
+  SerializedSceneDefinition,
+  VideoSettings
 } from "@lyric-video-maker/core";
 import {
   DEFAULT_VIDEO_FPS,
@@ -20,8 +21,7 @@ interface ComposerState {
   audioPath: string;
   subtitlePath: string;
   outputPath: string;
-  sceneId: string;
-  options: Record<string, unknown>;
+  scene: SerializedSceneDefinition | null;
   video: Pick<VideoSettings, "width" | "height" | "fps">;
 }
 
@@ -29,8 +29,7 @@ const emptyState: ComposerState = {
   audioPath: "",
   subtitlePath: "",
   outputPath: "",
-  sceneId: "",
-  options: {},
+  scene: null,
   video: {
     width: DEFAULT_VIDEO_WIDTH,
     height: DEFAULT_VIDEO_HEIGHT,
@@ -42,9 +41,10 @@ export function App() {
   const [bootstrap, setBootstrap] = useState<AppBootstrapData | null>(null);
   const [composer, setComposer] = useState<ComposerState>(emptyState);
   const [history, setHistory] = useState<RenderHistoryEntry[]>([]);
-  const [error, setError] = useState<string>("");
+  const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
+  const [componentToAddId, setComponentToAddId] = useState("");
 
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
@@ -53,13 +53,11 @@ export function App() {
       setBootstrap(data);
       setHistory(data.history);
 
-      const initialScene = data.scenes[0];
-      if (initialScene) {
-        setComposer((current) => ({
-          ...current,
-          sceneId: initialScene.id,
-          options: structuredClone(initialScene.defaultOptions)
-        }));
+      if (data.scenes[0]) {
+        setComposer((current) => ({ ...current, scene: cloneScene(data.scenes[0]) }));
+      }
+      if (data.components[0]) {
+        setComponentToAddId(data.components[0].id);
       }
     });
 
@@ -68,24 +66,18 @@ export function App() {
       setIsSubmitting(false);
     });
 
-    return () => {
-      unsubscribe?.();
-    };
+    return () => unsubscribe?.();
   }, []);
 
-  const selectedScene = useMemo(
-    () => bootstrap?.scenes.find((scene) => scene.id === composer.sceneId) ?? null,
-    [bootstrap?.scenes, composer.sceneId]
+  const scenes = bootstrap?.scenes ?? [];
+  const components = bootstrap?.components ?? [];
+  const selectedScene = composer.scene;
+  const componentCatalog = useMemo(
+    () => new Map(components.map((component) => [component.id, component])),
+    [components]
   );
-  const topLevelOptions = useMemo(
-    () => selectedScene?.options.filter((option): option is SceneOptionField => !isSceneOptionCategory(option)) ?? [],
-    [selectedScene]
-  );
-  const categorizedOptions = useMemo(
-    () => selectedScene?.options.filter(isSceneOptionCategory) ?? [],
-    [selectedScene]
-  );
-
+  const builtInScenes = useMemo(() => scenes.filter((scene) => scene.source === "built-in"), [scenes]);
+  const userScenes = useMemo(() => scenes.filter((scene) => scene.source === "user"), [scenes]);
   const hasActiveRender = history.some((entry) =>
     ["queued", "preparing", "rendering", "muxing"].includes(entry.status)
   );
@@ -96,31 +88,41 @@ export function App() {
     }
 
     setExpandedCategories((current) => {
-      const nextState = { ...current };
+      const next = { ...current };
 
-      for (const option of selectedScene.options) {
-        if (isSceneOptionCategory(option)) {
-          const categoryKey = getCategoryStateKey(selectedScene.id, option.id);
-          if (nextState[categoryKey] === undefined) {
-            nextState[categoryKey] = option.defaultExpanded ?? true;
+      for (const instance of selectedScene.components) {
+        const component = componentCatalog.get(instance.componentId);
+        if (!component) {
+          continue;
+        }
+
+        for (const option of component.options) {
+          if (isSceneOptionCategory(option)) {
+            const key = getCategoryStateKey(instance.id, option.id);
+            if (next[key] === undefined) {
+              next[key] = option.defaultExpanded ?? true;
+            }
           }
         }
       }
 
-      return nextState;
+      return next;
     });
-  }, [selectedScene]);
+  }, [componentCatalog, selectedScene]);
 
   if (!bootstrap || !selectedScene) {
     return <div className="app-shell loading">Loading composer...</div>;
   }
 
-  async function handlePickPath(kind: "audio" | "subtitle" | "image" | "output", optionId?: string) {
+  async function handlePickPath(
+    kind: "audio" | "subtitle" | "image" | "output",
+    instanceId?: string,
+    optionId?: string
+  ) {
     const suggestedName =
       kind === "output" && composer.audioPath
         ? `${stripExtension(getFileName(composer.audioPath))}.mp4`
         : undefined;
-
     const result = await window.lyricVideoApp.pickPath(kind, suggestedName);
     if (!result) {
       return;
@@ -132,24 +134,19 @@ export function App() {
       setComposer((current) => ({ ...current, audioPath: result }));
       return;
     }
-
     if (kind === "subtitle") {
       setComposer((current) => ({ ...current, subtitlePath: result }));
       return;
     }
-
     if (kind === "output") {
       setComposer((current) => ({ ...current, outputPath: result }));
       return;
     }
 
-    if (optionId) {
-      setComposer((current) => ({
+    if (instanceId && optionId) {
+      updateSceneComponent(instanceId, (current) => ({
         ...current,
-        options: {
-          ...current.options,
-          [optionId]: result
-        }
+        options: { ...current.options, [optionId]: result }
       }));
     }
   }
@@ -157,6 +154,11 @@ export function App() {
   async function handleSubmit() {
     if (!composer.audioPath || !composer.subtitlePath || !composer.outputPath) {
       setError("Audio, subtitles, and output path are required.");
+      return;
+    }
+
+    if (!composer.scene) {
+      setError("Select or create a scene before rendering.");
       return;
     }
 
@@ -168,11 +170,9 @@ export function App() {
         audioPath: composer.audioPath,
         subtitlePath: composer.subtitlePath,
         outputPath: composer.outputPath,
-        sceneId: composer.sceneId,
-        options: composer.options,
+        scene: composer.scene,
         video: composer.video
       });
-
       setHistory((current) => upsertHistory(current, entry));
     } catch (submissionError) {
       setError(submissionError instanceof Error ? submissionError.message : String(submissionError));
@@ -181,19 +181,152 @@ export function App() {
   }
 
   function handleSceneChange(sceneId: string) {
-    if (!bootstrap) {
+    const nextScene = scenes.find((scene) => scene.id === sceneId);
+    if (!nextScene) {
       return;
     }
 
-    const nextScene = bootstrap.scenes.find((scene) => scene.id === sceneId);
-    if (!nextScene) {
+    setComposer((current) => ({ ...current, scene: cloneScene(nextScene) }));
+  }
+
+  async function handleSaveScene() {
+    if (!composer.scene) {
+      return;
+    }
+
+    const saved = await window.lyricVideoApp.saveScene(composer.scene);
+    setBootstrap((current) =>
+      current ? { ...current, scenes: upsertScene(current.scenes, saved) } : current
+    );
+    setComposer((current) => ({ ...current, scene: cloneScene(saved) }));
+  }
+
+  async function handleDeleteScene() {
+    if (!composer.scene || composer.scene.source !== "user") {
+      return;
+    }
+
+    await window.lyricVideoApp.deleteScene(composer.scene.id);
+    const nextScenes = scenes.filter((scene) => scene.id !== composer.scene?.id);
+    setBootstrap((current) => (current ? { ...current, scenes: nextScenes } : current));
+    setComposer((current) => ({
+      ...current,
+      scene: nextScenes[0] ? cloneScene(nextScenes[0]) : null
+    }));
+  }
+
+  async function handleImportScene() {
+    const imported = await window.lyricVideoApp.importScene();
+    if (!imported) {
+      return;
+    }
+
+    setBootstrap((current) =>
+      current ? { ...current, scenes: upsertScene(current.scenes, imported) } : current
+    );
+    setComposer((current) => ({ ...current, scene: cloneScene(imported) }));
+  }
+
+  async function handleExportScene() {
+    if (composer.scene) {
+      await window.lyricVideoApp.exportScene(composer.scene);
+    }
+  }
+
+  function handleAddComponent() {
+    if (!composer.scene || !componentToAddId) {
+      return;
+    }
+
+    const component = componentCatalog.get(componentToAddId);
+    if (!component) {
       return;
     }
 
     setComposer((current) => ({
       ...current,
-      sceneId,
-      options: structuredClone(nextScene.defaultOptions)
+      scene: current.scene
+        ? {
+            ...current.scene,
+            components: [...current.scene.components, createSceneComponentInstance(component)]
+          }
+        : current.scene
+    }));
+  }
+
+  function updateSceneComponent(
+    instanceId: string,
+    updater: (component: SceneComponentInstance) => SceneComponentInstance
+  ) {
+    setComposer((current) => ({
+      ...current,
+      scene: current.scene
+        ? {
+            ...current.scene,
+            components: current.scene.components.map((component) =>
+              component.id === instanceId ? updater(component) : component
+            )
+          }
+        : current.scene
+    }));
+  }
+
+  function moveSceneComponent(instanceId: string, direction: -1 | 1) {
+    setComposer((current) => {
+      if (!current.scene) {
+        return current;
+      }
+
+      const index = current.scene.components.findIndex((component) => component.id === instanceId);
+      const nextIndex = index + direction;
+      if (index < 0 || nextIndex < 0 || nextIndex >= current.scene.components.length) {
+        return current;
+      }
+
+      const nextComponents = [...current.scene.components];
+      const [component] = nextComponents.splice(index, 1);
+      nextComponents.splice(nextIndex, 0, component);
+
+      return {
+        ...current,
+        scene: { ...current.scene, components: nextComponents }
+      };
+    });
+  }
+
+  function duplicateSceneComponent(instanceId: string) {
+    if (!selectedScene) {
+      return;
+    }
+
+    const component = selectedScene.components.find((entry) => entry.id === instanceId);
+    if (!component) {
+      return;
+    }
+
+    setComposer((current) => ({
+      ...current,
+      scene: current.scene
+        ? {
+            ...current.scene,
+            components: [
+              ...current.scene.components,
+              { ...cloneComponent(component), id: createInstanceId(component.componentId) }
+            ]
+          }
+        : current.scene
+    }));
+  }
+
+  function removeSceneComponent(instanceId: string) {
+    setComposer((current) => ({
+      ...current,
+      scene: current.scene
+        ? {
+            ...current.scene,
+            components: current.scene.components.filter((component) => component.id !== instanceId)
+          }
+        : current.scene
     }));
   }
 
@@ -212,24 +345,9 @@ export function App() {
           </div>
 
           <div className="field-grid">
-            <FileField
-              label="Song audio"
-              value={composer.audioPath}
-              buttonLabel="Pick MP3"
-              onPick={() => handlePickPath("audio")}
-            />
-            <FileField
-              label="Lyric subtitles"
-              value={composer.subtitlePath}
-              buttonLabel="Pick SRT"
-              onPick={() => handlePickPath("subtitle")}
-            />
-            <FileField
-              label="Output MP4"
-              value={composer.outputPath}
-              buttonLabel="Save As"
-              onPick={() => handlePickPath("output")}
-            />
+            <FileField label="Song audio" value={composer.audioPath} buttonLabel="Pick MP3" onPick={() => handlePickPath("audio")} />
+            <FileField label="Lyric subtitles" value={composer.subtitlePath} buttonLabel="Pick SRT" onPick={() => handlePickPath("subtitle")} />
+            <FileField label="Output MP4" value={composer.outputPath} buttonLabel="Save As" onPick={() => handlePickPath("output")} />
           </div>
         </section>
 
@@ -242,51 +360,9 @@ export function App() {
           </div>
 
           <div className="video-param-grid">
-            <NumberField
-              label="Width"
-              value={composer.video.width}
-              min={16}
-              step={1}
-              onChange={(value) =>
-                setComposer((current) => ({
-                  ...current,
-                  video: {
-                    ...current.video,
-                    width: value
-                  }
-                }))
-              }
-            />
-            <NumberField
-              label="Height"
-              value={composer.video.height}
-              min={16}
-              step={1}
-              onChange={(value) =>
-                setComposer((current) => ({
-                  ...current,
-                  video: {
-                    ...current.video,
-                    height: value
-                  }
-                }))
-              }
-            />
-            <NumberField
-              label="Frame rate"
-              value={composer.video.fps}
-              min={1}
-              step={1}
-              onChange={(value) =>
-                setComposer((current) => ({
-                  ...current,
-                  video: {
-                    ...current.video,
-                    fps: value
-                  }
-                }))
-              }
-            />
+            <NumberField label="Width" value={composer.video.width} min={16} step={1} onChange={(value) => setComposer((current) => ({ ...current, video: { ...current.video, width: value } }))} />
+            <NumberField label="Height" value={composer.video.height} min={16} step={1} onChange={(value) => setComposer((current) => ({ ...current, video: { ...current.video, height: value } }))} />
+            <NumberField label="Frame rate" value={composer.video.fps} min={1} step={1} onChange={(value) => setComposer((current) => ({ ...current, video: { ...current.video, fps: value } }))} />
           </div>
 
           <p className="video-param-hint">
@@ -297,89 +373,137 @@ export function App() {
         <section className="panel">
           <div className="panel-header">
             <div>
-              <p className="eyebrow">Scene</p>
-              <h2>Built-in scenes</h2>
+              <p className="eyebrow">Scene Library</p>
+              <h2>Scene stacks</h2>
+            </div>
+            <div className="button-row">
+              <button className="secondary" onClick={handleImportScene}>Import JSON</button>
+              <button className="secondary" onClick={handleExportScene}>Export JSON</button>
+              <button className="secondary" onClick={handleSaveScene}>
+                {selectedScene.source === "user" ? "Save Scene" : "Save as User Scene"}
+              </button>
+              {selectedScene.source === "user" ? (
+                <button className="secondary danger" onClick={handleDeleteScene}>Delete Scene</button>
+              ) : null}
             </div>
           </div>
 
+          <div className="scene-library-grid">
+            <label className="field">
+              <span>Scene preset</span>
+              <select value={selectedScene.id} onChange={(event) => handleSceneChange(event.target.value)}>
+                <optgroup label="Built-in">
+                  {builtInScenes.map((scene) => <option key={scene.id} value={scene.id}>{scene.name}</option>)}
+                </optgroup>
+                {userScenes.length > 0 ? (
+                  <optgroup label="User Scenes">
+                    {userScenes.map((scene) => <option key={scene.id} value={scene.id}>{scene.name}</option>)}
+                  </optgroup>
+                ) : null}
+              </select>
+            </label>
+
+            <label className="field">
+              <span>Scene name</span>
+              <input value={selectedScene.name} onChange={(event) => setComposer((current) => ({ ...current, scene: current.scene ? { ...current.scene, name: event.target.value } : current.scene }))} />
+            </label>
+          </div>
+
           <label className="field">
-            <span>Scene preset</span>
-            <select value={composer.sceneId} onChange={(event) => handleSceneChange(event.target.value)}>
-              {bootstrap.scenes.map((scene) => (
-                <option key={scene.id} value={scene.id}>
-                  {scene.name}
-                </option>
-              ))}
-            </select>
+            <span>Description</span>
+            <textarea value={selectedScene.description ?? ""} onChange={(event) => setComposer((current) => ({ ...current, scene: current.scene ? { ...current.scene, description: event.target.value } : current.scene }))} />
           </label>
 
-          <p className="scene-description">{selectedScene.description}</p>
+          <p className="scene-description">
+            {selectedScene.source === "built-in"
+              ? "Built-in template. Editing is local until you save a user-owned copy."
+              : "User scene stored locally and reusable across renders."}
+          </p>
 
-          <div className="scene-options">
-            {topLevelOptions.length > 0 ? (
-              <div className="option-list top-level-options">
-                {topLevelOptions.map((field) => (
-                  <OptionField
-                    key={field.id}
-                    field={field}
-                    sceneId={selectedScene.id}
-                    fonts={bootstrap.fonts}
-                    value={composer.options[field.id]}
-                    onChange={(value) =>
-                      setComposer((current) => ({
-                        ...current,
-                        options: {
-                          ...current.options,
-                          [field.id]: value
-                        }
-                      }))
-                    }
-                    onPickImage={() => handlePickPath("image", field.id)}
-                  />
-                ))}
-              </div>
-            ) : null}
+          <div className="component-toolbar">
+            <label className="field">
+              <span>Add component</span>
+              <select value={componentToAddId} onChange={(event) => setComponentToAddId(event.target.value)}>
+                {components.map((component) => <option key={component.id} value={component.id}>{component.name}</option>)}
+              </select>
+            </label>
+            <button className="primary" onClick={handleAddComponent}>Add to stack</button>
+          </div>
 
-            {categorizedOptions.map((category) => (
-              <OptionCategorySection
-                key={category.id}
-                category={category}
-                isExpanded={
-                  expandedCategories[getCategoryStateKey(selectedScene.id, category.id)] ??
-                  category.defaultExpanded ??
-                  true
+          <div className="component-stack">
+            {selectedScene.components.length === 0 ? (
+              <div className="history-empty">No components in this scene.</div>
+            ) : (
+              selectedScene.components.map((instance, index) => {
+                const component = componentCatalog.get(instance.componentId);
+                if (!component) {
+                  return null;
                 }
-                onToggle={() =>
-                  setExpandedCategories((current) => ({
-                    ...current,
-                    [getCategoryStateKey(selectedScene.id, category.id)]:
-                      !(current[getCategoryStateKey(selectedScene.id, category.id)] ??
-                        category.defaultExpanded ??
-                        true)
-                  }))
-                }
-              >
-                {category.options.map((field) => (
-                  <OptionField
-                    key={field.id}
-                    field={field}
-                    sceneId={selectedScene.id}
-                    fonts={bootstrap.fonts}
-                    value={composer.options[field.id]}
-                    onChange={(value) =>
-                      setComposer((current) => ({
-                        ...current,
-                        options: {
-                          ...current.options,
-                          [field.id]: value
-                        }
-                      }))
-                    }
-                    onPickImage={() => handlePickPath("image", field.id)}
-                  />
-                ))}
-              </OptionCategorySection>
-            ))}
+
+                const topLevelOptions = component.options.filter(
+                  (option): option is SceneOptionField => !isSceneOptionCategory(option)
+                );
+                const categorizedOptions = component.options.filter(isSceneOptionCategory);
+
+                return (
+                  <section key={instance.id} className="component-card">
+                    <div className="component-card-header">
+                      <div>
+                        <p className="eyebrow">Layer {index + 1}</p>
+                        <h3>{component.name}</h3>
+                        {component.description ? <p className="scene-description">{component.description}</p> : null}
+                      </div>
+                      <div className="button-row">
+                        <button className="secondary" onClick={() => updateSceneComponent(instance.id, (current) => ({ ...current, enabled: !current.enabled }))}>
+                          {instance.enabled ? "Disable" : "Enable"}
+                        </button>
+                        <button className="secondary" onClick={() => moveSceneComponent(instance.id, -1)}>Move Up</button>
+                        <button className="secondary" onClick={() => moveSceneComponent(instance.id, 1)}>Move Down</button>
+                        <button className="secondary" onClick={() => duplicateSceneComponent(instance.id)}>Duplicate</button>
+                        <button className="secondary danger" onClick={() => removeSceneComponent(instance.id)}>Remove</button>
+                      </div>
+                    </div>
+
+                    {topLevelOptions.length > 0 ? (
+                      <div className="option-list top-level-options">
+                        {topLevelOptions.map((field) => (
+                          <OptionField
+                            key={field.id}
+                            field={field}
+                            inputPrefix={instance.id}
+                            value={instance.options[field.id]}
+                            fonts={bootstrap.fonts}
+                            onChange={(value) => updateSceneComponent(instance.id, (current) => ({ ...current, options: { ...current.options, [field.id]: value } }))}
+                            onPickImage={() => handlePickPath("image", instance.id, field.id)}
+                          />
+                        ))}
+                      </div>
+                    ) : null}
+
+                    {categorizedOptions.map((category) => (
+                      <OptionCategorySection
+                        key={category.id}
+                        category={category}
+                        isExpanded={expandedCategories[getCategoryStateKey(instance.id, category.id)] ?? category.defaultExpanded ?? true}
+                        onToggle={() => setExpandedCategories((current) => ({ ...current, [getCategoryStateKey(instance.id, category.id)]: !(current[getCategoryStateKey(instance.id, category.id)] ?? category.defaultExpanded ?? true) }))}
+                      >
+                        {category.options.map((field) => (
+                          <OptionField
+                            key={field.id}
+                            field={field}
+                            inputPrefix={instance.id}
+                            value={instance.options[field.id]}
+                            fonts={bootstrap.fonts}
+                            onChange={(value) => updateSceneComponent(instance.id, (current) => ({ ...current, options: { ...current.options, [field.id]: value } }))}
+                            onPickImage={() => handlePickPath("image", instance.id, field.id)}
+                          />
+                        ))}
+                      </OptionCategorySection>
+                    ))}
+                  </section>
+                );
+              })
+            )}
           </div>
         </section>
 
@@ -407,7 +531,7 @@ export function App() {
                   <li key={entry.id} className="history-item">
                     <div className="history-meta">
                       <div>
-                        <strong>{entry.sceneId}</strong>
+                        <strong>{entry.sceneName}</strong>
                         <p>{getFileName(entry.outputPath)}</p>
                       </div>
                       <span className={`status status-${entry.status}`}>{entry.status}</span>
@@ -424,11 +548,7 @@ export function App() {
                     ) : null}
                     <div className="history-footer">
                       <span>{new Date(entry.createdAt).toLocaleString()}</span>
-                      {active ? (
-                        <button className="secondary danger" onClick={() => window.lyricVideoApp.cancelRender(entry.id)}>
-                          Cancel
-                        </button>
-                      ) : null}
+                      {active ? <button className="secondary danger" onClick={() => window.lyricVideoApp.cancelRender(entry.id)}>Cancel</button> : null}
                     </div>
                     {entry.error ? <p className="history-error">{entry.error}</p> : null}
                     {entry.logs && entry.logs.length > 0 ? (
@@ -465,7 +585,7 @@ function OptionCategorySection({
   category: SceneOptionCategory;
   isExpanded: boolean;
   onToggle: () => void;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <section className="option-category">
@@ -496,14 +616,7 @@ function NumberField({
   return (
     <label className="field">
       <span>{label}</span>
-      <input
-        type="number"
-        min={min}
-        max={max}
-        step={step ?? 1}
-        value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
-      />
+      <input type="number" min={min} max={max} step={step ?? 1} value={value} onChange={(event) => onChange(Number(event.target.value))} />
     </label>
   );
 }
@@ -523,72 +636,51 @@ function FileField({
     <div className="field file-field">
       <span>{label}</span>
       <div className="file-pill">{value || "Not selected"}</div>
-      <button className="secondary" onClick={onPick}>
-        {buttonLabel}
-      </button>
+      <button className="secondary" onClick={onPick}>{buttonLabel}</button>
     </div>
   );
 }
 
 function OptionField({
   field,
-  sceneId,
+  inputPrefix,
   value,
   fonts,
   onChange,
   onPickImage
 }: {
   field: SceneOptionField;
-  sceneId: string;
+  inputPrefix: string;
   value: unknown;
   fonts: string[];
   onChange: (value: unknown) => void;
   onPickImage: () => void;
 }) {
-  const inputId = `${sceneId}-${field.id}`;
+  const inputId = `${inputPrefix}-${field.id}`;
 
   switch (field.type) {
     case "boolean":
       return (
         <div className="option-row">
-          <label className="option-label" htmlFor={inputId}>
-            {field.label}
-          </label>
+          <label className="option-label" htmlFor={inputId}>{field.label}</label>
           <div className="option-input checkbox-input">
-            <input
-              id={inputId}
-              type="checkbox"
-              checked={Boolean(value ?? field.defaultValue ?? false)}
-              onChange={(event) => onChange(event.target.checked)}
-            />
+            <input id={inputId} type="checkbox" checked={Boolean(value ?? field.defaultValue ?? false)} onChange={(event) => onChange(event.target.checked)} />
           </div>
         </div>
       );
     case "number":
       return (
         <div className="option-row">
-          <label className="option-label" htmlFor={inputId}>
-            {field.label}
-          </label>
+          <label className="option-label" htmlFor={inputId}>{field.label}</label>
           <div className="option-input">
-            <input
-              id={inputId}
-              type="number"
-              min={field.min}
-              max={field.max}
-              step={field.step ?? 1}
-              value={typeof value === "number" ? value : field.defaultValue ?? 0}
-              onChange={(event) => onChange(Number(event.target.value))}
-            />
+            <input id={inputId} type="number" min={field.min} max={field.max} step={field.step ?? 1} value={typeof value === "number" ? value : field.defaultValue ?? 0} onChange={(event) => onChange(Number(event.target.value))} />
           </div>
         </div>
       );
     case "text":
       return (
         <div className="option-row option-row-multiline">
-          <label className="option-label" htmlFor={inputId}>
-            {field.label}
-          </label>
+          <label className="option-label" htmlFor={inputId}>{field.label}</label>
           <div className="option-input">
             {field.multiline ? (
               <textarea id={inputId} value={String(value ?? field.defaultValue ?? "")} onChange={(event) => onChange(event.target.value)} />
@@ -601,32 +693,19 @@ function OptionField({
     case "color":
       return (
         <div className="option-row">
-          <label className="option-label" htmlFor={inputId}>
-            {field.label}
-          </label>
+          <label className="option-label" htmlFor={inputId}>{field.label}</label>
           <div className="option-input">
-            <input
-              id={inputId}
-              type="color"
-              value={String(value ?? field.defaultValue ?? "#ffffff")}
-              onChange={(event) => onChange(event.target.value)}
-            />
+            <input id={inputId} type="color" value={String(value ?? field.defaultValue ?? "#ffffff")} onChange={(event) => onChange(event.target.value)} />
           </div>
         </div>
       );
     case "font":
       return (
         <div className="option-row">
-          <label className="option-label" htmlFor={inputId}>
-            {field.label}
-          </label>
+          <label className="option-label" htmlFor={inputId}>{field.label}</label>
           <div className="option-input">
             <select id={inputId} value={String(value ?? field.defaultValue ?? fonts[0])} onChange={(event) => onChange(event.target.value)}>
-              {fonts.map((font) => (
-                <option key={font} value={font}>
-                  {font}
-                </option>
-              ))}
+              {fonts.map((font) => <option key={font} value={font}>{font}</option>)}
             </select>
           </div>
         </div>
@@ -637,25 +716,17 @@ function OptionField({
           <div className="option-label">{field.label}</div>
           <div className="option-input file-picker-input">
             <div className="file-pill">{String(value ?? "") || "Not selected"}</div>
-            <button className="secondary" onClick={onPickImage}>
-              Pick image
-            </button>
+            <button className="secondary" onClick={onPickImage}>Pick image</button>
           </div>
         </div>
       );
     case "select":
       return (
         <div className="option-row">
-          <label className="option-label" htmlFor={inputId}>
-            {field.label}
-          </label>
+          <label className="option-label" htmlFor={inputId}>{field.label}</label>
           <div className="option-input">
             <select id={inputId} value={String(value ?? field.defaultValue ?? "")} onChange={(event) => onChange(event.target.value)}>
-              {field.options.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
+              {field.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
           </div>
         </div>
@@ -665,10 +736,7 @@ function OptionField({
   }
 }
 
-function upsertHistory(
-  history: RenderHistoryEntry[],
-  event: RenderProgressEvent | RenderHistoryEntry
-): RenderHistoryEntry[] {
+function upsertHistory(history: RenderHistoryEntry[], event: RenderProgressEvent | RenderHistoryEntry) {
   const currentEntry =
     "sceneId" in event ? history.find((entry) => entry.id === event.id) : history.find((entry) => entry.id === event.jobId);
   const nextEntry: RenderHistoryEntry =
@@ -677,14 +745,12 @@ function upsertHistory(
       : {
           id: event.jobId,
           sceneId: currentEntry?.sceneId ?? "unknown-scene",
+          sceneName: currentEntry?.sceneName ?? "Unknown Scene",
           outputPath: event.outputPath ?? currentEntry?.outputPath ?? "",
           createdAt: currentEntry?.createdAt ?? new Date().toISOString(),
           status: Number.isFinite(event.progress) ? event.status : currentEntry?.status ?? event.status,
           progress: Number.isFinite(event.progress) ? event.progress : currentEntry?.progress ?? 0,
-          message:
-            event.logEntry && !Number.isFinite(event.progress)
-              ? currentEntry?.message ?? event.message
-              : event.message,
+          message: event.logEntry && !Number.isFinite(event.progress) ? currentEntry?.message ?? event.message : event.message,
           etaMs: Number.isFinite(event.progress) ? event.etaMs : currentEntry?.etaMs,
           renderFps: Number.isFinite(event.progress) ? event.renderFps : currentEntry?.renderFps,
           error: event.error ?? currentEntry?.error,
@@ -710,6 +776,32 @@ function formatEta(etaMs: number) {
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
-function getCategoryStateKey(sceneId: string, categoryId: string) {
-  return `${sceneId}:${categoryId}`;
+function getCategoryStateKey(instanceId: string, categoryId: string) {
+  return `${instanceId}:${categoryId}`;
+}
+
+function upsertScene(scenes: SerializedSceneDefinition[], nextScene: SerializedSceneDefinition) {
+  const withoutScene = scenes.filter((scene) => scene.id !== nextScene.id);
+  return [...withoutScene, nextScene].sort((left, right) => left.name.localeCompare(right.name));
+}
+
+function cloneScene(scene: SerializedSceneDefinition): SerializedSceneDefinition {
+  return structuredClone(scene);
+}
+
+function cloneComponent(component: SceneComponentInstance): SceneComponentInstance {
+  return structuredClone(component);
+}
+
+function createSceneComponentInstance(component: SerializedSceneComponentDefinition): SceneComponentInstance {
+  return {
+    id: createInstanceId(component.id),
+    componentId: component.id,
+    enabled: true,
+    options: structuredClone(component.defaultOptions)
+  };
+}
+
+function createInstanceId(componentId: string) {
+  return `${componentId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }

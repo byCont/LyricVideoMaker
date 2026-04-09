@@ -32,39 +32,39 @@ interface SceneOptionFieldBase {
 }
 
 export type SceneOptionField =
-  | {
+  | ({
       type: "boolean";
       defaultValue?: boolean;
-    } & SceneOptionFieldBase
-  | {
+    } & SceneOptionFieldBase)
+  | ({
       type: "number";
       defaultValue?: number;
       min?: number;
       max?: number;
       step?: number;
-    } & SceneOptionFieldBase
-  | {
+    } & SceneOptionFieldBase)
+  | ({
       type: "text";
       defaultValue?: string;
       multiline?: boolean;
-    } & SceneOptionFieldBase
-  | {
+    } & SceneOptionFieldBase)
+  | ({
       type: "color";
       defaultValue?: string;
-    } & SceneOptionFieldBase
-  | {
+    } & SceneOptionFieldBase)
+  | ({
       type: "font";
       defaultValue?: string;
-    } & SceneOptionFieldBase
-  | {
+    } & SceneOptionFieldBase)
+  | ({
       type: "image";
       required?: boolean;
-    } & SceneOptionFieldBase
-  | {
+    } & SceneOptionFieldBase)
+  | ({
       type: "select";
       defaultValue?: string;
       options: { label: string; value: string }[];
-    } & SceneOptionFieldBase;
+    } & SceneOptionFieldBase);
 
 export interface SceneOptionCategory {
   type: "category";
@@ -77,13 +77,27 @@ export interface SceneOptionCategory {
 export type SceneOptionEntry = SceneOptionField | SceneOptionCategory;
 
 export interface SceneAssetAccessor {
-  getPath(optionId: string): string | null;
-  getUrl(optionId: string): string | null;
+  getPath(instanceId: string, optionId: string): string | null;
+  getUrl(instanceId: string, optionId: string): string | null;
 }
 
-export type PreparedSceneData = Record<string, unknown>;
+export type PreparedSceneComponentData = Record<string, unknown>;
+export type PreparedSceneStackData = Record<string, PreparedSceneComponentData>;
+export type SceneSource = "built-in" | "user";
+
+export interface SceneComponentInstance {
+  id: string;
+  componentId: string;
+  enabled: boolean;
+  options: Record<string, unknown>;
+}
+
+export interface ValidatedSceneComponentInstance extends SceneComponentInstance {
+  componentName: string;
+}
 
 export interface ScenePrepareContext<TOptions> {
+  instance: ValidatedSceneComponentInstance;
   options: TOptions;
   video: VideoSettings;
   lyrics: LyricRuntime;
@@ -92,16 +106,17 @@ export interface ScenePrepareContext<TOptions> {
 }
 
 export interface SceneRenderProps<TOptions> {
+  instance: ValidatedSceneComponentInstance;
   options: TOptions;
   frame: number;
   timeMs: number;
   video: VideoSettings;
   lyrics: LyricRuntime;
   assets: Pick<SceneAssetAccessor, "getUrl">;
-  prepared: PreparedSceneData;
+  prepared: PreparedSceneComponentData;
 }
 
-export interface SceneDefinition<TOptions> {
+export interface SceneComponentDefinition<TOptions> {
   id: string;
   name: string;
   description?: string;
@@ -109,16 +124,41 @@ export interface SceneDefinition<TOptions> {
   options: SceneOptionEntry[];
   defaultOptions: TOptions;
   validate?: (raw: unknown) => TOptions;
-  prepare?: (ctx: ScenePrepareContext<TOptions>) => Promise<PreparedSceneData>;
-  Component: (props: SceneRenderProps<TOptions>) => React.ReactElement;
+  prepare?: (ctx: ScenePrepareContext<TOptions>) => Promise<PreparedSceneComponentData>;
+  Component: (props: SceneRenderProps<TOptions>) => React.ReactElement | null;
+}
+
+export interface SceneDefinition {
+  id: string;
+  name: string;
+  description?: string;
+  source: SceneSource;
+  readOnly: boolean;
+  filePath?: string;
+  components: SceneComponentInstance[];
+}
+
+export interface SerializedSceneComponentDefinition {
+  id: string;
+  name: string;
+  description?: string;
+  options: SceneOptionEntry[];
+  defaultOptions: Record<string, unknown>;
 }
 
 export interface SerializedSceneDefinition {
   id: string;
   name: string;
   description?: string;
-  options: SceneOptionEntry[];
-  defaultOptions: Record<string, unknown>;
+  source: SceneSource;
+  readOnly: boolean;
+  filePath?: string;
+  components: SceneComponentInstance[];
+}
+
+export interface SceneFileData {
+  version: number;
+  scene: SerializedSceneDefinition;
 }
 
 export interface RenderJob {
@@ -127,7 +167,8 @@ export interface RenderJob {
   subtitlePath: string;
   outputPath: string;
   sceneId: string;
-  options: Record<string, unknown>;
+  sceneName: string;
+  components: ValidatedSceneComponentInstance[];
   video: VideoSettings;
   lyrics: LyricCue[];
   createdAt: string;
@@ -153,6 +194,7 @@ export interface RenderLogEntry {
 export interface RenderHistoryEntry {
   id: string;
   sceneId: string;
+  sceneName: string;
   outputPath: string;
   createdAt: string;
   status: RenderStatus;
@@ -181,12 +223,12 @@ export interface SceneValidationContext {
   supportedFonts?: readonly string[];
 }
 
-export interface CreateRenderJobInput<TOptions> {
+export interface CreateRenderJobInput {
   audioPath: string;
   subtitlePath: string;
   outputPath: string;
-  scene: SceneDefinition<TOptions>;
-  rawOptions: unknown;
+  scene: SerializedSceneDefinition;
+  componentDefinitions: SceneComponentDefinition<Record<string, unknown>>[];
   cues: LyricCue[];
   durationMs: number;
   createdAt?: Date;
