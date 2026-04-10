@@ -15,7 +15,30 @@ export interface AppBootstrapData {
   previewProfilerEnabled: boolean;
 }
 
-export type FilePickKind = "audio" | "subtitle" | "image" | "output";
+export type FilePickKind = "audio" | "subtitle" | "lyrics-text" | "image" | "output";
+
+export type SubtitleGenerationMode = "transcribe" | "align";
+
+export interface StartSubtitleGenerationRequest {
+  mode: SubtitleGenerationMode;
+  audioPath: string;
+  outputPath: string;
+  language: string;
+  lyricsTextPath?: string;
+}
+
+export interface SubtitleGenerationResult {
+  outputPath: string;
+}
+
+export interface SubtitleGenerationProgressEvent {
+  status: "starting" | "running" | "completed" | "failed" | "cancelled";
+  progress: number;
+  message: string;
+  stage?: string;
+  outputPath?: string;
+  error?: string;
+}
 
 export interface StartRenderRequest {
   audioPath: string;
@@ -49,6 +72,8 @@ export interface ElectronApi {
   pickPath(kind: FilePickKind, suggestedName?: string): Promise<string | null>;
   startRender(request: StartRenderRequest): Promise<RenderHistoryEntry>;
   renderPreviewFrame(request: RenderPreviewRequest): Promise<RenderPreviewResponse>;
+  startSubtitleGeneration(request: StartSubtitleGenerationRequest): Promise<SubtitleGenerationResult>;
+  cancelSubtitleGeneration(): Promise<void>;
   saveScene(scene: SerializedSceneDefinition): Promise<SerializedSceneDefinition>;
   deleteScene(sceneId: string): Promise<void>;
   importScene(): Promise<SerializedSceneDefinition | null>;
@@ -56,6 +81,9 @@ export interface ElectronApi {
   disposePreview(): Promise<void>;
   cancelRender(jobId: string): Promise<void>;
   onRenderProgress(callback: (event: RenderProgressEvent) => void): () => void;
+  onSubtitleGenerationProgress(
+    callback: (event: SubtitleGenerationProgressEvent) => void
+  ): () => void;
 }
 
 declare global {

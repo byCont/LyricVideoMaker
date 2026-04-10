@@ -48,6 +48,7 @@ async function main() {
   await cp(join(rootDir, "apps", "desktop", "dist-electron"), join(stageDir, "dist-electron"), {
     recursive: true
   });
+  await cp(join(rootDir, "sidecars"), join(stageDir, "sidecars"), { recursive: true });
 
   for (const pkg of workspacePackages) {
     await stageWorkspacePackage(pkg);

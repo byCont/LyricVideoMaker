@@ -2,13 +2,14 @@
  * @vitest-environment jsdom
  */
 
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { createElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   AppBootstrapData,
   ElectronApi,
-  RenderPreviewResponse
+  RenderPreviewResponse,
+  SubtitleGenerationProgressEvent
 } from "./electron-api";
 import { App } from "./App";
 import { useFramePreview, type ResolvedFramePreview } from "./use-frame-preview";
@@ -30,9 +31,13 @@ describe("App", () => {
         error?: string;
       }) => void)
     | undefined;
+  let subtitleProgressListener:
+    | ((event: SubtitleGenerationProgressEvent) => void)
+    | undefined;
 
   beforeEach(() => {
     progressListener = undefined;
+    subtitleProgressListener = undefined;
     vi.mocked(useFramePreview).mockReturnValue({
       enabled: true,
       preview: {
@@ -71,6 +76,21 @@ describe("App", () => {
         message: "Queued",
         logs: []
       }),
+      startSubtitleGeneration: vi.fn().mockImplementation(async () => {
+        subtitleProgressListener?.({
+          status: "running",
+          progress: 55,
+          message: "Aligning lyrics"
+        });
+        subtitleProgressListener?.({
+          status: "completed",
+          progress: 100,
+          message: "Subtitle generation complete",
+          outputPath: "song.transcribed.srt"
+        });
+        return { outputPath: "song.transcribed.srt" };
+      }),
+      cancelSubtitleGeneration: vi.fn().mockResolvedValue(undefined),
       renderPreviewFrame: vi.fn<() => Promise<RenderPreviewResponse>>(),
       saveScene: vi.fn(async (scene) => ({ ...scene, source: "user" })),
       deleteScene: vi.fn().mockResolvedValue(undefined),
@@ -80,6 +100,10 @@ describe("App", () => {
       cancelRender: vi.fn().mockResolvedValue(undefined),
       onRenderProgress: vi.fn((callback) => {
         progressListener = callback;
+        return () => undefined;
+      }),
+      onSubtitleGenerationProgress: vi.fn((callback) => {
+        subtitleProgressListener = callback;
         return () => undefined;
       })
     };
@@ -163,6 +187,32 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     await waitFor(() => {
       expect(screen.queryByRole("heading", { name: "Render Complete" })).toBeNull();
+    });
+  });
+
+  it("generates subtitles from the dialog and auto-selects the returned SRT", async () => {
+    render(createElement(App));
+
+    await screen.findByRole("heading", { name: "Project Setup" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Pick MP3" }));
+    await waitFor(() => {
+      expect(screen.getByText("song.mp3")).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Generate SRT" }));
+
+    expect(await screen.findByRole("heading", { name: "Generate Subtitle SRT" })).toBeTruthy();
+
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Generate SRT" }));
+
+    await waitFor(() => {
+      expect(window.lyricVideoApp.startSubtitleGeneration).toHaveBeenCalledTimes(1);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("song.transcribed.srt")).toBeTruthy();
     });
   });
 });

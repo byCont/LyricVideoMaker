@@ -905,7 +905,9 @@ button:disabled {
 .status-queued,
 .status-preparing,
 .status-rendering,
-.status-muxing {
+.status-muxing,
+.status-starting,
+.status-running {
   background: rgba(142, 208, 255, 0.14);
   color: #afe3ff;
 }
@@ -939,6 +941,18 @@ button:disabled {
   background: rgba(12, 18, 28, 0.98);
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
   padding: 0.7rem;
+}
+
+.subtitle-dialog-card {
+  width: min(620px, 100%);
+}
+
+.subtitle-dialog-body {
+  gap: 0.75rem;
+}
+
+.subtitle-generator-field {
+  justify-content: end;
 }
 
 .dialog-body {

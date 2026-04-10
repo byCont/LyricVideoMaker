@@ -25,3 +25,6 @@ Thumbs.db
 
 *.tmp
 *.temp
+
+sidecars/subtitle-aligner/.venv/
+*.egg-info/

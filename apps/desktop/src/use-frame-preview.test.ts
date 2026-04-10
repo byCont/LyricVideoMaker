@@ -23,6 +23,8 @@ describe("useFramePreview", () => {
       getBootstrapData: vi.fn(),
       pickPath: vi.fn(),
       startRender: vi.fn(),
+      startSubtitleGeneration: vi.fn(),
+      cancelSubtitleGeneration: vi.fn(),
       renderPreviewFrame: vi.fn(),
       saveScene: vi.fn(),
       deleteScene: vi.fn(),
@@ -30,7 +32,8 @@ describe("useFramePreview", () => {
       exportScene: vi.fn(),
       disposePreview: vi.fn().mockResolvedValue(undefined),
       cancelRender: vi.fn(),
-      onRenderProgress: vi.fn(() => () => undefined)
+      onRenderProgress: vi.fn(() => () => undefined),
+      onSubtitleGenerationProgress: vi.fn(() => () => undefined)
     };
   });
 

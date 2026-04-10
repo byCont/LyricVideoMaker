@@ -13,6 +13,7 @@ export function GeneralDetailsEditor({
   isSubmitting,
   hasActiveRender,
   onPickPath,
+  onOpenSubtitleGenerator,
   onVideoSizePresetChange,
   onFpsPresetChange,
   onWidthChange,
@@ -29,6 +30,7 @@ export function GeneralDetailsEditor({
   isSubmitting: boolean;
   hasActiveRender: boolean;
   onPickPath: (kind: FilePickKind) => void;
+  onOpenSubtitleGenerator: () => void;
   onVideoSizePresetChange: (presetId: string) => void;
   onFpsPresetChange: (presetId: string) => void;
   onWidthChange: (value: number) => void;
@@ -75,6 +77,20 @@ export function GeneralDetailsEditor({
                 compact
                 onPick={() => onPickPath("subtitle")}
               />
+              <div className="field file-field file-field-compact subtitle-generator-field">
+                <span className="field-label">Automatic subtitles</span>
+                <div className="file-pill is-empty">
+                  Generate a reusable SRT from audio or align a lyrics TXT file.
+                </div>
+                <button
+                  type="button"
+                  className="secondary"
+                  disabled={!composer.audioPath || isSubmitting || hasActiveRender}
+                  onClick={onOpenSubtitleGenerator}
+                >
+                  Generate SRT
+                </button>
+              </div>
               <FileField
                 label="Output MP4"
                 helpText="Choose where the rendered MP4 will be written."

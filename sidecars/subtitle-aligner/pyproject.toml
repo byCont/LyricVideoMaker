@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lyric-video-subtitle-aligner"
+version = "0.1.0"
+description = "Subtitle transcription and alignment sidecar for Lyric Video Maker."
+requires-python = ">=3.10"
+dependencies = [
+  "stable-ts>=2.19.1"
+]
+
+[project.scripts]
+lyric-video-subtitle-aligner = "lyric_video_subtitle_aligner.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

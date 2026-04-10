@@ -21,6 +21,7 @@ import { builtInSceneComponents, builtInScenes } from "@lyric-video-maker/scene-
 import type {
   FilePickKind,
   RenderPreviewRequest,
+  StartSubtitleGenerationRequest,
   StartRenderRequest
 } from "../src/electron-api";
 import {
@@ -31,6 +32,10 @@ import {
   saveUserScene
 } from "./scene-library";
 import { PreviewWorkerClient } from "./preview-worker-client";
+import {
+  createGeneratedSubtitlePath,
+  createSubtitleGenerationRunner
+} from "./subtitle-generator";
 
 let mainWindow: BrowserWindow | null = null;
 let userScenes: SerializedSceneDefinition[] = [];
@@ -43,6 +48,9 @@ const previewProfilerEnabled =
   !app.isPackaged && process.env.LYRIC_VIDEO_PREVIEW_PROFILE === "1";
 const previewWorkerClient = new PreviewWorkerClient({
   workerPath: join(__dirname, "preview-worker-thread.js")
+});
+const subtitleGenerationRunner = createSubtitleGenerationRunner({
+  rootDir: getAppRootDir()
 });
 
 function createMainWindow() {
@@ -220,6 +228,34 @@ function registerIpcHandlers() {
     abortControllers.get(jobId)?.abort();
   });
 
+  ipcMain.handle(
+    "subtitle:start-generation",
+    async (_event, request: StartSubtitleGenerationRequest) => {
+      const outputPath =
+        request.outputPath || (await createGeneratedSubtitlePath({
+          audioPath: request.audioPath,
+          mode: request.mode
+        }));
+
+      return await subtitleGenerationRunner.run(
+        {
+          ...request,
+          outputPath
+        },
+        (event) => {
+          mainWindow?.webContents.send("subtitle:progress", {
+            ...event,
+            outputPath: event.outputPath ?? outputPath
+          });
+        }
+      );
+    }
+  );
+
+  ipcMain.handle("subtitle:cancel-generation", async () => {
+    subtitleGenerationRunner.cancel();
+  });
+
   ipcMain.handle("preview:render-frame", async (_event, request: RenderPreviewRequest) => {
     return await previewWorkerClient.renderFrame(request);
   });
@@ -301,6 +337,8 @@ function getFileFilters(kind: FilePickKind) {
       return [{ name: "Audio Files", extensions: ["mp3"] }];
     case "subtitle":
       return [{ name: "Subtitle Files", extensions: ["srt"] }];
+    case "lyrics-text":
+      return [{ name: "Text Files", extensions: ["txt"] }];
     case "image":
       return [{ name: "Image Files", extensions: ["png", "jpg", "jpeg", "webp"] }];
     default:
@@ -337,4 +375,8 @@ async function getAudioDuration(audioPath: string) {
   const durationMs = await probeAudioDurationMs(audioPath);
   audioDurationCache.set(audioPath, durationMs);
   return durationMs;
+}
+
+function getAppRootDir() {
+  return join(__dirname, app.isPackaged ? ".." : "../../..");
 }

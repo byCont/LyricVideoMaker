@@ -93,18 +93,20 @@ export function SelectField({
   helpText,
   value,
   options,
+  disabled = false,
   onChange
 }: {
   label: string;
   helpText?: string;
   value: string;
   options: Array<{ value: string; label: string }>;
+  disabled?: boolean;
   onChange: (value: string) => void;
 }) {
   return (
     <label className="field">
       <FieldLabel label={label} helpText={helpText} />
-      <select value={value} onChange={(event) => onChange(event.target.value)}>
+      <select disabled={disabled} value={value} onChange={(event) => onChange(event.target.value)}>
         {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
@@ -120,6 +122,7 @@ export function FileField({
   helpText,
   value,
   buttonLabel,
+  disabled = false,
   onPick,
   compact = false
 }: {
@@ -127,6 +130,7 @@ export function FileField({
   helpText?: string;
   value: string;
   buttonLabel: string;
+  disabled?: boolean;
   onPick: () => void;
   compact?: boolean;
 }) {
@@ -141,7 +145,7 @@ export function FileField({
       >
         {value || "Not selected"}
       </div>
-      <button className="secondary" onClick={onPick}>{buttonLabel}</button>
+      <button type="button" className="secondary" disabled={disabled} onClick={onPick}>{buttonLabel}</button>
     </div>
   );
 }

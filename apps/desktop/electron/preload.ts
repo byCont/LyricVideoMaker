@@ -6,6 +6,8 @@ const api: ElectronApi = {
   pickPath: (kind, suggestedName) => ipcRenderer.invoke("dialog:pick-path", { kind, suggestedName }),
   startRender: (request) => ipcRenderer.invoke("render:start", request),
   renderPreviewFrame: (request) => ipcRenderer.invoke("preview:render-frame", request),
+  startSubtitleGeneration: (request) => ipcRenderer.invoke("subtitle:start-generation", request),
+  cancelSubtitleGeneration: () => ipcRenderer.invoke("subtitle:cancel-generation"),
   saveScene: (scene) => ipcRenderer.invoke("scene:save", scene),
   deleteScene: (sceneId) => ipcRenderer.invoke("scene:delete", sceneId),
   importScene: () => ipcRenderer.invoke("scene:import"),
@@ -21,6 +23,17 @@ const api: ElectronApi = {
 
     return () => {
       ipcRenderer.removeListener("render:progress", listener);
+    };
+  },
+  onSubtitleGenerationProgress: (callback) => {
+    const listener = (_event: Electron.IpcRendererEvent, payload: Parameters<typeof callback>[0]) => {
+      callback(payload);
+    };
+
+    ipcRenderer.on("subtitle:progress", listener);
+
+    return () => {
+      ipcRenderer.removeListener("subtitle:progress", listener);
     };
   }
 };

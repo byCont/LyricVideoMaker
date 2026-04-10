@@ -20,9 +20,15 @@ import { GeneralDetailsEditor } from "./components/general-details-editor";
 import { PreviewPanel } from "./components/preview-panel";
 import { RenderProgressDialog } from "./components/render-progress-dialog";
 import { SceneDetailsEditor } from "./components/scene-details-editor";
+import { SubtitleGenerationDialog } from "./components/subtitle-generation-dialog";
 import { WorkspaceNavPanel } from "./components/workspace-nav-panel";
 import type { ComposerState } from "./composer-types";
-import type { AppBootstrapData, FilePickKind } from "./electron-api";
+import type {
+  AppBootstrapData,
+  FilePickKind,
+  StartSubtitleGenerationRequest,
+  SubtitleGenerationProgressEvent
+} from "./electron-api";
 import type { WorkspaceSelection } from "./workspace-types";
 import { isComponentSelection } from "./workspace-types";
 
@@ -41,6 +47,12 @@ export function App() {
   const [selection, setSelection] = useState<WorkspaceSelection>({ type: "scene" });
   const [renderDialogEntry, setRenderDialogEntry] = useState<RenderHistoryEntry | null>(null);
   const [isRenderDialogOpen, setIsRenderDialogOpen] = useState(false);
+  const [isSubtitleDialogOpen, setIsSubtitleDialogOpen] = useState(false);
+  const [isGeneratingSubtitles, setIsGeneratingSubtitles] = useState(false);
+  const [subtitleGenerationRequest, setSubtitleGenerationRequest] =
+    useState<StartSubtitleGenerationRequest>(createInitialSubtitleGenerationRequest);
+  const [subtitleGenerationProgress, setSubtitleGenerationProgress] =
+    useState<SubtitleGenerationProgressEvent | null>(null);
   const [generalPaneWidth, setGeneralPaneWidth] = useState(360);
   const [sidebarWidth, setSidebarWidth] = useState(300);
   const [inspectorHeight, setInspectorHeight] = useState(300);
@@ -62,7 +74,8 @@ export function App() {
   >(null);
 
   useEffect(() => {
-    let unsubscribe: (() => void) | undefined;
+    let unsubscribeRender: (() => void) | undefined;
+    let unsubscribeSubtitle: (() => void) | undefined;
 
     void window.lyricVideoApp.getBootstrapData().then((data) => {
       setBootstrap(data);
@@ -75,13 +88,24 @@ export function App() {
       }
     });
 
-    unsubscribe = window.lyricVideoApp.onRenderProgress((event) => {
+    unsubscribeRender = window.lyricVideoApp.onRenderProgress((event) => {
       setRenderDialogEntry((current) => mergeRenderEntry(current, event));
       setIsRenderDialogOpen(true);
       setIsSubmitting(false);
     });
 
-    return () => unsubscribe?.();
+    unsubscribeSubtitle = window.lyricVideoApp.onSubtitleGenerationProgress((event) => {
+      setSubtitleGenerationProgress(event);
+
+      if (event.status === "failed" || event.status === "cancelled") {
+        setIsGeneratingSubtitles(false);
+      }
+    });
+
+    return () => {
+      unsubscribeRender?.();
+      unsubscribeSubtitle?.();
+    };
   }, []);
 
   useEffect(() => {
@@ -214,6 +238,10 @@ export function App() {
       setComposer((current) => ({ ...current, subtitlePath: result }));
       return;
     }
+    if (kind === "lyrics-text") {
+      setSubtitleGenerationRequest((current) => ({ ...current, lyricsTextPath: result }));
+      return;
+    }
     if (kind === "output") {
       setComposer((current) => ({ ...current, outputPath: result }));
       return;
@@ -258,6 +286,72 @@ export function App() {
       setIsSubmitting(false);
       setIsRenderDialogOpen(false);
     }
+  }
+
+  async function handleStartSubtitleGeneration() {
+    if (!composer.audioPath) {
+      setError("Select song audio before generating subtitles.");
+      return;
+    }
+
+    setError("");
+    setIsGeneratingSubtitles(true);
+    setSubtitleGenerationProgress({
+      status: "starting",
+      progress: 0,
+      message: "Starting subtitle generation"
+    });
+
+    try {
+      const result = await window.lyricVideoApp.startSubtitleGeneration({
+        ...subtitleGenerationRequest,
+        audioPath: composer.audioPath
+      });
+      setComposer((current) => ({ ...current, subtitlePath: result.outputPath }));
+      setSubtitleGenerationRequest((current) => ({
+        ...current,
+        outputPath: result.outputPath
+      }));
+      setSubtitleGenerationProgress({
+        status: "completed",
+        progress: 100,
+        message: "Subtitle generation complete",
+        outputPath: result.outputPath
+      });
+      setIsGeneratingSubtitles(false);
+      setIsSubtitleDialogOpen(false);
+    } catch (generationError) {
+      const message =
+        generationError instanceof Error ? generationError.message : String(generationError);
+      const isCancelled =
+        generationError instanceof DOMException && generationError.name === "AbortError";
+      setSubtitleGenerationProgress({
+        status: isCancelled ? "cancelled" : "failed",
+        progress: 0,
+        message: isCancelled ? "Subtitle generation cancelled" : "Subtitle generation failed",
+        error: isCancelled ? undefined : message
+      });
+      setIsGeneratingSubtitles(false);
+    }
+  }
+
+  async function handleCancelSubtitleGeneration() {
+    await window.lyricVideoApp.cancelSubtitleGeneration();
+    setIsGeneratingSubtitles(false);
+  }
+
+  function openSubtitleDialog() {
+    if (!composer.audioPath) {
+      setError("Select song audio before generating subtitles.");
+      return;
+    }
+
+    setSubtitleGenerationRequest((current) => ({
+      ...current,
+      audioPath: composer.audioPath
+    }));
+    setSubtitleGenerationProgress(null);
+    setIsSubtitleDialogOpen(true);
   }
 
   function handleSceneChange(sceneId: string) {
@@ -501,6 +595,7 @@ export function App() {
             isSubmitting={isSubmitting}
             hasActiveRender={hasActiveRender}
             onPickPath={(kind) => void handlePickPath(kind)}
+            onOpenSubtitleGenerator={openSubtitleDialog}
             onVideoSizePresetChange={(value) => {
               if (value === "custom") {
                 return;
@@ -627,6 +722,25 @@ export function App() {
           setRenderDialogEntry(null);
         }}
       />
+      <SubtitleGenerationDialog
+        isOpen={isSubtitleDialogOpen}
+        request={subtitleGenerationRequest}
+        progress={subtitleGenerationProgress}
+        canStart={canStartSubtitleGeneration(composer.audioPath, subtitleGenerationRequest)}
+        isGenerating={isGeneratingSubtitles}
+        onRequestChange={setSubtitleGenerationRequest}
+        onPickLyricsText={() => void handlePickPath("lyrics-text")}
+        onStart={() => void handleStartSubtitleGeneration()}
+        onCancel={() => void handleCancelSubtitleGeneration()}
+        onDismiss={() => {
+          if (isGeneratingSubtitles) {
+            return;
+          }
+
+          setIsSubtitleDialogOpen(false);
+          setSubtitleGenerationProgress(null);
+        }}
+      />
     </div>
   );
 }
@@ -662,4 +776,28 @@ function mergeRenderEntry(
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
+}
+
+function createInitialSubtitleGenerationRequest(): StartSubtitleGenerationRequest {
+  return {
+    mode: "transcribe",
+    audioPath: "",
+    outputPath: "",
+    language: "auto"
+  };
+}
+
+function canStartSubtitleGeneration(
+  audioPath: string,
+  request: StartSubtitleGenerationRequest
+) {
+  if (!audioPath) {
+    return false;
+  }
+
+  if (request.mode === "align") {
+    return Boolean(request.lyricsTextPath && request.language && request.language !== "auto");
+  }
+
+  return true;
 }
