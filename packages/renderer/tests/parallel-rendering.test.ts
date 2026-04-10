@@ -1,6 +1,7 @@
 import { EventEmitter } from "node:events";
 import { vi } from "vitest";
 import {
+  createBoundedOutputBuffer,
   createOrderedFrameWriteQueue,
   renderFrameWithWorkerRecovery,
   resolveRenderParallelism,
@@ -24,6 +25,16 @@ describe("parallel rendering helpers", () => {
     expect(resolveRenderParallelism({ parallelism: 3, totalFrames: 20 })).toBe(3);
     expect(resolveRenderParallelism({ totalFrames: 9 })).toBe(4);
     expect(resolveRenderParallelism({ totalFrames: 1 })).toBe(1);
+  });
+
+  it("retains only the bounded tail of accumulated process output", () => {
+    const buffer = createBoundedOutputBuffer(8);
+
+    buffer.append(Buffer.from("1234"));
+    buffer.append(Buffer.from("5678"));
+    buffer.append(Buffer.from("90"));
+
+    expect(buffer.toString()).toBe("34567890");
   });
 
   it("writes out-of-order frames to the mux queue in frame order", async () => {

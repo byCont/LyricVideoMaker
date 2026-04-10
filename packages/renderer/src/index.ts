@@ -137,6 +137,7 @@ const FRAME_STAGE_TIMEOUT_MS =
   normalizePositiveInteger(process.env.LYRIC_VIDEO_FRAME_STAGE_TIMEOUT_MS) ?? 15000;
 const WORKER_FRAME_RETRY_LIMIT =
   normalizePositiveInteger(process.env.LYRIC_VIDEO_WORKER_FRAME_RETRY_LIMIT) ?? 2;
+const FFMPEG_STDERR_BUFFER_LIMIT_BYTES = 64 * 1024;
 
 const NOOP_PROGRESS_EMITTER: ProgressEmitter = {
   emit() {}
@@ -1850,9 +1851,11 @@ function startFrameMuxer(
   }
   logger.info("Spawned ffmpeg muxer process.");
 
-  const stderr: Buffer[] = [];
+  const stderr = createBoundedOutputBuffer(FFMPEG_STDERR_BUFFER_LIMIT_BYTES);
   const exitPromise = new Promise<void>((resolve, reject) => {
-    child.stderr.on("data", (chunk) => stderr.push(Buffer.from(chunk)));
+    child.stderr.on("data", (chunk) => {
+      stderr.append(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    });
     child.on("error", reject);
     child.on("close", (code) => {
       cleanup();
@@ -1868,7 +1871,7 @@ function startFrameMuxer(
       }
 
       reject(
-        new Error(`ffmpeg exited with code ${code}: ${Buffer.concat(stderr).toString("utf8").trim()}`)
+        new Error(`ffmpeg exited with code ${code}: ${stderr.toString()}`)
       );
     });
   });
@@ -1930,6 +1933,44 @@ function startFrameMuxer(
   function cleanup() {
     signal?.removeEventListener("abort", abortHandler);
   }
+}
+
+export function createBoundedOutputBuffer(maxBytes: number) {
+  let totalBytes = 0;
+  let chunks: Buffer[] = [];
+
+  return {
+    append(chunk: Buffer) {
+      if (maxBytes <= 0 || chunk.length === 0) {
+        return;
+      }
+
+      if (chunk.length >= maxBytes) {
+        chunks = [chunk.subarray(chunk.length - maxBytes)];
+        totalBytes = chunks[0].length;
+        return;
+      }
+
+      chunks.push(chunk);
+      totalBytes += chunk.length;
+
+      while (totalBytes > maxBytes && chunks.length > 0) {
+        const overflow = totalBytes - maxBytes;
+        const oldest = chunks[0];
+        if (oldest.length <= overflow) {
+          chunks.shift();
+          totalBytes -= oldest.length;
+          continue;
+        }
+
+        chunks[0] = oldest.subarray(overflow);
+        totalBytes -= overflow;
+      }
+    },
+    toString() {
+      return Buffer.concat(chunks).toString("utf8").trim();
+    }
+  };
 }
 
 function getMimeType(path: string): string {
