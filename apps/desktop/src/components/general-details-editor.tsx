@@ -42,41 +42,44 @@ export function GeneralDetailsEditor({
       </div>
 
       <div className="inspector-layout">
-        <section className="inspector-section">
+        <section className="inspector-section general-files-section">
           <div className="inspector-section-header">
             <h3>Files</h3>
             <p>Choose the song, subtitles, and output target for this render.</p>
           </div>
 
-          <div className="inspector-grid inspector-grid-three">
+          <div className="inspector-grid inspector-grid-three general-files-grid">
             <FileField
               label="Song audio"
               value={composer.audioPath}
               buttonLabel="Pick MP3"
+              compact
               onPick={() => onPickPath("audio")}
             />
             <FileField
               label="Lyric subtitles"
               value={composer.subtitlePath}
               buttonLabel="Pick SRT"
+              compact
               onPick={() => onPickPath("subtitle")}
             />
             <FileField
               label="Output MP4"
               value={composer.outputPath}
               buttonLabel="Save As"
+              compact
               onPick={() => onPickPath("output")}
             />
           </div>
         </section>
 
-        <section className="inspector-section">
+        <section className="inspector-section general-video-section">
           <div className="inspector-section-header">
             <h3>Video Properties</h3>
             <p>Set the render size and frame rate for the final MP4.</p>
           </div>
 
-          <div className="inspector-grid inspector-grid-five">
+          <div className="inspector-grid general-video-grid">
             <SelectField
               label="Size preset"
               value={selectedVideoSizePresetId}
@@ -126,7 +129,7 @@ export function GeneralDetailsEditor({
           </div>
         </section>
 
-        <section className="inspector-section render-action-section">
+        <section className="inspector-section render-action-section general-render-section">
           <div className="inspector-section-header">
             <h3>Render</h3>
             <p>Start the MP4 render with the current files, scene, and video settings.</p>

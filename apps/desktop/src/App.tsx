@@ -3,7 +3,6 @@ import type {
   RenderHistoryEntry,
   SceneComponentInstance
 } from "@lyric-video-maker/core";
-import { isSceneOptionCategory } from "@lyric-video-maker/core";
 import {
   cloneComponent,
   cloneScene,
@@ -11,7 +10,6 @@ import {
   createSceneComponentInstance,
   emptyComposerState,
   FPS_PRESETS,
-  getCategoryStateKey,
   getFileName,
   stripExtension,
   upsertScene,
@@ -40,7 +38,6 @@ export function App() {
   const [composer, setComposer] = useState<ComposerState>(emptyComposerState);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   const [componentToAddId, setComponentToAddId] = useState("");
   const [selection, setSelection] = useState<WorkspaceSelection>({ type: "general" });
   const [renderDialogEntry, setRenderDialogEntry] = useState<RenderHistoryEntry | null>(null);
@@ -168,34 +165,6 @@ export function App() {
   const selectedComponentIndex = selectedComponent
     ? selectedScene?.components.findIndex((component) => component.id === selectedComponent.id) ?? -1
     : -1;
-
-  useEffect(() => {
-    if (!selectedScene) {
-      return;
-    }
-
-    setExpandedCategories((current) => {
-      const next = { ...current };
-
-      for (const instance of selectedScene.components) {
-        const component = componentCatalog.get(instance.componentId);
-        if (!component) {
-          continue;
-        }
-
-        for (const option of component.options) {
-          if (isSceneOptionCategory(option)) {
-            const key = getCategoryStateKey(instance.id, option.id);
-            if (next[key] === undefined) {
-              next[key] = option.defaultExpanded ?? true;
-            }
-          }
-        }
-      }
-
-      return next;
-    });
-  }, [componentCatalog, selectedScene]);
 
   useEffect(() => {
     if (!selectedScene || !isComponentSelection(selection)) {
@@ -543,19 +512,7 @@ export function App() {
         <ComponentDetailsEditor
           component={selectedComponentDefinition}
           instance={selectedComponent}
-          index={selectedComponentIndex}
-          totalComponents={selectedScene!.components.length}
           fonts={bootstrap!.fonts}
-          expandedCategories={expandedCategories}
-          onToggleEnabled={() =>
-            updateSceneComponent(selectedComponent.id, (current) => ({
-              ...current,
-              enabled: !current.enabled
-            }))
-          }
-          onMove={(direction) => moveSceneComponent(selectedComponent.id, direction)}
-          onDuplicate={() => duplicateSceneComponent(selectedComponent.id)}
-          onRemove={() => removeSceneComponent(selectedComponent.id)}
           onOptionChange={(optionId, value) =>
             updateSceneComponent(selectedComponent.id, (current) => ({
               ...current,
@@ -563,13 +520,6 @@ export function App() {
             }))
           }
           onPickImage={(optionId) => void handlePickPath("image", selectedComponent.id, optionId)}
-          onToggleCategory={(categoryId) =>
-            setExpandedCategories((current) => ({
-              ...current,
-              [getCategoryStateKey(selectedComponent.id, categoryId)]:
-                !(current[getCategoryStateKey(selectedComponent.id, categoryId)] ?? true)
-            }))
-          }
         />
       );
     }
@@ -604,6 +554,12 @@ export function App() {
             onSelectComponent={(instanceId) => setSelection({ type: "component", instanceId })}
             onComponentToAddIdChange={setComponentToAddId}
             onAddComponent={handleAddComponent}
+            onToggleComponentEnabled={(instanceId) =>
+              updateSceneComponent(instanceId, (current) => ({
+                ...current,
+                enabled: !current.enabled
+              }))
+            }
             onMoveComponent={moveSceneComponent}
             onDuplicateComponent={duplicateSceneComponent}
             onRemoveComponent={removeSceneComponent}

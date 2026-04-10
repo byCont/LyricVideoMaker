@@ -60,6 +60,7 @@ export const lyricsByLineComponent: SceneComponentDefinition<LyricsByLineOptions
       const lyricOpacity = activeCue
         ? getLyricOpacity(activeCue.startMs, activeCue.endMs, timeMs, options)
         : 0;
+      const paintPadding = getLyricPaintPadding(lyricFontSize, options);
       const letterShadow =
         options.shadowEnabled && options.shadowIntensity > 0
           ? createTextShadow(lyricFontSize, options.shadowColor, options.shadowIntensity)
@@ -73,6 +74,8 @@ export const lyricsByLineComponent: SceneComponentDefinition<LyricsByLineOptions
         text: activeText,
         opacity: lyricOpacity,
         fontSize: lyricFontSize,
+        padding: `${paintPadding}px`,
+        margin: `-${paintPadding}px`,
         textShadow: letterShadow,
         webkitTextStroke: letterStroke
       };
@@ -233,6 +236,7 @@ export const lyricsByLineComponent: SceneComponentDefinition<LyricsByLineOptions
       : 0;
     const lyricBlockStyles = getLyricBlockStyles(options.lyricPosition, options.horizontalPadding);
     const lyricFontSize = getRenderedLyricFontSize(activeText, options, video.width, lyricBlockStyles.horizontalPadding);
+    const paintPadding = getLyricPaintPadding(lyricFontSize, options);
     const letterShadow =
       options.shadowEnabled && options.shadowIntensity > 0
         ? createTextShadow(lyricFontSize, options.shadowColor, options.shadowIntensity)
@@ -264,6 +268,8 @@ export const lyricsByLineComponent: SceneComponentDefinition<LyricsByLineOptions
             fontWeight: 700,
             lineHeight: 1.15,
             letterSpacing: "-0.03em",
+            padding: `${paintPadding}px`,
+            margin: `-${paintPadding}px`,
             textShadow: letterShadow,
             whiteSpace: options.forceSingleLine ? "nowrap" : "pre-wrap",
             opacity: lyricOpacity,
@@ -407,6 +413,19 @@ function createTextShadow(fontSize: number, color: string, intensity: number) {
     `0 0 ${sharpness}px ${withAlpha(color, Math.min(1, shadowAlpha + 0.2))}`,
     `0 0 ${blur + sharpness * 2}px ${withAlpha(color, ambientAlpha)}`
   ].join(", ");
+}
+
+function getLyricPaintPadding(
+  fontSize: number,
+  options: Pick<LyricsByLineOptions, "borderEnabled" | "borderThickness" | "shadowEnabled" | "shadowIntensity">
+) {
+  const shadowPadding =
+    options.shadowEnabled && options.shadowIntensity > 0
+      ? Math.ceil((fontSize * 0.24 * options.shadowIntensity) / 100) +
+        Math.ceil((fontSize * 0.08 * options.shadowIntensity) / 100)
+      : 0;
+  const strokePadding = options.borderEnabled ? Math.ceil(options.borderThickness) : 0;
+  return Math.max(2, shadowPadding + strokePadding);
 }
 
 function withAlpha(hexColor: string, alpha: number) {

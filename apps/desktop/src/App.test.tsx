@@ -125,7 +125,7 @@ describe("App", () => {
     });
     expect(screen.getByRole("heading", { name: "Background" })).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove Background" }));
     expect(await screen.findByRole("heading", { name: "Scene" })).toBeTruthy();
   });
 

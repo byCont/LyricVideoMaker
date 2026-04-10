@@ -4,7 +4,6 @@ import type {
   SerializedSceneComponentDefinition
 } from "@lyric-video-maker/core";
 import { isSceneOptionCategory } from "@lyric-video-maker/core";
-import { getCategoryStateKey } from "../app-utils";
 import { OptionCategorySection, OptionField } from "./form-fields";
 
 export function SceneComponentCard({
@@ -12,27 +11,23 @@ export function SceneComponentCard({
   instance,
   index,
   fonts,
-  expandedCategories,
   onToggleEnabled,
   onMove,
   onDuplicate,
   onRemove,
   onOptionChange,
-  onPickImage,
-  onToggleCategory
+  onPickImage
 }: {
   component: SerializedSceneComponentDefinition;
   instance: SceneComponentInstance;
   index: number;
   fonts: string[];
-  expandedCategories: Record<string, boolean>;
   onToggleEnabled: () => void;
   onMove: (direction: -1 | 1) => void;
   onDuplicate: () => void;
   onRemove: () => void;
   onOptionChange: (optionId: string, value: unknown) => void;
   onPickImage: (optionId: string) => void;
-  onToggleCategory: (categoryId: string) => void;
 }) {
   const topLevelOptions = component.options.filter((option) => !isSceneOptionCategory(option));
   const categorizedOptions = component.options.filter(isSceneOptionCategory);
@@ -81,16 +76,7 @@ export function SceneComponentCard({
       ) : null}
 
       {categorizedOptions.map((category) => (
-        <OptionCategorySection
-          key={category.id}
-          category={category}
-          isExpanded={
-            expandedCategories[getCategoryStateKey(instance.id, category.id)] ??
-            category.defaultExpanded ??
-            true
-          }
-          onToggle={() => onToggleCategory(category.id)}
-        >
+        <OptionCategorySection key={category.id} category={category}>
           {category.options.map((field) => (
             <OptionField
               key={field.id}

@@ -12,7 +12,6 @@ export function SceneLibraryPanel({
   components,
   componentCatalog,
   fonts,
-  expandedCategories,
   componentToAddId,
   onComponentToAddIdChange,
   onSceneChange,
@@ -28,8 +27,7 @@ export function SceneLibraryPanel({
   onDuplicateComponent,
   onRemoveComponent,
   onComponentOptionChange,
-  onPickComponentImage,
-  onToggleCategory
+  onPickComponentImage
 }: {
   builtInScenes: SerializedSceneDefinition[];
   userScenes: SerializedSceneDefinition[];
@@ -37,7 +35,6 @@ export function SceneLibraryPanel({
   components: SerializedSceneComponentDefinition[];
   componentCatalog: ReadonlyMap<string, SerializedSceneComponentDefinition>;
   fonts: string[];
-  expandedCategories: Record<string, boolean>;
   componentToAddId: string;
   onComponentToAddIdChange: (componentId: string) => void;
   onSceneChange: (sceneId: string) => void;
@@ -54,7 +51,6 @@ export function SceneLibraryPanel({
   onRemoveComponent: (instanceId: string) => void;
   onComponentOptionChange: (instanceId: string, optionId: string, value: unknown) => void;
   onPickComponentImage: (instanceId: string, optionId: string) => void;
-  onToggleCategory: (instanceId: string, categoryId: string) => void;
 }) {
   return (
     <section className="panel">
@@ -163,7 +159,6 @@ export function SceneLibraryPanel({
                 instance={instance}
                 index={index}
                 fonts={fonts}
-                expandedCategories={expandedCategories}
                 onToggleEnabled={() => onToggleComponentEnabled(instance.id)}
                 onMove={(direction) => onMoveComponent(instance.id, direction)}
                 onDuplicate={() => onDuplicateComponent(instance.id)}
@@ -172,7 +167,6 @@ export function SceneLibraryPanel({
                   onComponentOptionChange(instance.id, optionId, value)
                 }
                 onPickImage={(optionId) => onPickComponentImage(instance.id, optionId)}
-                onToggleCategory={(categoryId) => onToggleCategory(instance.id, categoryId)}
               />
             );
           })

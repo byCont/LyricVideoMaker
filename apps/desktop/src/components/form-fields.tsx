@@ -6,22 +6,17 @@ import type {
 
 export function OptionCategorySection({
   category,
-  isExpanded,
-  onToggle,
   children
 }: {
   category: SceneOptionCategory;
-  isExpanded: boolean;
-  onToggle: () => void;
   children: ReactNode;
 }) {
   return (
     <section className="option-category">
-      <button type="button" className="option-category-toggle" onClick={onToggle}>
+      <div className="option-category-toggle">
         <span>{category.label}</span>
-        <span className="option-category-chevron">{isExpanded ? "−" : "+"}</span>
-      </button>
-      {isExpanded ? <div className="option-list">{children}</div> : null}
+      </div>
+      <div className="option-list">{children}</div>
     </section>
   );
 }
@@ -85,15 +80,17 @@ export function FileField({
   label,
   value,
   buttonLabel,
-  onPick
+  onPick,
+  compact = false
 }: {
   label: string;
   value: string;
   buttonLabel: string;
   onPick: () => void;
+  compact?: boolean;
 }) {
   return (
-    <div className="field file-field">
+    <div className={`field file-field${compact ? " file-field-compact" : ""}`}>
       <span>{label}</span>
       <div className="file-pill">{value || "Not selected"}</div>
       <button className="secondary" onClick={onPick}>{buttonLabel}</button>

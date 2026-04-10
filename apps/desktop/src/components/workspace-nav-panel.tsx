@@ -16,6 +16,7 @@ export function WorkspaceNavPanel({
   onSelectComponent,
   onComponentToAddIdChange,
   onAddComponent,
+  onToggleComponentEnabled,
   onMoveComponent,
   onDuplicateComponent,
   onRemoveComponent
@@ -29,6 +30,7 @@ export function WorkspaceNavPanel({
   onSelectComponent: (instanceId: string) => void;
   onComponentToAddIdChange: (componentId: string) => void;
   onAddComponent: () => void;
+  onToggleComponentEnabled: (instanceId: string) => void;
   onMoveComponent: (instanceId: string, direction: -1 | 1) => void;
   onDuplicateComponent: (instanceId: string) => void;
   onRemoveComponent: (instanceId: string) => void;
@@ -90,6 +92,7 @@ export function WorkspaceNavPanel({
                     isFirst={index === 0}
                     isLast={index === selectedScene.components.length - 1}
                     onSelect={() => onSelectComponent(instance.id)}
+                    onToggleEnabled={() => onToggleComponentEnabled(instance.id)}
                     onMove={(direction) => onMoveComponent(instance.id, direction)}
                     onDuplicate={() => onDuplicateComponent(instance.id)}
                     onRemove={() => onRemoveComponent(instance.id)}
@@ -131,6 +134,7 @@ function ComponentRow({
   isFirst,
   isLast,
   onSelect,
+  onToggleEnabled,
   onMove,
   onDuplicate,
   onRemove
@@ -142,6 +146,7 @@ function ComponentRow({
   isFirst: boolean;
   isLast: boolean;
   onSelect: () => void;
+  onToggleEnabled: () => void;
   onMove: (direction: -1 | 1) => void;
   onDuplicate: () => void;
   onRemove: () => void;
@@ -150,9 +155,11 @@ function ComponentRow({
     <div className={`workspace-component-row ${isSelected ? "is-selected" : ""}`}>
       <button type="button" className="workspace-component-select" onClick={onSelect}>
         <span className="sr-only">{`Select ${component.name} component`}</span>
-        <span className="workspace-component-order">{index + 1}</span>
         <span className="workspace-component-copy">
-          <span className="workspace-nav-title">{component.name}</span>
+          <span className="workspace-component-header">
+            <span className="workspace-component-order">{index + 1}</span>
+            <span className="workspace-nav-title">{component.name}</span>
+          </span>
           <span className="workspace-nav-subtitle">
             {instance.enabled ? "Enabled" : "Disabled"}
           </span>
@@ -160,6 +167,14 @@ function ComponentRow({
       </button>
 
       <div className="workspace-component-actions">
+        <button
+          type="button"
+          className={`secondary icon-button ${instance.enabled ? "is-active" : ""}`}
+          aria-label={`${instance.enabled ? "Disable" : "Enable"} ${component.name}`}
+          onClick={onToggleEnabled}
+        >
+          {instance.enabled ? "On" : "Off"}
+        </button>
         <button
           type="button"
           className="secondary icon-button"

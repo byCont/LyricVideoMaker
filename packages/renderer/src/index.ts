@@ -804,7 +804,7 @@ export function resolveRenderParallelism({
   const requested =
     normalizePositiveInteger(parallelism) ??
     normalizePositiveInteger(process.env.LYRIC_VIDEO_RENDER_WORKERS) ??
-    Math.min(4, Math.max(1, Math.floor(availableParallelism() / 2)));
+    Math.min(8, Math.max(1, Math.floor(availableParallelism() - 1)));
   const maxWorkersFromFrames = Math.max(1, Math.floor(totalFrames / 2));
 
   return Math.max(1, Math.min(requested, totalFrames, maxWorkersFromFrames));
@@ -861,14 +861,12 @@ export function createOrderedFrameWriteQueue({
       }
 
       pendingFrames.set(frame.frame, frame.buffer);
-      flushChain = flushChain
-        .then(async () => {
-          await flushPendingFrames();
-        })
-        .catch((error) => {
-          writeError = error;
-          throw error;
-        });
+      const pendingFlush = flushChain.then(async () => {
+        await flushPendingFrames();
+      });
+      flushChain = pendingFlush.catch((error) => {
+        writeError ??= error;
+      });
 
       await flushChain;
       if (writeError) {
@@ -1401,15 +1399,14 @@ function createFrameWriteQueue({
       }
 
       bufferedFrames += 1;
-      writeChain = writeChain
-        .then(async () => {
-          await measureAsync(profiler, "muxWrite", async () => {
-            await muxer.writeFrame(frame);
-          });
-        })
+      const pendingWrite = writeChain.then(async () => {
+        await measureAsync(profiler, "muxWrite", async () => {
+          await muxer.writeFrame(frame);
+        });
+      });
+      writeChain = pendingWrite
         .catch((error) => {
-          writeError = error;
-          throw error;
+          writeError ??= error;
         })
         .finally(() => {
           bufferedFrames = Math.max(0, bufferedFrames - 1);
