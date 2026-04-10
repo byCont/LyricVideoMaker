@@ -43,13 +43,91 @@ describe("parallel rendering helpers", () => {
     expect(writes).toEqual([]);
 
     await orderedQueue.enqueue({ frame: 0, buffer: Buffer.from("0") });
+    await waitForAsyncQueueWork();
     expect(writes).toEqual(["0", "1"]);
 
     await orderedQueue.enqueue({ frame: 2, buffer: Buffer.from("2") });
+    await waitForAsyncQueueWork();
     expect(writes).toEqual(["0", "1", "2", "3"]);
 
     await orderedQueue.finish();
     expect(frameQueue.finish).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not block workers on downstream mux writes until the pending window fills", async () => {
+    let releaseFirstWrite: (() => void) | null = null;
+    const writes: string[] = [];
+    const frameQueue = {
+      enqueue: vi.fn(async (frame: Buffer) => {
+        writes.push(frame.toString("utf8"));
+        if (writes.length === 1) {
+          await new Promise<void>((resolve) => {
+            releaseFirstWrite = resolve;
+          });
+        }
+      }),
+      finish: vi.fn(async () => undefined),
+      abort: vi.fn(async () => undefined)
+    };
+
+    const orderedQueue = createOrderedFrameWriteQueue({
+      totalFrames: 2,
+      frameQueue,
+      maxPendingFrames: 2
+    });
+
+    let firstSettled = false;
+    let secondSettled = false;
+
+    const first = orderedQueue.enqueue({ frame: 0, buffer: Buffer.from("0") }).then(() => {
+      firstSettled = true;
+    });
+    const second = orderedQueue.enqueue({ frame: 1, buffer: Buffer.from("1") }).then(() => {
+      secondSettled = true;
+    });
+
+    await Promise.resolve();
+    await waitForAsyncQueueWork();
+
+    expect(firstSettled).toBe(true);
+    expect(secondSettled).toBe(true);
+    expect(writes).toEqual(["0"]);
+
+    releaseFirstWrite?.();
+
+    await first;
+    await second;
+    await orderedQueue.finish();
+
+    expect(writes).toEqual(["0", "1"]);
+  });
+
+  it("releases blocked producers when a downstream flush fails", async () => {
+    let rejectFirstWrite: ((error: Error) => void) | null = null;
+    const frameQueue = {
+      enqueue: vi.fn(async () => {
+        await new Promise<void>((_resolve, reject) => {
+          rejectFirstWrite = reject;
+        });
+      }),
+      finish: vi.fn(async () => undefined),
+      abort: vi.fn(async () => undefined)
+    };
+
+    const orderedQueue = createOrderedFrameWriteQueue({
+      totalFrames: 3,
+      frameQueue,
+      maxPendingFrames: 1
+    });
+
+    await orderedQueue.enqueue({ frame: 0, buffer: Buffer.from("0") });
+    await orderedQueue.enqueue({ frame: 1, buffer: Buffer.from("1") });
+
+    const blockedProducer = orderedQueue.enqueue({ frame: 2, buffer: Buffer.from("2") });
+    rejectFirstWrite?.(new Error("mux failed"));
+
+    await expect(blockedProducer).rejects.toThrow("mux failed");
+    await expect(orderedQueue.finish()).rejects.toThrow("mux failed");
   });
 
   it("fails finish when frames are missing", async () => {
@@ -69,3 +147,9 @@ describe("parallel rendering helpers", () => {
     );
   });
 });
+
+async function waitForAsyncQueueWork() {
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, 0);
+  });
+}

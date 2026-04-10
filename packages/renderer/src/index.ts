@@ -861,17 +861,7 @@ export function createOrderedFrameWriteQueue({
       }
 
       pendingFrames.set(frame.frame, frame.buffer);
-      const pendingFlush = flushChain.then(async () => {
-        await flushPendingFrames();
-      });
-      flushChain = pendingFlush.catch((error) => {
-        writeError ??= error;
-      });
-
-      await flushChain;
-      if (writeError) {
-        throw writeError;
-      }
+      scheduleFlush();
 
       return nextFrameToWrite;
     },
@@ -898,6 +888,16 @@ export function createOrderedFrameWriteQueue({
       await frameQueue.abort();
     }
   };
+
+  function scheduleFlush() {
+    const pendingFlush = flushChain.then(async () => {
+      await flushPendingFrames();
+    });
+    flushChain = pendingFlush.catch((error) => {
+      writeError ??= error;
+      releaseSpaceResolvers();
+    });
+  }
 
   async function flushPendingFrames() {
     while (pendingFrames.has(nextFrameToWrite)) {
