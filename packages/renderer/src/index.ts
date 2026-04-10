@@ -1,8 +1,12 @@
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { availableParallelism } from "node:os";
 import { performance } from "node:perf_hooks";
-import { chromium, type Browser, type BrowserContext, type CDPSession, type Page, type Route } from "playwright";
+import { join } from "node:path";
+import ffmpegPath from "ffmpeg-static";
+import ffprobe from "ffprobe-static";
+import type { Browser, BrowserContext, CDPSession, Page, Route } from "playwright";
 import { createElement, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
@@ -108,13 +112,15 @@ export interface PreloadedAsset {
 
 const ASSET_URL_PREFIX = "http://lyric-video.local/assets/";
 const PROGRESS_INTERVAL_MS = 250;
+const FFMPEG_EXECUTABLE = resolveExecutablePath(ffmpegPath, "ffmpeg");
+const FFPROBE_EXECUTABLE = resolveExecutablePath(ffprobe.path, "ffprobe");
 
 const NOOP_PROGRESS_EMITTER: ProgressEmitter = {
   emit() {}
 };
 
 export async function probeAudioDurationMs(audioPath: string): Promise<number> {
-  const output = await runCommand("ffprobe", [
+  const output = await runCommand(FFPROBE_EXECUTABLE, [
     "-v",
     "error",
     "-show_entries",
@@ -219,12 +225,18 @@ export async function renderLyricVideo({
       parallelism,
       totalFrames: job.video.durationInFrames
     });
+    const useBeginFrame = shouldUseBeginFrame() && workerCount === 1;
 
     logger.info(`Using ${workerCount} Chromium render worker${workerCount === 1 ? "" : "s"}.`);
+    if (shouldUseBeginFrame() && !useBeginFrame) {
+      logger.info("Disabling BeginFrameControl because parallel rendering uses screenshot capture.");
+    }
 
     for (let workerIndex = 0; workerIndex < workerCount; workerIndex += 1) {
       workerSessions.push(
         await createLiveDomRenderSession({
+          sessionLabel: `worker-${workerIndex}`,
+          preferBeginFrame: useBeginFrame,
           job,
           componentLookup,
           components: enabledComponents,
@@ -409,6 +421,8 @@ export async function createFramePreviewSession({
       logger
   });
   return await createLiveDomRenderSession({
+    sessionLabel: "preview",
+    preferBeginFrame: shouldUseBeginFrame(),
     job,
     componentLookup,
     components: enabledComponents,
@@ -428,6 +442,8 @@ export async function createFramePreviewSession({
 }
 
 async function createLiveDomRenderSession({
+  sessionLabel,
+  preferBeginFrame,
   job,
   componentLookup,
   components,
@@ -439,6 +455,8 @@ async function createLiveDomRenderSession({
   logger,
   profiler
 }: {
+  sessionLabel: string;
+  preferBeginFrame: boolean;
   job: RenderJob;
   componentLookup: Map<string, SceneComponentDefinition<Record<string, unknown>>>;
   components: ValidatedSceneComponentInstance[];
@@ -450,8 +468,6 @@ async function createLiveDomRenderSession({
   logger: RenderLogger;
   profiler?: RenderProfiler;
 }): Promise<FramePreviewSession> {
-  const preferBeginFrame = shouldUseBeginFrame();
-
   let browser: Browser | null = null;
   let browserContext: BrowserContext | null = null;
   let page: Page | null = null;
@@ -461,9 +477,10 @@ async function createLiveDomRenderSession({
   const lyricRuntimeCursor = createLyricRuntimeCursor(job.lyrics, 0);
 
   try {
+    const chromium = await loadChromium();
     browser = await chromium.launch({
       headless: true,
-      args: preferBeginFrame ? ["--run-all-compositor-stages-before-draw"] : []
+      args: getBeginFrameLaunchArgs(preferBeginFrame)
     });
 
     const renderPage = await createRenderPage({
@@ -504,6 +521,7 @@ async function createLiveDomRenderSession({
 
       const safeFrame = Math.max(0, Math.min(job.video.durationInFrames - 1, Math.floor(frame)));
       const timeMs = Math.min(job.video.durationMs, Math.round((safeFrame / job.video.fps) * 1000));
+      traceRenderStep(logger, sessionLabel, safeFrame, "frame-start");
       const lyrics = toBrowserLyricRuntime(lyricRuntimeCursor.getRuntimeAt(timeMs));
       const framePayload = maybeMeasureSync(profiler, "frameState", () =>
         createLiveDomFramePayload({
@@ -518,10 +536,13 @@ async function createLiveDomRenderSession({
         })
       );
 
+      traceRenderStep(logger, sessionLabel, safeFrame, "browser-update-start");
       await maybeMeasureAsync(profiler, "browserUpdate", async () => {
         await updateLiveDomScene(page!, framePayload);
       });
+      traceRenderStep(logger, sessionLabel, safeFrame, "browser-update-done");
 
+      traceRenderStep(logger, sessionLabel, safeFrame, "capture-start");
       const capture = await maybeMeasureAsync(profiler, "capture", async () => {
         return await captureFrameBuffer({
           cdpSession: cdpSession!,
@@ -531,6 +552,7 @@ async function createLiveDomRenderSession({
           beginFrameFallbackLogged
         });
       });
+      traceRenderStep(logger, sessionLabel, safeFrame, "capture-done");
       beginFrameFallbackLogged = capture.beginFrameFallbackLogged;
 
       return {
@@ -1059,6 +1081,33 @@ function shouldUseBeginFrame() {
   return process.env.LYRIC_VIDEO_RENDER_USE_BEGIN_FRAME !== "0";
 }
 
+function getBeginFrameLaunchArgs(preferBeginFrame: boolean) {
+  if (!preferBeginFrame) {
+    return [];
+  }
+
+  return [
+    "--enable-surface-synchronization",
+    "--run-all-compositor-stages-before-draw",
+    "--disable-threaded-animation",
+    "--disable-threaded-scrolling",
+    "--disable-checker-imaging"
+  ];
+}
+
+function traceRenderStep(
+  logger: RenderLogger,
+  sessionLabel: string,
+  frame: number,
+  step: string
+) {
+  if (process.env.LYRIC_VIDEO_RENDER_TRACE !== "1") {
+    return;
+  }
+
+  logger.info(`[trace:${sessionLabel}] frame=${frame} step=${step}`);
+}
+
 async function renderWorkerFrames({
   worker,
   workerIndex,
@@ -1398,7 +1447,7 @@ function startFrameMuxer(
   let finished = false;
 
   const child = spawn(
-    "ffmpeg",
+    FFMPEG_EXECUTABLE,
     [
       "-y",
       "-f",
@@ -1539,6 +1588,26 @@ function getMimeType(path: string): string {
 function getExtensionSuffix(path: string): string {
   const match = /\.[^./\\]+$/.exec(path);
   return match ? match[0] : "";
+}
+
+async function loadChromium() {
+  if (!process.env.PLAYWRIGHT_BROWSERS_PATH) {
+    const localBrowsersPath = process.resourcesPath
+      ? join(process.resourcesPath, "app", "node_modules", "playwright-core", ".local-browsers")
+      : null;
+    if (localBrowsersPath && existsSync(localBrowsersPath)) {
+      process.env.PLAYWRIGHT_BROWSERS_PATH = "0";
+    }
+  }
+
+  return (await import("playwright")).chromium;
+}
+
+function resolveExecutablePath(
+  bundledPath: string | null | undefined,
+  fallbackCommand: string
+) {
+  return typeof bundledPath === "string" && bundledPath.trim() ? bundledPath : fallbackCommand;
 }
 
 function normalizePositiveInteger(value: number | string | undefined) {

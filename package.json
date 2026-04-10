@@ -10,11 +10,13 @@
     "build": "npm run build --workspaces --if-present",
     "benchmark:renderer": "npm run build && node packages/renderer/tests/render-benchmark.mjs",
     "dev": "npm run dev --workspace @lyric-video-maker/desktop",
+    "publish": "node scripts/publish.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -b"
   },
   "devDependencies": {
+    "@electron/packager": "^19.1.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
     "@types/node": "^22.13.10",

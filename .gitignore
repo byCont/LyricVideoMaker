@@ -4,6 +4,8 @@ dist/
 dist-electron/
 coverage/
 .turbo/
+.publish/
+publish/
 
 playwright-report/
 test-results/
