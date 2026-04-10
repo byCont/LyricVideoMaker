@@ -161,7 +161,7 @@ describe("scene registry components", () => {
       "0 4px 12px rgba(255, 0, 0, 0.6), 0 0 1px rgba(255, 0, 0, 0.8), 0 0 14px rgba(255, 0, 0, 0.27)"
     );
     expect((lyricText as HTMLElement).style.padding).toBe("21px");
-    expect((lyricText as HTMLElement).style.margin).toBe("-21px");
+    expect((lyricText as HTMLElement).style.margin).toBe("");
     expect(lyricContainer).toHaveStyle({
       alignItems: "flex-start",
       padding: "110px 96px 0"
@@ -267,7 +267,6 @@ describe("scene registry components", () => {
       text: "Styled line",
       opacity: 0.25,
       padding: "20px",
-      margin: "-20px",
       webkitTextStroke: "5px #33ccff"
     });
     expect(String(lyricFrameState.textShadow)).toContain("rgba(255, 0, 0, 0.6)");

@@ -23,7 +23,6 @@ import { SceneDetailsEditor } from "./components/scene-details-editor";
 import { WorkspaceNavPanel } from "./components/workspace-nav-panel";
 import type { ComposerState } from "./composer-types";
 import type { AppBootstrapData, FilePickKind } from "./electron-api";
-import { useFramePreview } from "./use-frame-preview";
 import type { WorkspaceSelection } from "./workspace-types";
 import { isComponentSelection } from "./workspace-types";
 
@@ -145,10 +144,6 @@ export function App() {
     isSubmitting ||
     (renderDialogEntry ? ACTIVE_RENDER_STATUSES.has(renderDialogEntry.status) : false);
   const previewPaused = hasActiveRender;
-  const { enabled: previewEnabled, preview, updatePreviewTime } = useFramePreview({
-    composer,
-    paused: previewPaused
-  });
   const selectedVideoSizePresetId =
     VIDEO_SIZE_PRESETS.find(
       (preset) => preset.width === composer.video.width && preset.height === composer.video.height
@@ -576,13 +571,7 @@ export function App() {
 
         <section className="workspace-main-pane" ref={mainPaneRef}>
           <div className="workspace-pane workspace-preview-pane">
-            <PreviewPanel
-              video={composer.video}
-              preview={preview}
-              enabled={previewEnabled}
-              paused={previewPaused}
-              onTimeChange={updatePreviewTime}
-            />
+            <PreviewPanel composer={composer} paused={previewPaused} />
           </div>
 
           <div

@@ -1,9 +1,14 @@
 import React from "react";
+import { measureNaturalWidth, prepareWithSegments } from "@chenglou/pretext";
 import type { SceneComponentDefinition } from "@lyric-video-maker/core";
 import { SUPPORTED_FONT_FAMILIES } from "@lyric-video-maker/core";
 
 type LyricFadeEasing = "linear" | "ease-in" | "ease-out" | "ease-in-out";
 type LyricVerticalPosition = "top" | "middle" | "bottom";
+
+const LYRIC_FONT_WEIGHT = 700;
+const LYRIC_LINE_HEIGHT = 1.15;
+const LYRIC_LETTER_SPACING_EM = -0.03;
 
 export interface LyricsByLineOptions {
   lyricSize: number;
@@ -51,16 +56,18 @@ export const lyricsByLineComponent: SceneComponentDefinition<LyricsByLineOptions
         options.forceSingleLine
       );
       const lyricBlockStyles = getLyricBlockStyles(options.lyricPosition, options.horizontalPadding);
+      const paintPadding = getLyricPaintPadding(options.lyricSize, options);
       const lyricFontSize = getRenderedLyricFontSize(
         activeText,
         options,
         video.width,
-        lyricBlockStyles.horizontalPadding
+        lyricBlockStyles.horizontalPadding,
+        paintPadding
       );
       const lyricOpacity = activeCue
         ? getLyricOpacity(activeCue.startMs, activeCue.endMs, timeMs, options)
         : 0;
-      const paintPadding = getLyricPaintPadding(lyricFontSize, options);
+      const renderedPaintPadding = getLyricPaintPadding(lyricFontSize, options);
       const letterShadow =
         options.shadowEnabled && options.shadowIntensity > 0
           ? createTextShadow(lyricFontSize, options.shadowColor, options.shadowIntensity)
@@ -74,8 +81,7 @@ export const lyricsByLineComponent: SceneComponentDefinition<LyricsByLineOptions
         text: activeText,
         opacity: lyricOpacity,
         fontSize: lyricFontSize,
-        padding: `${paintPadding}px`,
-        margin: `-${paintPadding}px`,
+        padding: `${renderedPaintPadding}px`,
         textShadow: letterShadow,
         webkitTextStroke: letterStroke
       };
@@ -235,7 +241,14 @@ export const lyricsByLineComponent: SceneComponentDefinition<LyricsByLineOptions
       ? getLyricOpacity(activeCue.startMs, activeCue.endMs, timeMs, options)
       : 0;
     const lyricBlockStyles = getLyricBlockStyles(options.lyricPosition, options.horizontalPadding);
-    const lyricFontSize = getRenderedLyricFontSize(activeText, options, video.width, lyricBlockStyles.horizontalPadding);
+    const estimatedPaintPadding = getLyricPaintPadding(options.lyricSize, options);
+    const lyricFontSize = getRenderedLyricFontSize(
+      activeText,
+      options,
+      video.width,
+      lyricBlockStyles.horizontalPadding,
+      estimatedPaintPadding
+    );
     const paintPadding = getLyricPaintPadding(lyricFontSize, options);
     const letterShadow =
       options.shadowEnabled && options.shadowIntensity > 0
@@ -262,14 +275,14 @@ export const lyricsByLineComponent: SceneComponentDefinition<LyricsByLineOptions
       >
         <div
           style={{
+            display: "inline-block",
             maxWidth: "100%",
             textAlign: "center",
             fontSize: lyricFontSize,
-            fontWeight: 700,
-            lineHeight: 1.15,
-            letterSpacing: "-0.03em",
+            fontWeight: LYRIC_FONT_WEIGHT,
+            lineHeight: LYRIC_LINE_HEIGHT,
+            letterSpacing: `${LYRIC_LETTER_SPACING_EM}em`,
             padding: `${paintPadding}px`,
-            margin: `-${paintPadding}px`,
             textShadow: letterShadow,
             whiteSpace: options.forceSingleLine ? "nowrap" : "pre-wrap",
             opacity: lyricOpacity,
@@ -320,23 +333,23 @@ function getRenderedLyricText(lines: string[], fallbackText: string, forceSingle
 
 function getRenderedLyricFontSize(
   text: string,
-  options: Pick<LyricsByLineOptions, "lyricSize" | "forceSingleLine">,
+  options: Pick<LyricsByLineOptions, "lyricSize" | "forceSingleLine" | "lyricFont">,
   videoWidth: number,
-  horizontalPadding: number
+  horizontalPadding: number,
+  paintPadding: number
 ) {
   if (!options.forceSingleLine || !text.trim()) {
     return options.lyricSize;
   }
 
-  const glyphCount = Array.from(text).length;
-  const availableWidth = Math.max(160, videoWidth - horizontalPadding * 2);
-  const estimatedWidthAtBaseSize = glyphCount * options.lyricSize * 0.58;
+  const availableWidth = Math.max(160, videoWidth - horizontalPadding * 2 - paintPadding * 2);
+  const measuredWidthAtBaseSize = measureSingleLineWidth(text, options.lyricFont, options.lyricSize);
 
-  if (estimatedWidthAtBaseSize <= availableWidth) {
+  if (measuredWidthAtBaseSize <= availableWidth) {
     return options.lyricSize;
   }
 
-  return Math.max(12, Math.floor((availableWidth / (glyphCount * 0.58)) * 10) / 10);
+  return Math.max(12, Math.floor(((options.lyricSize * availableWidth) / measuredWidthAtBaseSize) * 10) / 10);
 }
 
 function getLyricOpacity(
@@ -413,6 +426,45 @@ function createTextShadow(fontSize: number, color: string, intensity: number) {
     `0 0 ${sharpness}px ${withAlpha(color, Math.min(1, shadowAlpha + 0.2))}`,
     `0 0 ${blur + sharpness * 2}px ${withAlpha(color, ambientAlpha)}`
   ].join(", ");
+}
+
+function measureSingleLineWidth(text: string, fontFamily: string, fontSize: number) {
+  if (!canUsePretextMeasurement()) {
+    return estimateSingleLineWidth(text, fontSize);
+  }
+
+  try {
+    const prepared = prepareWithSegments(text, getMeasurementFont(fontFamily, fontSize));
+    const naturalWidth = measureNaturalWidth(prepared);
+    return naturalWidth + getLetterSpacingWidth(text, fontSize);
+  } catch {
+    return estimateSingleLineWidth(text, fontSize);
+  }
+}
+
+function getMeasurementFont(fontFamily: string, fontSize: number) {
+  return `${LYRIC_FONT_WEIGHT} ${fontSize}px "${fontFamily}"`;
+}
+
+function getLetterSpacingWidth(text: string, fontSize: number) {
+  const graphemeCount = Array.from(text).length;
+  if (graphemeCount <= 1) {
+    return 0;
+  }
+
+  return (graphemeCount - 1) * fontSize * LYRIC_LETTER_SPACING_EM;
+}
+
+function estimateSingleLineWidth(text: string, fontSize: number) {
+  return Array.from(text).length * fontSize * 0.58;
+}
+
+function canUsePretextMeasurement() {
+  if (typeof document === "undefined") {
+    return false;
+  }
+
+  return !/\bjsdom\b/i.test(globalThis.navigator?.userAgent ?? "");
 }
 
 function getLyricPaintPadding(

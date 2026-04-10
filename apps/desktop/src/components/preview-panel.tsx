@@ -1,21 +1,20 @@
 import React, { type CSSProperties } from "react";
-import type { VideoSettings } from "@lyric-video-maker/core";
 import { durationMsToFrameCount } from "@lyric-video-maker/core";
-import type { FramePreviewState } from "../use-frame-preview";
+import type { ComposerState } from "../composer-types";
+import { useFramePreview } from "../use-frame-preview";
 
 export function PreviewPanel({
-  video,
-  preview,
-  enabled,
   paused,
-  onTimeChange
+  composer
 }: {
-  video: Pick<VideoSettings, "width" | "height" | "fps">;
-  preview: FramePreviewState;
-  enabled: boolean;
+  composer: ComposerState;
   paused: boolean;
-  onTimeChange: (timeMs: number) => void;
 }) {
+  const { enabled, preview, updatePreviewTime } = useFramePreview({
+    composer,
+    paused
+  });
+  const video = composer.video;
   const frameCount = preview.result
     ? durationMsToFrameCount(preview.result.durationMs, video.fps)
     : 0;
@@ -71,34 +70,38 @@ export function PreviewPanel({
         </div>
 
         <div className="preview-jump-rail">
-          <button className="secondary" disabled={paused || !enabled} onClick={() => onTimeChange(0)}>
+          <button
+            className="secondary"
+            disabled={paused || !enabled}
+            onClick={() => updatePreviewTime(0)}
+          >
             Start
           </button>
           <button
             className="secondary"
             disabled={paused || !preview.result?.previousCue}
-            onClick={() => onTimeChange(preview.result?.previousCue?.startMs ?? 0)}
+            onClick={() => updatePreviewTime(preview.result?.previousCue?.startMs ?? 0)}
           >
             Previous Cue
           </button>
           <button
             className="secondary"
             disabled={paused || !preview.result?.currentCue}
-            onClick={() => onTimeChange(preview.result?.currentCue?.startMs ?? 0)}
+            onClick={() => updatePreviewTime(preview.result?.currentCue?.startMs ?? 0)}
           >
             Current Cue
           </button>
           <button
             className="secondary"
             disabled={paused || !preview.result?.nextCue}
-            onClick={() => onTimeChange(preview.result?.nextCue?.startMs ?? 0)}
+            onClick={() => updatePreviewTime(preview.result?.nextCue?.startMs ?? 0)}
           >
             Next Cue
           </button>
           <button
             className="secondary"
             disabled={paused || !preview.result}
-            onClick={() => onTimeChange(preview.result?.durationMs ?? 0)}
+            onClick={() => updatePreviewTime(preview.result?.durationMs ?? 0)}
           >
             End
           </button>
@@ -119,7 +122,7 @@ export function PreviewPanel({
             step={Math.max(1, Math.round(1000 / video.fps))}
             value={sliderValue}
             disabled={!enabled || paused || rangeMax <= 0}
-            onChange={(event) => onTimeChange(Number(event.target.value))}
+            onChange={(event) => updatePreviewTime(Number(event.target.value))}
           />
         </label>
       </div>

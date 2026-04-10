@@ -14,6 +14,7 @@
     "build": "tsup src/index.ts --format esm,cjs"
   },
   "dependencies": {
+    "@chenglou/pretext": "^0.0.5",
     "@lyric-video-maker/core": "file:../core"
   },
   "peerDependencies": {

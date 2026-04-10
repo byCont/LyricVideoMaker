@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { startTransition, useDeferredValue, useEffect, useRef, useState } from "react";
 import type { RenderPreviewResponse } from "./electron-api";
 import type { ComposerState } from "./composer-types";
 
@@ -28,6 +28,8 @@ export function useFramePreview({
   const [preview, setPreview] = useState<FramePreviewState>(emptyPreviewState);
   const requestIdRef = useRef(0);
   const enabled = Boolean(composer.audioPath && composer.subtitlePath && composer.scene);
+  const deferredComposer = useDeferredValue(composer);
+  const deferredRequestedTimeMs = useDeferredValue(preview.requestedTimeMs);
 
   useEffect(() => {
     return () => {
@@ -53,7 +55,7 @@ export function useFramePreview({
   }, [enabled, paused]);
 
   useEffect(() => {
-    const scene = composer.scene;
+    const scene = deferredComposer.scene;
 
     if (!enabled || paused || !scene) {
       return;
@@ -63,17 +65,19 @@ export function useFramePreview({
     requestIdRef.current = requestId;
     const safeTimeMs =
       preview.result?.durationMs !== undefined
-        ? Math.min(preview.requestedTimeMs, preview.result.durationMs)
-        : preview.requestedTimeMs;
+        ? Math.min(deferredRequestedTimeMs, preview.result.durationMs)
+        : deferredRequestedTimeMs;
 
     const timeout = window.setTimeout(() => {
-      setPreview((current) => ({ ...current, isLoading: true }));
+      startTransition(() => {
+        setPreview((current) => ({ ...current, isLoading: true }));
+      });
       void window.lyricVideoApp
         .renderPreviewFrame({
-          audioPath: composer.audioPath,
-          subtitlePath: composer.subtitlePath,
+          audioPath: deferredComposer.audioPath,
+          subtitlePath: deferredComposer.subtitlePath,
           scene,
-          video: composer.video,
+          video: deferredComposer.video,
           timeMs: safeTimeMs
         })
         .then((result) => {
@@ -81,24 +85,28 @@ export function useFramePreview({
             return;
           }
 
-          setPreview((current) => ({
-            ...current,
-            result,
-            error: "",
-            isLoading: false,
-            requestedTimeMs: result.timeMs
-          }));
+          startTransition(() => {
+            setPreview((current) => ({
+              ...current,
+              result,
+              error: "",
+              isLoading: false,
+              requestedTimeMs: result.timeMs
+            }));
+          });
         })
         .catch((previewError) => {
           if (requestIdRef.current !== requestId) {
             return;
           }
 
-          setPreview((current) => ({
-            ...current,
-            error: previewError instanceof Error ? previewError.message : String(previewError),
-            isLoading: false
-          }));
+          startTransition(() => {
+            setPreview((current) => ({
+              ...current,
+              error: previewError instanceof Error ? previewError.message : String(previewError),
+              isLoading: false
+            }));
+          });
         });
     }, PREVIEW_DEBOUNCE_MS);
 
@@ -106,13 +114,13 @@ export function useFramePreview({
       window.clearTimeout(timeout);
     };
   }, [
-    composer.audioPath,
-    composer.scene,
-    composer.subtitlePath,
-    composer.video,
+    deferredComposer.audioPath,
+    deferredComposer.scene,
+    deferredComposer.subtitlePath,
+    deferredComposer.video,
+    deferredRequestedTimeMs,
     enabled,
     paused,
-    preview.requestedTimeMs,
     preview.result?.durationMs
   ]);
 

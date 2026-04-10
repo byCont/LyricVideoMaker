@@ -438,33 +438,34 @@ export function renderPageShell(): string {
             update() {}
           },
           "lyrics-by-line": {
-            mount(layer, initialState) {
-              const wrapper = document.createElement("div");
-              applyStyles(wrapper, {
-                position: "absolute",
-                inset: "0",
-                display: "flex",
-                justifyContent: "center",
-                boxSizing: "border-box",
-                contain: "layout style paint",
-                alignItems: initialState.alignItems,
-                padding: initialState.padding,
-                color: initialState.color,
-                fontFamily: initialState.fontFamily
-              });
+              mount(layer, initialState) {
+                const wrapper = document.createElement("div");
+                applyStyles(wrapper, {
+                  position: "absolute",
+                  inset: "0",
+                  display: "flex",
+                  justifyContent: "center",
+                  boxSizing: "border-box",
+                  contain: "layout style",
+                  alignItems: initialState.alignItems,
+                  padding: initialState.padding,
+                  color: initialState.color,
+                  fontFamily: initialState.fontFamily
+                });
 
-              const text = document.createElement("div");
-              applyStyles(text, {
-                maxWidth: "100%",
-                textAlign: "center",
-                fontWeight: "700",
-                lineHeight: "1.15",
-                letterSpacing: "-0.03em",
-                whiteSpace: initialState.whiteSpace,
-                willChange: "opacity",
-                contain: "layout style paint",
-                opacity: "0"
-              });
+                const text = document.createElement("div");
+                applyStyles(text, {
+                  display: "inline-block",
+                  maxWidth: "100%",
+                  textAlign: "center",
+                  fontWeight: "700",
+                  lineHeight: "1.15",
+                  letterSpacing: "-0.03em",
+                  whiteSpace: initialState.whiteSpace,
+                  willChange: "opacity",
+                  contain: "layout style",
+                  opacity: "0"
+                });
 
               wrapper.appendChild(text);
               layer.appendChild(wrapper);
@@ -479,14 +480,15 @@ export function renderPageShell(): string {
                 handle.text.textContent = state.text;
               }
 
-              if (state.fontSize !== undefined) {
-                handle.text.style.fontSize = String(state.fontSize) + "px";
-              }
+                if (state.fontSize !== undefined) {
+                  handle.text.style.fontSize = String(state.fontSize) + "px";
+                }
 
-              handle.text.style.textShadow = state.textShadow ? String(state.textShadow) : "none";
-              handle.text.style.webkitTextStroke = state.webkitTextStroke ? String(state.webkitTextStroke) : "";
-              handle.text.style.opacity = String(state.opacity ?? 0);
-            }
+                handle.text.style.padding = state.padding ? String(state.padding) : "0px";
+                handle.text.style.textShadow = state.textShadow ? String(state.textShadow) : "none";
+                handle.text.style.webkitTextStroke = state.webkitTextStroke ? String(state.webkitTextStroke) : "";
+                handle.text.style.opacity = String(state.opacity ?? 0);
+              }
           },
           "equalizer": {
             mount(layer, initialState) {
