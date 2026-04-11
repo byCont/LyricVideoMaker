@@ -1,22 +1,28 @@
 import React from "react";
 import type { SceneComponentDefinition } from "@lyric-video-maker/core";
+import {
+  DEFAULT_STATIC_TEXT_OPTIONS,
+  staticTextOptionsSchema,
+  type StaticTextComponentOptions
+} from "./options";
 
 /**
- * Static Text component — minimal identity stub (T-025).
+ * Static Text component (cavekit-static-text-component).
  *
- * Options, defaults, rendering, token substitution, and time-gated visibility
- * are filled in by later tiers: T-026 (options contract), T-027 (schema
- * order), T-028 (defaults), T-029 (tokens), T-030 (color + case), T-031
- * (effects + backdrop), T-032 (per-frame opacity).
- *
- * Options are intentionally empty to satisfy T-033 (no asset fields).
+ * R1: identifier "static-text".
+ * R2: options contract in ./options.ts.
+ * R3: category order Content/Typography/Color/Transform/Box/Effects/Timing.
+ * R4: defaults spread shared Transform/Timing + legible placeholder text.
+ * R5–R7: token substitution, rendering, and per-frame opacity come from
+ *        later tier tasks (T-029, T-030, T-031, T-032).
+ * R8: options contain no image or video fields (verified by test).
  */
-export const staticTextComponent: SceneComponentDefinition<Record<string, unknown>> = {
+export const staticTextComponent: SceneComponentDefinition<StaticTextComponentOptions> = {
   id: "static-text",
   name: "Static Text",
   description: "Positioned typographic text with styling, color modes, and effects.",
   staticWhenMarkupUnchanged: true,
-  options: [],
-  defaultOptions: {},
+  options: staticTextOptionsSchema,
+  defaultOptions: DEFAULT_STATIC_TEXT_OPTIONS,
   Component: () => null
 };
