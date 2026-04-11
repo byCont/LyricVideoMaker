@@ -41,6 +41,8 @@ function getFileFilters(kind: FilePickKind) {
       return [{ name: "Text Files", extensions: ["txt"] }];
     case "image":
       return [{ name: "Image Files", extensions: ["png", "jpg", "jpeg", "webp"] }];
+    case "video":
+      return [{ name: "Video Files", extensions: ["mp4", "webm", "mov", "mkv"] }];
     default:
       return [];
   }

@@ -24,7 +24,7 @@ export interface PaneLayoutPreferences {
   inspectorHeight: number;
 }
 
-export type FilePickKind = "audio" | "subtitle" | "lyrics-text" | "image" | "output";
+export type FilePickKind = "audio" | "subtitle" | "lyrics-text" | "image" | "video" | "output";
 
 export type SubtitleGenerationMode = "transcribe" | "align";
 
