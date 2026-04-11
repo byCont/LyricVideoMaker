@@ -13,8 +13,10 @@ export function GeneralDetailsEditor({
   error,
   isSubmitting,
   hasActiveRender,
+  ffmpegAvailable,
   onPickPath,
   onOpenSubtitleGenerator,
+  onSetupFfmpeg,
   onVideoSizePresetChange,
   onFpsPresetChange,
   onWidthChange,
@@ -33,8 +35,10 @@ export function GeneralDetailsEditor({
   error: string;
   isSubmitting: boolean;
   hasActiveRender: boolean;
+  ffmpegAvailable: boolean;
   onPickPath: (kind: FilePickKind) => void;
   onOpenSubtitleGenerator: () => void;
+  onSetupFfmpeg: () => void;
   onVideoSizePresetChange: (presetId: string) => void;
   onFpsPresetChange: (presetId: string) => void;
   onWidthChange: (value: number) => void;
@@ -59,6 +63,18 @@ export function GeneralDetailsEditor({
           </div>
         </div>
       </div>
+
+      {!ffmpegAvailable ? (
+        <div className="ffmpeg-missing-banner" role="alert">
+          <div className="ffmpeg-missing-banner-text">
+            <strong>FFmpeg is not configured.</strong> Rendering and preview are disabled until
+            FFmpeg is available.
+          </div>
+          <button type="button" className="primary" onClick={onSetupFfmpeg}>
+            Set up FFmpeg…
+          </button>
+        </div>
+      ) : null}
 
       <div className="general-editor-body">
         <div className="inspector-layout">
@@ -233,7 +249,12 @@ export function GeneralDetailsEditor({
           <button
             type="button"
             className="primary render-submit-button"
-            disabled={isSubmitting || hasActiveRender}
+            disabled={isSubmitting || hasActiveRender || !ffmpegAvailable}
+            title={
+              !ffmpegAvailable
+                ? "FFmpeg is not configured. Click Set up FFmpeg to continue."
+                : undefined
+            }
             onClick={onSubmit}
           >
             {isSubmitting || hasActiveRender ? "Rendering..." : `Render ${outputExtension}`}

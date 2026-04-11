@@ -18,10 +18,16 @@ export interface WindowLayoutPreferences {
   maximized: boolean;
 }
 
+export interface FfmpegPreferences {
+  ffmpegPath?: string;
+  ffprobePath?: string;
+}
+
 export interface LayoutPreferences {
   version: 1;
   window?: WindowLayoutPreferences;
   panes?: PaneLayoutPreferences;
+  ffmpeg?: FfmpegPreferences;
 }
 
 interface LayoutPreferencesStoreOptions {
@@ -33,6 +39,7 @@ export interface LayoutPreferencesStore {
   get(): LayoutPreferences;
   updateWindow(window: WindowLayoutPreferences): Promise<LayoutPreferences>;
   updatePanes(panes: PaneLayoutPreferences): Promise<LayoutPreferences>;
+  updateFfmpeg(ffmpeg: FfmpegPreferences): Promise<LayoutPreferences>;
 }
 
 export function createLayoutPreferencesStore({
@@ -69,6 +76,14 @@ export function createLayoutPreferencesStore({
       };
       await save();
       return preferences;
+    },
+    async updateFfmpeg(ffmpeg) {
+      preferences = {
+        ...preferences,
+        ffmpeg: sanitizeFfmpegPreferences(ffmpeg)
+      };
+      await save();
+      return preferences;
     }
   };
 }
@@ -90,12 +105,16 @@ export function parseLayoutPreferences(raw: unknown): LayoutPreferences {
   const preferences: LayoutPreferences = { version: LAYOUT_PREFERENCES_VERSION };
   const window = parseWindowPreferences(raw.window);
   const panes = parsePaneLayoutPreferences(raw.panes);
+  const ffmpeg = parseFfmpegPreferences(raw.ffmpeg);
 
   if (window) {
     preferences.window = window;
   }
   if (panes) {
     preferences.panes = panes;
+  }
+  if (ffmpeg) {
+    preferences.ffmpeg = ffmpeg;
   }
 
   return preferences;
@@ -119,6 +138,17 @@ export function sanitizePaneLayoutPreferences(
     sidebarWidth: clampInteger(panes.sidebarWidth, MIN_SIDE_PANE_WIDTH, MAX_PANE_SIZE),
     inspectorHeight: clampInteger(panes.inspectorHeight, MIN_INSPECTOR_HEIGHT, MAX_PANE_SIZE)
   };
+}
+
+export function sanitizeFfmpegPreferences(ffmpeg: FfmpegPreferences): FfmpegPreferences {
+  const result: FfmpegPreferences = {};
+  if (typeof ffmpeg.ffmpegPath === "string" && ffmpeg.ffmpegPath.trim()) {
+    result.ffmpegPath = ffmpeg.ffmpegPath.trim();
+  }
+  if (typeof ffmpeg.ffprobePath === "string" && ffmpeg.ffprobePath.trim()) {
+    result.ffprobePath = ffmpeg.ffprobePath.trim();
+  }
+  return result;
 }
 
 export function getRestorableWindowPreferences(
@@ -171,6 +201,18 @@ function parseWindowPreferences(raw: unknown): WindowLayoutPreferences | undefin
     height,
     maximized: raw.maximized === true
   });
+}
+
+function parseFfmpegPreferences(raw: unknown): FfmpegPreferences | undefined {
+  if (!isRecord(raw)) {
+    return undefined;
+  }
+  const ffmpegPath = typeof raw.ffmpegPath === "string" ? raw.ffmpegPath : undefined;
+  const ffprobePath = typeof raw.ffprobePath === "string" ? raw.ffprobePath : undefined;
+  if (!ffmpegPath && !ffprobePath) {
+    return undefined;
+  }
+  return sanitizeFfmpegPreferences({ ffmpegPath, ffprobePath });
 }
 
 function parsePaneLayoutPreferences(raw: unknown): PaneLayoutPreferences | undefined {

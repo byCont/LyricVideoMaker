@@ -1,8 +1,8 @@
-import { FFPROBE_EXECUTABLE } from "../constants";
+import { getFfprobeCommand } from "../constants";
 import { runCommand } from "./run-command";
 
 export async function probeAudioDurationMs(audioPath: string): Promise<number> {
-  const output = await runCommand(FFPROBE_EXECUTABLE, [
+  const output = await runCommand(getFfprobeCommand(), [
     "-v",
     "error",
     "-show_entries",

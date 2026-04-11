@@ -31,3 +31,6 @@ sidecars/subtitle-aligner/.venv/
 *.egg-info/
 
 .claude/
+
+build-frozen/
+dist-frozen/

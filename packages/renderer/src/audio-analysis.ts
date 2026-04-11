@@ -3,6 +3,7 @@ import type {
   SceneAudioAnalysisResult,
   VideoSettings
 } from "@lyric-video-maker/core";
+import { getFfmpegCommand } from "./constants";
 import { runBinaryCommand } from "./ffmpeg/run-command";
 
 const DEFAULT_SAMPLE_RATE = 22_050;
@@ -123,7 +124,7 @@ export async function decodeAudioFileToMono(
   signal?: AbortSignal
 ): Promise<DecodedAudioData> {
   const pcmBody = await runBinaryCommand(
-    "ffmpeg",
+    getFfmpegCommand(),
     [
       "-v",
       "error",

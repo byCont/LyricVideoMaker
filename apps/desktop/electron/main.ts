@@ -3,7 +3,12 @@ import { app, BrowserWindow, screen } from "electron";
 import { createMainWindow } from "./app/create-window";
 import { getAppRootDir } from "./app/app-paths";
 import { previewProfilerEnabled } from "./app/preview-profiler";
-import { registerIpcHandlers } from "./ipc/register-ipc-handlers";
+import {
+  registerIpcHandlers,
+  type FfmpegAvailability
+} from "./ipc/register-ipc-handlers";
+import { discoverFfmpeg } from "./services/ffmpeg-discovery";
+import { promptFfmpegSetup } from "./services/ffmpeg-install-prompt";
 import {
   createLayoutPreferencesStore,
   getRestorableWindowPreferences,
@@ -55,6 +60,8 @@ app.whenReady().then(async () => {
   });
   await layoutPreferencesStore.load();
   sceneCatalog.replaceAll(await loadUserScenes(app.getPath("userData")));
+
+  const ffmpegAvailability = await initializeFfmpeg(layoutPreferencesStore);
   previewWorkerClient.start();
 
   registerIpcHandlers({
@@ -65,7 +72,8 @@ app.whenReady().then(async () => {
     renderHistory,
     sceneCatalog,
     layoutPreferencesStore,
-    previewProfilerEnabled
+    previewProfilerEnabled,
+    ffmpegAvailability
   });
 
   openMainWindow();
@@ -76,6 +84,41 @@ app.whenReady().then(async () => {
     }
   });
 });
+
+async function initializeFfmpeg(
+  store: LayoutPreferencesStore
+): Promise<FfmpegAvailability> {
+  const savedFfmpeg = store.get().ffmpeg;
+  let discovery = await discoverFfmpeg({
+    knownFfmpegPath: savedFfmpeg?.ffmpegPath,
+    knownFfprobePath: savedFfmpeg?.ffprobePath
+  });
+
+  if (discovery.kind === "missing") {
+    discovery = await promptFfmpegSetup({ initialReason: discovery.reason });
+  }
+
+  if (discovery.kind === "found") {
+    process.env.LYRIC_VIDEO_FFMPEG_PATH = discovery.ffmpegPath;
+    process.env.LYRIC_VIDEO_FFPROBE_PATH = discovery.ffprobePath;
+    try {
+      await store.updateFfmpeg({
+        ffmpegPath: discovery.ffmpegPath,
+        ffprobePath: discovery.ffprobePath
+      });
+    } catch (error) {
+      console.warn("Failed to persist FFmpeg paths.", error);
+    }
+  }
+
+  let available = discovery.kind === "found";
+  return {
+    isAvailable: () => available,
+    setAvailable: (value) => {
+      available = value;
+    }
+  };
+}
 
 function registerWindowLayoutPersistence(window: BrowserWindow) {
   let saveTimer: NodeJS.Timeout | null = null;

@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import type { RenderJob } from "@lyric-video-maker/core";
+import { getFfmpegCommand } from "../constants";
 import { runBinaryCommand } from "../ffmpeg/run-command";
 import type { CachedAssetBody, PreviewAssetCache, RenderLogger } from "../types";
 import { getMimeType } from "./mime";
@@ -80,7 +81,7 @@ export async function normalizeImageAsset(
 ): Promise<Buffer | null> {
   try {
     return await runBinaryCommand(
-      "ffmpeg",
+      getFfmpegCommand(),
       [
         "-v",
         "error",

@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { access, constants, cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { packager } from "@electron/packager";
@@ -39,6 +39,14 @@ async function main() {
   console.log("Building workspace artifacts...");
   await runCommand(getNpmCommand(), ["run", "build"], { cwd: rootDir });
 
+  console.log("Freezing subtitle sidecar into a standalone executable...");
+  await runCommand(process.execPath, [join(rootDir, "scripts", "freeze-subtitle-sidecar.mjs")], {
+    cwd: rootDir,
+    shell: false
+  });
+
+  await assertFrozenSidecarExists();
+
   console.log("Preparing publish staging directory...");
   await rm(stageDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 250 });
   await rm(outDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 250 });
@@ -48,11 +56,14 @@ async function main() {
   await cp(join(rootDir, "apps", "desktop", "dist-electron"), join(stageDir, "dist-electron"), {
     recursive: true
   });
-  await cp(join(rootDir, "sidecars"), join(stageDir, "sidecars"), { recursive: true });
+
+  await stageSidecars();
 
   for (const pkg of workspacePackages) {
     await stageWorkspacePackage(pkg);
   }
+
+  await stageLegalDocuments();
 
   const stagePackage = {
     name: rootPackage.name,
@@ -60,8 +71,8 @@ async function main() {
     version: rootPackage.version,
     private: true,
     description: rootPackage.description ?? "Desktop lyric video renderer",
-    author: rootPackage.author ?? "Lyric Video Maker",
-    license: rootPackage.license ?? "UNLICENSED",
+    author: rootPackage.author ?? "Kevin Gravier",
+    license: rootPackage.license ?? "SEE LICENSE IN EULA.txt",
     main: "./dist-electron/main.js",
     dependencies: rewriteDesktopDependencies(desktopPackage.dependencies ?? {})
   };
@@ -103,13 +114,88 @@ async function main() {
     name: "Lyric Video Maker"
   });
 
+  await copyLegalDocumentsNextToExecutable(packagePaths[0]);
+
   console.log(`Publish complete: ${packagePaths[0]}`);
+}
+
+async function assertFrozenSidecarExists() {
+  const frozenExe = join(
+    rootDir,
+    "sidecars",
+    "subtitle-aligner",
+    "dist-frozen",
+    "lyric-video-subtitle-aligner",
+    "lyric-video-subtitle-aligner.exe"
+  );
+  if (!(await pathExists(frozenExe))) {
+    throw new Error(
+      `Frozen subtitle sidecar executable was not produced at "${frozenExe}". ` +
+        "Check the PyInstaller output above for errors."
+    );
+  }
+}
+
+async function stageSidecars() {
+  // We no longer copy the entire `sidecars/` tree because that would
+  // include the local .venv (which references a developer's system
+  // Python install) and the source .py files. Only the frozen
+  // PyInstaller output is shipped, placed under
+  // `sidecars/subtitle-aligner/bin/lyric-video-subtitle-aligner/` which
+  // matches the path the Electron runner expects.
+  const frozenSource = join(
+    rootDir,
+    "sidecars",
+    "subtitle-aligner",
+    "dist-frozen",
+    "lyric-video-subtitle-aligner"
+  );
+  const frozenDestination = join(
+    stageDir,
+    "sidecars",
+    "subtitle-aligner",
+    "bin",
+    "lyric-video-subtitle-aligner"
+  );
+  await mkdir(join(stageDir, "sidecars", "subtitle-aligner", "bin"), { recursive: true });
+  await cp(frozenSource, frozenDestination, { recursive: true });
+}
+
+async function stageLegalDocuments() {
+  const sources = ["EULA.txt", "THIRD_PARTY_LICENSES.md"];
+  for (const fileName of sources) {
+    const source = join(rootDir, fileName);
+    if (await pathExists(source)) {
+      await cp(source, join(stageDir, fileName));
+    }
+  }
+}
+
+async function copyLegalDocumentsNextToExecutable(packagePath) {
+  if (!packagePath) {
+    return;
+  }
+  const sources = ["EULA.txt", "THIRD_PARTY_LICENSES.md"];
+  for (const fileName of sources) {
+    const source = join(rootDir, fileName);
+    if (await pathExists(source)) {
+      await cp(source, join(packagePath, fileName));
+    }
+  }
 }
 
 async function stageWorkspacePackage(pkg) {
   await mkdir(pkg.stageDir, { recursive: true });
   await cp(join(pkg.sourceDir, "dist"), join(pkg.stageDir, "dist"), { recursive: true });
   await cp(join(pkg.sourceDir, "package.json"), join(pkg.stageDir, "package.json"));
+
+  for (const extraPath of pkg.extraPaths ?? []) {
+    const source = join(pkg.sourceDir, extraPath);
+    if (!(await pathExists(source))) {
+      continue;
+    }
+    await cp(source, join(pkg.stageDir, extraPath), { recursive: true });
+  }
 }
 
 function rewriteDesktopDependencies(dependencies) {
@@ -152,6 +238,15 @@ async function runCommand(command, args, options) {
       rejectPromise(new Error(`${command} ${args.join(" ")} exited with code ${code}.`));
     });
   });
+}
+
+async function pathExists(path) {
+  try {
+    await access(path, constants.F_OK);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function readJson(path) {

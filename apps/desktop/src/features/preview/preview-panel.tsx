@@ -7,30 +7,36 @@ import { useFramePreview } from "../../hooks/use-frame-preview";
 export function PreviewPanel({
   paused,
   composer,
-  profilerEnabled = false
+  profilerEnabled = false,
+  ffmpegAvailable
 }: {
   composer: ComposerState;
   paused: boolean;
   profilerEnabled?: boolean;
+  ffmpegAvailable: boolean;
 }) {
-  const { enabled, preview, updatePreviewTime, noteImagePainted } = useFramePreview({
-    composer,
-    paused,
-    profilerEnabled
-  });
+  const { enabled: framePreviewEnabled, preview, updatePreviewTime, noteImagePainted } =
+    useFramePreview({
+      composer,
+      paused: paused || !ffmpegAvailable,
+      profilerEnabled
+    });
+  const enabled = framePreviewEnabled && ffmpegAvailable;
   const video = composer.video;
   const frameCount = preview.result
     ? durationMsToFrameCount(preview.result.durationMs, video.fps)
     : 0;
   const rangeMax = Math.max(preview.result?.durationMs ?? 0, 0);
   const sliderValue = Math.min(preview.requestedTimeMs, rangeMax || preview.requestedTimeMs);
-  const emptyStateMessage = !enabled
-    ? "Pick audio and subtitle files to enable frame preview."
-    : paused
-      ? "Preview paused while a full render is active."
-      : preview.isLoading
-        ? "Rendering preview frame..."
-        : "Preview will appear here.";
+  const emptyStateMessage = !ffmpegAvailable
+    ? "FFmpeg is not configured. Set up FFmpeg to enable preview."
+    : !enabled
+      ? "Pick audio and subtitle files to enable frame preview."
+      : paused
+        ? "Preview paused while a full render is active."
+        : preview.isLoading
+          ? "Rendering preview frame..."
+          : "Preview will appear here.";
 
   return (
     <section className="panel preview-panel">

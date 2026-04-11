@@ -11,7 +11,8 @@ export function registerBootstrapHandlers({
   renderHistory,
   sceneCatalog,
   layoutPreferencesStore,
-  previewProfilerEnabled
+  previewProfilerEnabled,
+  ffmpegAvailability
 }: IpcDeps) {
   ipcMain.handle("app:get-bootstrap-data", () => ({
     scenes: [
@@ -26,6 +27,7 @@ export function registerBootstrapHandlers({
     layoutPreferences: {
       panes: layoutPreferencesStore.get().panes
     },
-    previewProfilerEnabled
+    previewProfilerEnabled,
+    ffmpegAvailable: ffmpegAvailability.isAvailable()
   }));
 }

@@ -141,6 +141,13 @@ export function App() {
     });
   }
 
+  async function handleSetupFfmpeg() {
+    const result = await lyricVideoApp.setupFfmpeg();
+    if (result.available) {
+      window.location.reload();
+    }
+  }
+
   function handleAddComponent() {
     if (!componentToAddId) {
       return;
@@ -204,8 +211,10 @@ export function App() {
             error={error}
             isSubmitting={renderJob.isSubmitting}
             hasActiveRender={renderJob.hasActiveRender}
+            ffmpegAvailable={loadedBootstrap.ffmpegAvailable}
             onPickPath={(kind) => void handlePickPath(kind)}
             onOpenSubtitleGenerator={() => subtitleGeneration.open(composer.composer.audioPath)}
+            onSetupFfmpeg={() => void handleSetupFfmpeg()}
             onVideoSizePresetChange={composer.applyVideoSizePresetId}
             onFpsPresetChange={composer.applyFpsPresetId}
             onWidthChange={composer.setVideoWidth}
@@ -262,6 +271,7 @@ export function App() {
               composer={composer.composer}
               paused={renderJob.hasActiveRender}
               profilerEnabled={bootstrap.previewProfilerEnabled}
+              ffmpegAvailable={bootstrap.ffmpegAvailable}
             />
           </div>
 

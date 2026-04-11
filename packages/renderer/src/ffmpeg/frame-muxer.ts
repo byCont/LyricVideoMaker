@@ -2,9 +2,9 @@ import { spawn } from "node:child_process";
 import type { RenderJob } from "@lyric-video-maker/core";
 import { createAbortError, isAbortError, throwIfAborted } from "../abort";
 import {
-  FFMPEG_EXECUTABLE,
   FFMPEG_STDERR_BUFFER_LIMIT_BYTES,
-  MUX_WRITE_TIMEOUT_MS
+  MUX_WRITE_TIMEOUT_MS,
+  getFfmpegCommand
 } from "../constants";
 import type { FrameMuxer, MuxPipelineDiagnostics, RenderLogger } from "../types";
 import { createBoundedOutputBuffer } from "./bounded-output-buffer";
@@ -22,7 +22,7 @@ export function startFrameMuxer(
   const outputArgs = getOutputArgs(job);
 
   const child = spawn(
-    FFMPEG_EXECUTABLE,
+    getFfmpegCommand(),
     [
       "-y",
       "-f",

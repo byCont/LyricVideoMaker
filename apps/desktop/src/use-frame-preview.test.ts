@@ -31,6 +31,7 @@ describe("useFramePreview", () => {
       importScene: vi.fn(),
       exportScene: vi.fn(),
       savePaneLayout: vi.fn(),
+      setupFfmpeg: vi.fn().mockResolvedValue({ available: true }),
       disposePreview: vi.fn().mockResolvedValue(undefined),
       cancelRender: vi.fn(),
       onRenderProgress: vi.fn(() => () => undefined),

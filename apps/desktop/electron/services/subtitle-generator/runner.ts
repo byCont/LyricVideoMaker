@@ -52,8 +52,7 @@ export function createSubtitleGenerationRunner({
         throw new Error("Subtitle generation is already running.");
       }
 
-      const pythonCommand = await resolvePythonCommand(rootDir, createSpawn);
-      const sidecarEntrypoint = resolveSidecarEntrypoint(rootDir);
+      const launchCommand = await resolveSidecarLaunchCommand(rootDir, createSpawn);
       const requestPayload = JSON.stringify({
         mode: input.mode,
         audioPath: input.audioPath,
@@ -71,10 +70,8 @@ export function createSubtitleGenerationRunner({
       });
 
       return await new Promise<{ outputPath: string }>((resolve, reject) => {
-        const child = createSpawn(pythonCommand.command, [
-          ...pythonCommand.args,
-          "-u",
-          sidecarEntrypoint,
+        const child = createSpawn(launchCommand.command, [
+          ...launchCommand.args,
           "--request-json",
           requestPayload
         ], {
@@ -225,10 +222,21 @@ export async function createGeneratedSubtitlePath({
   throw new Error("Unable to find an available subtitle output path.");
 }
 
-async function resolvePythonCommand(
+async function resolveSidecarLaunchCommand(
   rootDir: string,
   createSpawn: typeof spawn
 ): Promise<{ command: string; args: string[] }> {
+  // In packaged builds we ship a PyInstaller-frozen standalone executable
+  // that bundles Python and every runtime dependency, so end users do not
+  // need any Python installation. Prefer that if it exists.
+  const frozenExe = getFrozenSidecarExecutable(rootDir);
+  if (frozenExe && existsSync(frozenExe)) {
+    return { command: frozenExe, args: [] };
+  }
+
+  // Development fallback: run the CLI module against the in-repo venv
+  // (or a system Python as a last resort) so `npm run dev` keeps working.
+  const sidecarEntrypoint = resolveSidecarEntrypoint(rootDir);
   const localVenvPython = getLocalVenvPython(rootDir);
   const candidates = [
     { command: localVenvPython, args: [] },
@@ -238,12 +246,17 @@ async function resolvePythonCommand(
 
   for (const candidate of candidates) {
     if (await canRunPython(candidate.command, candidate.args, createSpawn)) {
-      return candidate;
+      return {
+        command: candidate.command,
+        args: [...candidate.args, "-u", sidecarEntrypoint]
+      };
     }
   }
 
   throw new Error(
-    "Python 3 was not found. Install Python 3.10+ and the subtitle sidecar dependencies before generating subtitles."
+    "Subtitle generator runtime was not found. Expected the frozen " +
+      "sidecar executable in the packaged app or a local Python 3 " +
+      "virtual environment created by scripts/install-subtitle-sidecar.mjs."
   );
 }
 
@@ -277,6 +290,20 @@ function resolveSidecarEntrypoint(rootDir: string) {
   }
 
   return entrypoint;
+}
+
+function getFrozenSidecarExecutable(rootDir: string): string | null {
+  if (process.platform !== "win32") {
+    return null;
+  }
+  return join(
+    rootDir,
+    "sidecars",
+    "subtitle-aligner",
+    "bin",
+    "lyric-video-subtitle-aligner",
+    "lyric-video-subtitle-aligner.exe"
+  );
 }
 
 function getLocalVenvPython(rootDir: string) {

@@ -15,9 +15,14 @@ export interface AppBootstrapData {
   fonts: string[];
   history: RenderHistoryEntry[];
   previewProfilerEnabled: boolean;
+  ffmpegAvailable: boolean;
   layoutPreferences?: {
     panes?: PaneLayoutPreferences;
   };
+}
+
+export interface SetupFfmpegResult {
+  available: boolean;
 }
 
 export interface PaneLayoutPreferences {
@@ -95,6 +100,7 @@ export interface ElectronApi {
   importScene(): Promise<SerializedSceneDefinition | null>;
   exportScene(scene: SerializedSceneDefinition): Promise<string | null>;
   savePaneLayout(panes: PaneLayoutPreferences): Promise<void>;
+  setupFfmpeg(): Promise<SetupFfmpegResult>;
   disposePreview(): Promise<void>;
   cancelRender(jobId: string): Promise<void>;
   onRenderProgress(callback: (event: RenderProgressEvent) => void): () => void;

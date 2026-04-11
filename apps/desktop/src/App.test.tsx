@@ -97,6 +97,7 @@ describe("App", () => {
       importScene: vi.fn().mockResolvedValue(null),
       exportScene: vi.fn().mockResolvedValue(null),
       savePaneLayout: vi.fn().mockResolvedValue(undefined),
+      setupFfmpeg: vi.fn().mockResolvedValue({ available: true }),
       disposePreview: vi.fn().mockResolvedValue(undefined),
       cancelRender: vi.fn().mockResolvedValue(undefined),
       onRenderProgress: vi.fn((callback) => {
@@ -328,6 +329,7 @@ function createBootstrapData(overrides: Partial<AppBootstrapData> = {}): AppBoot
     fonts: ["Montserrat", "Poppins"],
     history: [],
     previewProfilerEnabled: false,
+    ffmpegAvailable: true,
     ...overrides
   };
 }

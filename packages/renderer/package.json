@@ -1,6 +1,9 @@
 {
   "name": "@lyric-video-maker/renderer",
   "version": "0.1.0",
+  "private": true,
+  "license": "SEE LICENSE IN EULA.txt",
+  "author": "Kevin Gravier",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -15,8 +18,6 @@
   },
   "dependencies": {
     "@lyric-video-maker/core": "file:../core",
-    "ffmpeg-static": "^5.3.0",
-    "ffprobe-static": "^3.1.0",
     "playwright": "^1.51.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"

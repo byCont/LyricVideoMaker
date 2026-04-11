@@ -8,8 +8,8 @@ import type {
   ValidatedSceneComponentInstance
 } from "@lyric-video-maker/core";
 import {
-  FFMPEG_EXECUTABLE,
-  VIDEO_FRAME_URL_PREFIX
+  VIDEO_FRAME_URL_PREFIX,
+  getFfmpegCommand
 } from "./constants";
 import { isAbortError } from "./abort";
 import { runCommand } from "./ffmpeg/run-command";
@@ -77,7 +77,7 @@ export async function prepareVideoFrameExtractions({
 
     try {
       await runFfmpeg(
-        FFMPEG_EXECUTABLE,
+        getFfmpegCommand(),
         [
           "-hide_banner",
           "-y",
