@@ -783,6 +783,37 @@ export function renderPageShell(): string {
             },
             update() {}
           },
+          // Generic runtime used by Shape, Static Text, Image, and Video
+          // components: injects a prebuilt HTML fragment into an absolutely
+          // positioned container, then per-frame updates only opacity (and
+          // any auxiliary state the component returns). This avoids
+          // duplicating shape/text/image rendering logic inside the page
+          // shell — the Node side assembles markup via a builder, and the
+          // browser runtime just mounts and toggles visibility.
+          "static-fx-layer": {
+            mount(layer, initialState) {
+              const container = document.createElement("div");
+              if (initialState && initialState.containerStyle) {
+                applyStyles(container, initialState.containerStyle);
+              }
+              if (initialState && typeof initialState.html === "string") {
+                container.innerHTML = initialState.html;
+              }
+              if (initialState && typeof initialState.initialOpacity === "number") {
+                container.style.opacity = String(initialState.initialOpacity);
+              }
+              layer.appendChild(container);
+              return { container };
+            },
+            update(handle, state) {
+              if (!handle || !handle.container || !state) {
+                return;
+              }
+              if (typeof state.opacity === "number") {
+                handle.container.style.opacity = String(state.opacity);
+              }
+            }
+          },
           "lyrics-by-line": {
               mount(layer, initialState) {
                 const wrapper = document.createElement("div");

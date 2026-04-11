@@ -1,21 +1,25 @@
 import React from "react";
 import type { SceneComponentDefinition } from "@lyric-video-maker/core";
+import { computeTimingOpacity } from "../../shared/timing-runtime";
 import {
   DEFAULT_IMAGE_OPTIONS,
   imageOptionsSchema,
   type ImageComponentOptions
 } from "./options";
+import { buildImageInitialState } from "./runtime";
 
 /**
  * Image component (cavekit-image-component).
  *
- * R1: identifier "image" (distinct from background-image).
- * R2: options contract in ./options.ts.
- * R3: category order Source → Transform → Fit → Appearance → Effects → Timing.
- * R4: defaults spread shared Transform/Timing + no default image path so
- *     the component renders nothing until a source is chosen.
- * R5 / R7: rendering and per-frame opacity come from later tier tasks
- *     (T-038, T-039, T-041).
+ * The outer container honors the shared Transform helper plus corner
+ * radius (clipping), optional border, and stacked shadow/glow. The
+ * inner <img> uses fit mode + CSS filters. When tint is enabled a
+ * multiply-blend overlay renders on top. When the image URL cannot be
+ * resolved the component renders nothing without error.
+ *
+ * Per-frame state returns opacity = component opacity option * shared
+ * Timing helper result. Markup is stable once the URL is known; the
+ * render pipeline treats the component as static.
  */
 export const imageComponent: SceneComponentDefinition<ImageComponentOptions> = {
   id: "image",
@@ -24,5 +28,30 @@ export const imageComponent: SceneComponentDefinition<ImageComponentOptions> = {
   staticWhenMarkupUnchanged: true,
   options: imageOptionsSchema,
   defaultOptions: DEFAULT_IMAGE_OPTIONS,
-  Component: () => null
+  browserRuntime: {
+    runtimeId: "static-fx-layer",
+    getInitialState({ instance, options, video, assets }) {
+      const url = assets.getUrl(instance.id, "source");
+      return buildImageInitialState(options, video, 0, url) as unknown as Record<string, unknown>;
+    },
+    getFrameState({ options, timeMs }) {
+      return {
+        opacity: (options.opacity / 100) * computeTimingOpacity(timeMs, options)
+      };
+    }
+  },
+  Component: ({ instance, options, video, timeMs, assets }) => {
+    const url = assets.getUrl(instance.id, "source");
+    const initial = buildImageInitialState(options, video, timeMs, url);
+    if (!initial.sourceUrl) {
+      return null;
+    }
+    return (
+      <div
+        style={initial.containerStyle as React.CSSProperties}
+        data-image-component=""
+        dangerouslySetInnerHTML={{ __html: initial.html }}
+      />
+    );
+  }
 };

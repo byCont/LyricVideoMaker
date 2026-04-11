@@ -1,0 +1,117 @@
+import type { VideoSettings } from "@lyric-video-maker/core";
+import { computeTransformStyle } from "../../shared/transform-runtime";
+import { computeTimingOpacity } from "../../shared/timing-runtime";
+import { withAlpha } from "../../shared/color";
+import type { ImageComponentOptions } from "./options";
+
+export interface ImageInitialState {
+  html: string;
+  containerStyle: Record<string, string>;
+  initialOpacity: number;
+  sourceUrl: string | null;
+}
+
+/**
+ * Build the Image component's browser initial state (R5).
+ *
+ * The outer positioned box honors the shared Transform helper plus
+ * corner radius (clipping), optional border, stacked shadow + glow.
+ * The inner image element applies fit mode and filter values. When a
+ * tint is enabled a multiply-blend overlay renders on top of the image.
+ *
+ * When no source URL is resolvable the helper returns null inner markup
+ * — the component renders nothing rather than crashing or showing a
+ * placeholder (R4).
+ */
+export function buildImageInitialState(
+  options: ImageComponentOptions,
+  video: VideoSettings,
+  timeMs: number,
+  resolvedUrl: string | null
+): ImageInitialState {
+  const transformStyle = computeTransformStyle(options, {
+    width: video.width,
+    height: video.height
+  });
+  const containerStyle: Record<string, string> = {};
+  for (const [key, value] of Object.entries(transformStyle)) {
+    if (value !== undefined && value !== null) {
+      containerStyle[key] = String(value);
+    }
+  }
+
+  containerStyle.borderRadius = `${options.cornerRadius}px`;
+  containerStyle.overflow = "hidden";
+  containerStyle.opacity = String((options.opacity / 100) * computeTimingOpacity(timeMs, options));
+  if (options.borderEnabled && options.borderThickness > 0) {
+    containerStyle.border = `${options.borderThickness}px solid ${options.borderColor}`;
+    containerStyle.boxSizing = "border-box";
+  }
+
+  const shadowFilter = buildShadowGlow(options);
+  if (shadowFilter !== "none") {
+    containerStyle.filter = shadowFilter;
+  }
+
+  const html = resolvedUrl ? buildInnerMarkup(options, resolvedUrl) : "";
+  const initialOpacity = (options.opacity / 100) * computeTimingOpacity(timeMs, options);
+
+  return {
+    html,
+    containerStyle,
+    initialOpacity,
+    sourceUrl: resolvedUrl
+  };
+}
+
+function buildInnerMarkup(options: ImageComponentOptions, url: string): string {
+  const cssFitMode = mapFitMode(options.fitMode);
+  const filter = buildImageFilter(options);
+  const img = `<img src="${escapeAttr(url)}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:${cssFitMode};${filter ? `filter:${filter};` : ""}" />`;
+  const tint = options.tintEnabled
+    ? `<div style="position:absolute;inset:0;background:${withAlpha(options.tintColor, options.tintStrength / 100)};mix-blend-mode:multiply;"></div>`
+    : "";
+  return `${img}${tint}`;
+}
+
+function mapFitMode(mode: ImageComponentOptions["fitMode"]): string {
+  switch (mode) {
+    case "contain":
+      return "contain";
+    case "cover":
+      return "cover";
+    case "fill":
+      return "fill";
+    case "none":
+      return "none";
+    default:
+      return "contain";
+  }
+}
+
+function buildImageFilter(options: ImageComponentOptions): string {
+  const parts: string[] = [];
+  if (options.grayscale > 0) parts.push(`grayscale(${options.grayscale / 100})`);
+  if (options.blur > 0) parts.push(`blur(${options.blur}px)`);
+  if (options.brightness !== 100) parts.push(`brightness(${options.brightness / 100})`);
+  if (options.contrast !== 100) parts.push(`contrast(${options.contrast / 100})`);
+  if (options.saturation !== 100) parts.push(`saturate(${options.saturation / 100})`);
+  return parts.join(" ");
+}
+
+function buildShadowGlow(options: ImageComponentOptions): string {
+  const parts: string[] = [];
+  if (options.shadowEnabled) {
+    parts.push(
+      `drop-shadow(${options.shadowOffsetX}px ${options.shadowOffsetY}px ${options.shadowBlur}px ${options.shadowColor})`
+    );
+  }
+  if (options.glowEnabled) {
+    parts.push(`drop-shadow(0 0 ${options.glowStrength}px ${options.glowColor})`);
+  }
+  return parts.join(" ") || "none";
+}
+
+function escapeAttr(value: string): string {
+  return value.replace(/"/g, "&quot;");
+}
