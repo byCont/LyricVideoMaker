@@ -11,6 +11,7 @@ import { throwIfAborted } from "../abort";
 import { FRAME_STAGE_TIMEOUT_MS } from "../constants";
 import { createFrameStageTimeoutError, withTimeout } from "../ffmpeg/frame-writer";
 import {
+  awaitFrameReadiness,
   createLiveDomFramePayload,
   createLiveDomScenePayload,
   mountLiveDomScene,
@@ -152,6 +153,17 @@ export async function createLiveDomRenderSession({
           );
         }, { frame: safeFrame, timeMs });
         traceRenderStep(logger, sessionLabel, safeFrame, "browser-update-done");
+
+        // Per-frame readiness gate (video-frame-sync R2). Awaits any async
+        // tasks components registered during updateLiveDomScene (e.g. video
+        // seeks) so capture sees a settled DOM. Zero added latency when no
+        // tasks are pending.
+        const readinessResult = await awaitFrameReadiness(page!);
+        for (const timeout of readinessResult.timeouts) {
+          logger.warn(
+            `[frame-readiness] seek timeout at frame ${timeout.frame} label=${timeout.label ?? "(none)"} timeoutMs=${timeout.timeoutMs}`
+          );
+        }
 
         traceRenderStep(logger, sessionLabel, safeFrame, "capture-start");
         const capture = await measurePreviewStage(previewProfiler, "captureScreenshot", async () => {

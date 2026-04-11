@@ -32,6 +32,11 @@ const previewRuntime = vi.hoisted(() => {
         }
       }
 
+      // awaitFrameReadiness (no payload) — return the no-hook fallback shape.
+      if (payload === undefined) {
+        return { timeouts: [] };
+      }
+
       return undefined;
     }),
     on: vi.fn(),
@@ -99,7 +104,8 @@ describe("createFramePreviewSession", () => {
     const second = await session.renderFrame({ frame: 30 });
 
     expect(previewRuntime.launchMock).toHaveBeenCalledTimes(1);
-    expect(previewRuntime.page.evaluate).toHaveBeenCalledTimes(3);
+    // 1 mount + 2 (updateLiveDomScene + awaitFrameReadiness) per rendered frame = 5
+    expect(previewRuntime.page.evaluate).toHaveBeenCalledTimes(5);
     expect(previewRuntime.cdpSession.send).toHaveBeenCalledWith("Page.enable");
     expect(previewRuntime.cdpSession.send).toHaveBeenCalledWith(
       "Page.captureScreenshot",

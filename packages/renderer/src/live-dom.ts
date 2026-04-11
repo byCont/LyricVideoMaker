@@ -171,6 +171,162 @@ export async function updateLiveDomScene(page: Page, payload: LiveDomFramePayloa
   }, payload);
 }
 
+/**
+ * Per-frame readiness gate (video-frame-sync R1/R2).
+ *
+ * Awaits any asynchronous readiness tasks that components registered with
+ * `window.__frameReadiness` during the current frame — typically video
+ * seeks in flight — so capture sees a settled DOM. Resolves immediately
+ * when no tasks are pending, adding effectively zero latency to scenes
+ * that do not register readiness tasks.
+ *
+ * Also drains any timeout events that the page emitted while waiting so
+ * the render logger can surface them without aborting the render.
+ */
+export async function awaitFrameReadiness(
+  page: Page
+): Promise<{ timeouts: ReadinessTimeoutEvent[] }> {
+  return await page.evaluate(async () => {
+    const hook = (
+      window as Window & {
+        __frameReadiness?: { awaitAll(): Promise<void> };
+        __frameReadinessDrainTimeoutEvents?: () => ReadinessTimeoutEvent[];
+      }
+    ).__frameReadiness;
+
+    if (!hook) {
+      return { timeouts: [] as ReadinessTimeoutEvent[] };
+    }
+
+    await hook.awaitAll();
+
+    const drain = (
+      window as Window & {
+        __frameReadinessDrainTimeoutEvents?: () => ReadinessTimeoutEvent[];
+      }
+    ).__frameReadinessDrainTimeoutEvents;
+
+    return {
+      timeouts: drain ? drain() : ([] as ReadinessTimeoutEvent[])
+    };
+  });
+}
+
+export interface ReadinessTimeoutEvent {
+  frame: number;
+  label: string | null;
+  timeoutMs: number;
+  timestamp: number;
+}
+
+/**
+ * Standalone script source for the frame-readiness + video-sync helpers.
+ *
+ * Exported as a string so it can be:
+ *   (a) inlined into the renderPageShell IIFE, and
+ *   (b) unit-tested in isolation by eval'ing into a fake window.
+ *
+ * The script installs:
+ *   - window.__frameReadiness  — the per-frame readiness gate (T-042, R1)
+ *   - window.__syncVideoElement — helper to seek a <video> to a target
+ *                                 time and return a readiness promise (T-044)
+ *   - window.__frameReadinessSetCurrentFrame — internal hook so the frame
+ *                                               loop records which frame is
+ *                                               active when a timeout fires
+ *   - window.__frameReadinessDrainTimeoutEvents — drain logged timeout
+ *                                                  events for Node to report
+ *
+ * Bounded timeout + log surfacing for stuck seeks (T-045) lives here. A
+ * timed-out seek resolves the readiness task and pushes an event onto the
+ * drain queue so the Node-side render logger can emit a warning without
+ * aborting the render.
+ */
+export const FRAME_READINESS_SCRIPT_SOURCE = `
+  var pendingReadiness = [];
+  var readinessTimeoutEvents = [];
+  var currentFrameNumber = -1;
+
+  window.__frameReadiness = {
+    register: function(task, label) {
+      pendingReadiness.push({ task: task, label: label });
+    },
+    awaitAll: function() {
+      if (pendingReadiness.length === 0) {
+        return Promise.resolve();
+      }
+      var tasks = pendingReadiness.splice(0, pendingReadiness.length);
+      return Promise.allSettled(tasks.map(function(entry) { return entry.task; }))
+        .then(function() {});
+    },
+    get pendingCount() { return pendingReadiness.length; }
+  };
+
+  window.__frameReadinessSetCurrentFrame = function(frame) {
+    currentFrameNumber = typeof frame === "number" ? frame : -1;
+  };
+
+  window.__frameReadinessDrainTimeoutEvents = function() {
+    return readinessTimeoutEvents.splice(0, readinessTimeoutEvents.length);
+  };
+
+  var VIDEO_SEEK_EPSILON_SECONDS = 1 / 240; // ~4ms — sub-frame precision
+  var VIDEO_SEEK_TIMEOUT_MS = 1000;
+
+  function recordReadinessTimeout(label) {
+    readinessTimeoutEvents.push({
+      frame: currentFrameNumber,
+      label: label || null,
+      timeoutMs: VIDEO_SEEK_TIMEOUT_MS,
+      timestamp: Date.now()
+    });
+    if (typeof console !== "undefined" && console.warn) {
+      console.warn(
+        "[frame-readiness] timeout at frame " + currentFrameNumber +
+        " label=" + (label || "(none)") +
+        " timeoutMs=" + VIDEO_SEEK_TIMEOUT_MS
+      );
+    }
+  }
+
+  window.__syncVideoElement = function syncVideoElement(video, targetTimeSeconds, label) {
+    if (!video || typeof targetTimeSeconds !== "number") {
+      return null;
+    }
+    var currentTime = typeof video.currentTime === "number" ? video.currentTime : 0;
+    if (Math.abs(currentTime - targetTimeSeconds) < VIDEO_SEEK_EPSILON_SECONDS) {
+      return null;
+    }
+    return new Promise(function(resolve) {
+      var settled = false;
+      var timer = null;
+      function finish() {
+        if (settled) return;
+        settled = true;
+        if (timer !== null) { clearTimeout(timer); }
+        video.removeEventListener("seeked", onSeeked);
+        video.removeEventListener("error", onError);
+        resolve();
+      }
+      function onSeeked() { finish(); }
+      function onError() { finish(); }
+      video.addEventListener("seeked", onSeeked, { once: true });
+      video.addEventListener("error", onError, { once: true });
+      try {
+        video.currentTime = targetTimeSeconds;
+      } catch (error) {
+        finish();
+        return;
+      }
+      timer = setTimeout(function() {
+        if (!settled) {
+          recordReadinessTimeout(label);
+        }
+        finish();
+      }, VIDEO_SEEK_TIMEOUT_MS);
+    });
+  };
+`;
+
 export function renderPageShell(): string {
   return `<!doctype html>
 <html lang="en">
@@ -198,6 +354,14 @@ export function renderPageShell(): string {
     <script>
       (() => {
         const mountedComponents = new Map();
+
+        // ────────────────────────────────────────────────────────────────
+        // Per-frame readiness gate (video-frame-sync R1–R4). Installs
+        // window.__frameReadiness, window.__syncVideoElement, and related
+        // helpers. The contract is component-agnostic so any async task can
+        // be registered. See FRAME_READINESS_SCRIPT_SOURCE in live-dom.ts.
+        // ────────────────────────────────────────────────────────────────
+        ${FRAME_READINESS_SCRIPT_SOURCE}
 
         function applyStyles(element, styles) {
           if (!styles) {
@@ -731,9 +895,10 @@ export function renderPageShell(): string {
 
             const layer = createLayer();
             layer.dataset.sceneComponentId = component.componentId;
+            layer.dataset.sceneInstanceId = component.instanceId;
             root.appendChild(layer);
             const handle = runtime.mount(layer, component.initialState || {});
-            mountedComponents.set(component.instanceId, { runtime, handle });
+            mountedComponents.set(component.instanceId, { runtime, handle, layer });
           }
 
           const warnings = await waitForAssets(root);
@@ -741,13 +906,39 @@ export function renderPageShell(): string {
         };
 
         window.__renderLiveDomFrame = async function renderLiveDomFrame(payload) {
+          window.__frameReadinessSetCurrentFrame(
+            typeof payload.frame === "number" ? payload.frame : -1
+          );
           for (const component of payload.components) {
             const mounted = mountedComponents.get(component.instanceId);
             if (!mounted) {
               continue;
             }
 
-            mounted.runtime.update(mounted.handle, component.state || {});
+            const state = component.state || {};
+            mounted.runtime.update(mounted.handle, state);
+
+            // Video-frame-sync detection (T-044). State shape:
+            //   state.__videoSync = { targetTimeSeconds: number, label?: string }
+            // The runtime finds <video> elements owned by this component's
+            // layer, seeks any whose currentTime differs from the desired
+            // position by more than an epsilon, and registers a readiness
+            // task per seek so capture blocks until the seek settles.
+            const videoSync = state.__videoSync;
+            if (videoSync && typeof videoSync === "object") {
+              const videos = mounted.layer.querySelectorAll("video");
+              for (let i = 0; i < videos.length; i += 1) {
+                const label = videoSync.label || (component.instanceId + ":video");
+                const readiness = window.__syncVideoElement(
+                  videos[i],
+                  videoSync.targetTimeSeconds,
+                  label
+                );
+                if (readiness) {
+                  window.__frameReadiness.register(readiness, label);
+                }
+              }
+            }
           }
         };
       })();
