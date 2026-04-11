@@ -333,11 +333,12 @@ export const FRAME_READINESS_SCRIPT_SOURCE = `
   };
 `;
 
-export function renderPageShell(): string {
+export function renderPageShell(fontCss = ""): string {
   return `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    ${fontCss ? `<style data-google-fonts>\n${fontCss.replace(/<\/style/gi, "<\\/style")}\n    </style>` : ""}
     <style>
       html, body, #app {
         margin: 0;

@@ -1,7 +1,7 @@
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
 import type { Page, Route } from "playwright";
-import { ASSET_URL_PREFIX, VIDEO_FRAME_URL_PREFIX } from "../constants";
+import { ASSET_URL_PREFIX, FONT_URL_PREFIX, VIDEO_FRAME_URL_PREFIX } from "../constants";
 import type { PreloadedAsset, RenderLogger } from "../types";
 import type { VideoFrameExtractionEntry } from "../video-frame-extraction";
 
@@ -21,13 +21,17 @@ export async function registerAssetRoutes(
   page: Page,
   assets: Map<string, PreloadedAsset>,
   logger: RenderLogger,
-  videoFrameExtractions: VideoFrameExtractionEntry[] = []
+  videoFrameExtractions: VideoFrameExtractionEntry[] = [],
+  fontCacheDir?: string
 ) {
   await page.route(`${ASSET_URL_PREFIX}**`, async (route) => {
     await fulfillAssetRoute(route, assets, logger);
   });
   await page.route(`${VIDEO_FRAME_URL_PREFIX}**`, async (route) => {
     await fulfillVideoFrameRoute(route, videoFrameExtractions, logger);
+  });
+  await page.route(`${FONT_URL_PREFIX}**`, async (route) => {
+    await fulfillFontRoute(route, fontCacheDir, logger);
   });
 }
 
@@ -125,6 +129,37 @@ export async function fulfillVideoFrameRoute(
   });
 }
 
+export async function fulfillFontRoute(
+  route: Route,
+  fontCacheDir: string | undefined,
+  logger: RenderLogger
+) {
+  const url = route.request().url();
+  const fileName = resolveFontRequest(url);
+  const filePath = fileName && fontCacheDir ? join(fontCacheDir, "files", fileName) : null;
+  const canServe = filePath ? await canServeFile(filePath) : false;
+  if (!filePath || !canServe) {
+    logger.warn(`Font request had no cached file: ${url}`);
+    await route.fulfill({
+      status: 404,
+      body: "Not found",
+      headers: {
+        "Content-Type": "text/plain"
+      }
+    });
+    return;
+  }
+
+  await route.fulfill({
+    status: 200,
+    path: filePath,
+    headers: {
+      "Content-Type": "font/woff2",
+      "Cache-Control": "public, max-age=31536000, immutable"
+    }
+  });
+}
+
 export async function canServeVideoFrameRequest(
   url: string,
   entries: VideoFrameExtractionEntry[]
@@ -140,6 +175,34 @@ export async function canServeVideoFrameRequest(
   } catch {
     return false;
   }
+}
+
+async function canServeFile(path: string) {
+  try {
+    const result = await stat(path);
+    return result.isFile();
+  } catch {
+    return false;
+  }
+}
+
+function resolveFontRequest(url: string): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+
+  const prefix = new URL(FONT_URL_PREFIX);
+  if (parsed.origin !== prefix.origin || !parsed.pathname.startsWith(prefix.pathname)) {
+    return null;
+  }
+  const fileName = decodeUrlPathPart(parsed.pathname.slice(prefix.pathname.length));
+  if (!fileName || !/^[a-f0-9]{32}\.woff2$/.test(fileName)) {
+    return null;
+  }
+  return fileName;
 }
 
 function resolveVideoFrameRequest(

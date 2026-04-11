@@ -1,5 +1,5 @@
 import { EventEmitter } from "node:events";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { PreviewWorkerClient } from "../electron/services/preview/worker-client";
 
 class MockWorker extends EventEmitter {
@@ -19,9 +19,11 @@ class MockWorker extends EventEmitter {
 describe("PreviewWorkerClient", () => {
   it("proxies render and dispose requests to the worker", async () => {
     const worker = new MockWorker();
+    const createWorker = vi.fn(() => worker as never);
     const client = new PreviewWorkerClient({
       workerPath: "preview-worker.js",
-      createWorker: () => worker as never
+      fontCacheDir: "user/google-font-cache",
+      createWorker
     });
 
     const renderPromise = client.renderFrame({
@@ -52,6 +54,15 @@ describe("PreviewWorkerClient", () => {
     });
 
     await expect(renderPromise).resolves.toMatchObject({ frame: 7, timeMs: 250 });
+    expect(worker.postedMessages[0]).toMatchObject({
+      type: "render-frame",
+      fontCacheDir: "user/google-font-cache"
+    });
+    expect(createWorker).toHaveBeenCalledWith("preview-worker.js", {
+      workerData: {
+        fontCacheDir: "user/google-font-cache"
+      }
+    });
 
     const disposePromise = client.disposePreview();
     worker.emit("message", {

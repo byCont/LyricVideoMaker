@@ -53,7 +53,9 @@ export async function createLiveDomRenderSession({
   logger,
   profiler,
   previewProfiler,
-  videoFrameExtractions = []
+  videoFrameExtractions = [],
+  fontCss = "",
+  fontCacheDir
 }: {
   sessionLabel: string;
   job: RenderJob;
@@ -68,6 +70,8 @@ export async function createLiveDomRenderSession({
   profiler?: RenderProfiler;
   previewProfiler?: PreviewProfiler;
   videoFrameExtractions?: VideoFrameExtractionEntry[];
+  fontCss?: string;
+  fontCacheDir?: string;
 }): Promise<FramePreviewSession> {
   let browser: Browser | null = null;
   let browserContext: BrowserContext | null = null;
@@ -92,8 +96,8 @@ export async function createLiveDomRenderSession({
     page = renderPage.page;
 
     wirePageDiagnostics(page, logger);
-    await registerAssetRoutes(page, preloadedAssets, logger, videoFrameExtractions);
-    await page.setContent(renderPageShell(), { waitUntil: "domcontentloaded" });
+    await registerAssetRoutes(page, preloadedAssets, logger, videoFrameExtractions, fontCacheDir);
+    await page.setContent(renderPageShell(fontCss), { waitUntil: "domcontentloaded" });
 
     cdpSession = await page.context().newCDPSession(page);
     await cdpSession.send("Page.enable");

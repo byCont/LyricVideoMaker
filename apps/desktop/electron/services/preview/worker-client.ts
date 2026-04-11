@@ -1,4 +1,4 @@
-import { Worker } from "node:worker_threads";
+import { Worker, type WorkerOptions } from "node:worker_threads";
 import type { RenderPreviewRequest, RenderPreviewResponse } from "../../../src/electron-api";
 import type { PreviewWorkerRequest, PreviewWorkerResponse } from "./worker-protocol";
 
@@ -9,25 +9,34 @@ interface PendingRequest {
 
 export interface PreviewWorkerClientOptions {
   workerPath: string;
-  createWorker?: (filename: string) => Worker;
+  fontCacheDir?: string;
+  createWorker?: (filename: string, options?: WorkerOptions) => Worker;
 }
 
 export class PreviewWorkerClient {
   private readonly workerPath: string;
-  private readonly createWorkerInstance: (filename: string) => Worker;
+  private readonly fontCacheDir?: string;
+  private readonly createWorkerInstance: (filename: string, options?: WorkerOptions) => Worker;
   private worker: Worker | null = null;
   private nextRequestId = 1;
   private pending = new Map<number, PendingRequest>();
   private disposed = false;
 
-  constructor({ workerPath, createWorker }: PreviewWorkerClientOptions) {
+  constructor({ workerPath, fontCacheDir, createWorker }: PreviewWorkerClientOptions) {
     this.workerPath = workerPath;
+    this.fontCacheDir = fontCacheDir;
     this.createWorkerInstance = createWorker ?? ((filename) => new Worker(filename));
   }
 
   start() {
     if (!this.worker && !this.disposed) {
-      this.worker = this.bindWorker(this.createWorkerInstance(this.workerPath));
+      this.worker = this.bindWorker(
+        this.createWorkerInstance(this.workerPath, {
+          workerData: {
+            fontCacheDir: this.fontCacheDir
+          }
+        })
+      );
     }
   }
 
@@ -35,6 +44,7 @@ export class PreviewWorkerClient {
     return (await this.sendRequest({
       type: "render-frame",
       requestId: this.nextRequestId++,
+      fontCacheDir: this.fontCacheDir,
       payload: request
     })) as RenderPreviewResponse;
   }

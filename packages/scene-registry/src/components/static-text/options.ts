@@ -1,5 +1,5 @@
 import type { SceneOptionCategory } from "@lyric-video-maker/core";
-import { SUPPORTED_FONT_FAMILIES } from "@lyric-video-maker/core";
+import { DEFAULT_GOOGLE_FONT_FAMILY } from "@lyric-video-maker/core";
 import {
   DEFAULT_TIMING_OPTIONS,
   DEFAULT_TRANSFORM_OPTIONS,
@@ -63,7 +63,7 @@ export const DEFAULT_STATIC_TEXT_OPTIONS: StaticTextComponentOptions = {
   text: "Static Text",
   textCase: "as-typed",
   enableTokens: false,
-  fontFamily: SUPPORTED_FONT_FAMILIES[0],
+  fontFamily: DEFAULT_GOOGLE_FONT_FAMILY,
   fontSize: 72,
   fontWeight: 600,
   letterSpacing: 0,
@@ -120,7 +120,7 @@ const typographyCategory: SceneOptionCategory = {
   label: "Typography",
   defaultExpanded: true,
   options: [
-    { type: "font", id: "fontFamily", label: "Font Family", defaultValue: SUPPORTED_FONT_FAMILIES[0] },
+    { type: "font", id: "fontFamily", label: "Font Family", defaultValue: DEFAULT_GOOGLE_FONT_FAMILY },
     { type: "number", id: "fontSize", label: "Font Size", defaultValue: 72, min: 8, max: 400, step: 1 },
     { type: "number", id: "fontWeight", label: "Font Weight", defaultValue: 600, min: 100, max: 900, step: 100 },
     { type: "number", id: "letterSpacing", label: "Letter Spacing", defaultValue: 0, min: -20, max: 50, step: 1 },

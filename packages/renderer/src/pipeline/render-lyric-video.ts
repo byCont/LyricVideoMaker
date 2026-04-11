@@ -12,6 +12,7 @@ import { createLiveDomRenderSession } from "../browser/live-dom-session";
 import { PROGRESS_INTERVAL_MS } from "../constants";
 import { startFrameMuxer } from "../ffmpeg/frame-muxer";
 import { createMuxPipelineDiagnostics } from "../ffmpeg/mux-diagnostics";
+import { prepareGoogleFonts } from "../fonts/google-fonts";
 import { canRenderWithLiveDom, createLiveDomScenePayload } from "../live-dom";
 import { createRenderLogger } from "../logging";
 import { logRenderProfile, createRenderProfiler, measureAsync } from "../profiling";
@@ -39,6 +40,7 @@ export interface RenderLyricVideoInput {
   parallelism?: number;
   signal?: AbortSignal;
   onProgress?: (event: RenderProgressEvent) => void;
+  fontCacheDir?: string;
 }
 
 export async function renderLyricVideo({
@@ -46,7 +48,8 @@ export async function renderLyricVideo({
   componentDefinitions,
   parallelism,
   signal,
-  onProgress
+  onProgress,
+  fontCacheDir
 }: RenderLyricVideoInput): Promise<string> {
   const progress = createProgressEmitter(onProgress);
   const logger = createRenderLogger(job.id, progress);
@@ -89,6 +92,12 @@ export async function renderLyricVideo({
       renderSignal
     );
     const assets = createAssetAccessor(enabledComponents, preloadedAssets);
+    const googleFonts = await prepareGoogleFonts({
+      components: enabledComponents,
+      componentLookup,
+      fontCacheDir,
+      logger
+    });
     const audio = createAudioAnalysisAccessor({
       audioPath: job.audioPath,
       video: job.video,
@@ -159,7 +168,9 @@ export async function renderLyricVideo({
           signal: renderSignal,
           logger,
           profiler,
-          videoFrameExtractions
+          videoFrameExtractions,
+          fontCss: googleFonts.css,
+          fontCacheDir: googleFonts.cacheDir ?? undefined
         })
       });
     }
@@ -230,7 +241,9 @@ export async function renderLyricVideo({
               signal: renderSignal,
               logger,
               profiler,
-              videoFrameExtractions
+              videoFrameExtractions,
+              fontCss: googleFonts.css,
+              fontCacheDir: googleFonts.cacheDir ?? undefined
             }),
           signal: renderSignal,
           logger,

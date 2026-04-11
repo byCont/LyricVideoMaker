@@ -118,7 +118,7 @@ describe("createFramePreviewSession", () => {
 
     await session.dispose();
 
-    expect(previewRuntime.page.unroute).toHaveBeenCalledTimes(1);
+    expect(previewRuntime.page.unroute).toHaveBeenCalledTimes(3);
     expect(previewRuntime.cdpSession.detach).toHaveBeenCalledTimes(1);
     expect(previewRuntime.context.close).toHaveBeenCalledTimes(1);
     expect(previewRuntime.browser.close).toHaveBeenCalledTimes(1);

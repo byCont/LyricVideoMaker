@@ -325,7 +325,7 @@ function createBootstrapData(overrides: Partial<AppBootstrapData> = {}): AppBoot
         }
       }
     ],
-    fonts: ["DM Sans", "Arial"],
+    fonts: ["Montserrat", "Poppins"],
     history: [],
     previewProfilerEnabled: false,
     ...overrides

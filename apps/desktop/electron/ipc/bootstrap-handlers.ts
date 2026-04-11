@@ -1,6 +1,6 @@
 import { ipcMain } from "electron";
 import {
-  SUPPORTED_FONT_FAMILIES,
+  GOOGLE_FONT_FAMILIES,
   serializeSceneComponentDefinition,
   serializeSceneDefinition
 } from "@lyric-video-maker/core";
@@ -21,7 +21,7 @@ export function registerBootstrapHandlers({
     components: builtInSceneComponents.map((component) =>
       serializeSceneComponentDefinition(component)
     ),
-    fonts: [...SUPPORTED_FONT_FAMILIES],
+    fonts: [...GOOGLE_FONT_FAMILIES],
     history: renderHistory.list(),
     layoutPreferences: {
       panes: layoutPreferencesStore.get().panes

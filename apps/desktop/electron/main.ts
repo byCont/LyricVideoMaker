@@ -20,7 +20,8 @@ let isQuitting = false;
 let layoutPreferencesStore: LayoutPreferencesStore | null = null;
 
 const previewWorkerClient = new PreviewWorkerClient({
-  workerPath: join(__dirname, "preview-worker-thread.js")
+  workerPath: join(__dirname, "preview-worker-thread.js"),
+  fontCacheDir: join(app.getPath("userData"), "google-font-cache")
 });
 const subtitleGenerationRunner = createSubtitleGenerationRunner({
   rootDir: getAppRootDir()

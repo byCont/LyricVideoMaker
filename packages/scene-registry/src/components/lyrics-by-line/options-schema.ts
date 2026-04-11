@@ -1,5 +1,5 @@
 import type { SceneOptionEntry } from "@lyric-video-maker/core";
-import { SUPPORTED_FONT_FAMILIES } from "@lyric-video-maker/core";
+import { DEFAULT_GOOGLE_FONT_FAMILY } from "@lyric-video-maker/core";
 import { transformCategory } from "../../shared";
 import type { LyricsByLineOptions } from "./types";
 
@@ -20,7 +20,7 @@ export const lyricsByLineOptionsSchema: SceneOptionEntry[] = [
         max: 480,
         step: 1
       },
-      { type: "font", id: "lyricFont", label: "Lyric Font", defaultValue: SUPPORTED_FONT_FAMILIES[0] },
+      { type: "font", id: "lyricFont", label: "Lyric Font", defaultValue: DEFAULT_GOOGLE_FONT_FAMILY },
       { type: "color", id: "lyricColor", label: "Lyric Color", defaultValue: "#FFFFFF" },
       {
         type: "select",
@@ -146,7 +146,7 @@ export const lyricsByLineDefaultOptions: LyricsByLineOptions = {
   lyricSize: 72,
   forceSingleLine: false,
   horizontalPadding: 140,
-  lyricFont: SUPPORTED_FONT_FAMILIES[0],
+  lyricFont: DEFAULT_GOOGLE_FONT_FAMILY,
   lyricColor: "#FFFFFF",
   fadeInDurationMs: 180,
   fadeInEasing: "ease-out",

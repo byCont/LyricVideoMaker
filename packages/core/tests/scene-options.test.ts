@@ -4,7 +4,7 @@ import {
   validateSceneComponents,
   validateSceneOptions
 } from "../src/scenes";
-import { SUPPORTED_FONT_FAMILIES } from "../src/constants";
+import { DEFAULT_GOOGLE_FONT_FAMILY, GOOGLE_FONT_FAMILIES } from "../src/fonts";
 import type {
   SceneComponentDefinition,
   SerializedSceneDefinition
@@ -34,13 +34,13 @@ const lyricsComponent: SceneComponentDefinition<{ lyricSize: number; lyricFont: 
       label: "Lyrics",
       options: [
         { type: "number", id: "lyricSize", label: "Lyric Size", defaultValue: 72, min: 12, max: 100 },
-        { type: "font", id: "lyricFont", label: "Lyric Font", defaultValue: SUPPORTED_FONT_FAMILIES[0] }
+        { type: "font", id: "lyricFont", label: "Lyric Font", defaultValue: DEFAULT_GOOGLE_FONT_FAMILY }
       ]
     }
   ],
   defaultOptions: {
     lyricSize: 72,
-    lyricFont: SUPPORTED_FONT_FAMILIES[0]
+    lyricFont: DEFAULT_GOOGLE_FONT_FAMILY
   },
   Component: () => null
 };
@@ -144,7 +144,7 @@ describe("scene validation", () => {
 
     expect(result).toEqual({
       lyricSize: 72,
-      lyricFont: SUPPORTED_FONT_FAMILIES[0]
+      lyricFont: DEFAULT_GOOGLE_FONT_FAMILY
     });
   });
 
@@ -199,7 +199,7 @@ describe("scene validation", () => {
         enabled: true,
         options: {
           lyricSize: 72,
-          lyricFont: SUPPORTED_FONT_FAMILIES[0]
+          lyricFont: DEFAULT_GOOGLE_FONT_FAMILY
         }
       },
       {
@@ -222,7 +222,7 @@ describe("scene validation", () => {
         enabled: true,
         options: {
           lyricSize: 64,
-          lyricFont: SUPPORTED_FONT_FAMILIES[0]
+          lyricFont: DEFAULT_GOOGLE_FONT_FAMILY
         }
       }
     ]);
@@ -255,7 +255,29 @@ describe("scene validation", () => {
     ).toThrow(/does not point to a readable file/);
   });
 
-  it("rejects unsupported fonts", () => {
+  it("ships a 100 font curated Google Font list with Montserrat as default", () => {
+    expect(DEFAULT_GOOGLE_FONT_FAMILY).toBe("Montserrat");
+    expect(GOOGLE_FONT_FAMILIES).toHaveLength(100);
+    expect(GOOGLE_FONT_FAMILIES[0]).toBe(DEFAULT_GOOGLE_FONT_FAMILY);
+  });
+
+  it("accepts custom Google Font family names", () => {
+    const result = validateSceneOptions(lyricsComponent, {
+      lyricFont: "Custom Google Font"
+    });
+
+    expect(result.lyricFont).toBe("Custom Google Font");
+  });
+
+  it("normalizes custom Google Font family whitespace", () => {
+    const result = validateSceneOptions(lyricsComponent, {
+      lyricFont: "  Custom   Google   Font  "
+    });
+
+    expect(result.lyricFont).toBe("Custom Google Font");
+  });
+
+  it("rejects unsafe Google Font family names", () => {
     expect(() =>
       validateSceneComponents(
         {
@@ -264,10 +286,10 @@ describe("scene validation", () => {
             scene.components[0],
             {
               id: "lyrics-1",
-              componentId: "lyrics-by-line",
-              enabled: true,
-              options: {
-                lyricFont: "Papyrus"
+            componentId: "lyrics-by-line",
+            enabled: true,
+            options: {
+                lyricFont: "Roboto;body{display:none}"
               }
             }
           ]
@@ -277,7 +299,15 @@ describe("scene validation", () => {
           isFileAccessible: () => true
         }
       )
-    ).toThrow(/not a supported font selection/);
+    ).toThrow(/not a safe Google Font family name/);
+  });
+
+  it("rejects empty Google Font family names", () => {
+    expect(() =>
+      validateSceneOptions(lyricsComponent, {
+        lyricFont: ""
+      })
+    ).toThrow(/Google Font family is required/);
   });
 
   it("rejects equalizer values outside numeric bounds", () => {

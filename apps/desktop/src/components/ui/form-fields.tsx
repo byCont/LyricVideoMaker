@@ -249,22 +249,28 @@ export function OptionField({
         </div>
       );
     case "font":
-      return (
-        <div className="option-row">
-          <label className="option-label" htmlFor={inputId}>
-            <FieldLabel label={field.label} />
-          </label>
-          <div className="option-input">
-            <select
-              id={inputId}
-              value={String(value ?? field.defaultValue ?? fonts[0])}
-              onChange={(event) => onChange(event.target.value)}
-            >
-              {fonts.map((font) => <option key={font} value={font}>{font}</option>)}
-            </select>
+      {
+        const listId = `${inputId}-google-fonts`;
+        return (
+          <div className="option-row">
+            <label className="option-label" htmlFor={inputId}>
+              <FieldLabel label={field.label} />
+            </label>
+            <div className="option-input">
+              <input
+                id={inputId}
+                list={listId}
+                value={String(value ?? field.defaultValue ?? fonts[0] ?? "")}
+                placeholder="Search Google Fonts or type a custom family"
+                onChange={(event) => onChange(event.target.value)}
+              />
+              <datalist id={listId}>
+                {fonts.map((font) => <option key={font} value={font} />)}
+              </datalist>
+            </div>
           </div>
-        </div>
-      );
+        );
+      }
     case "image":
       return (
         <div className="option-row option-row-multiline">

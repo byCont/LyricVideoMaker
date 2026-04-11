@@ -1,4 +1,4 @@
-import { SUPPORTED_FONT_FAMILIES } from "../constants";
+import { validateGoogleFontFamilyName } from "../fonts";
 import type {
   SceneComponentDefinition,
   SerializedSceneDefinition,
@@ -79,7 +79,7 @@ function validateField(
   defaultValue: unknown,
   context: SceneValidationContext
 ): unknown {
-  if (rawValue === undefined || rawValue === null || rawValue === "") {
+  if (rawValue === undefined || rawValue === null || (rawValue === "" && field.type !== "font")) {
     if ((field.type === "image" || field.type === "video") && field.required) {
       throw new Error(`"${field.label}" is required.`);
     }
@@ -122,12 +122,7 @@ function validateField(
       return String(rawValue);
     }
     case "font": {
-      const fontValue = String(rawValue);
-      const supportedFonts = context.supportedFonts ?? SUPPORTED_FONT_FAMILIES;
-      if (!supportedFonts.includes(fontValue)) {
-        throw new Error(`"${fontValue}" is not a supported font selection.`);
-      }
-      return fontValue;
+      return validateGoogleFontFamilyName(rawValue);
     }
     case "image":
     case "video": {

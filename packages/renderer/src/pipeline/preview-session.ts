@@ -8,6 +8,7 @@ import { createAudioAnalysisAccessor } from "../audio-analysis";
 import { createAssetAccessor, preloadSceneAssets } from "../assets/preload";
 import { createLiveDomRenderSession } from "../browser/live-dom-session";
 import { canRenderWithLiveDom, createLiveDomScenePayload } from "../live-dom";
+import { prepareGoogleFonts } from "../fonts/google-fonts";
 import { createRenderLogger } from "../logging";
 import { createPreviewProfiler, measurePreviewStage } from "../profiling";
 import { prepareSceneComponents } from "../scene-prep/prepare-components";
@@ -29,6 +30,7 @@ export interface CreateFramePreviewSessionInput {
   signal?: AbortSignal;
   assetCache?: PreviewAssetCache;
   previewCache?: PreviewComputationCache;
+  fontCacheDir?: string;
 }
 
 export async function createFramePreviewSession({
@@ -36,7 +38,8 @@ export async function createFramePreviewSession({
   componentDefinitions,
   signal,
   assetCache,
-  previewCache
+  previewCache,
+  fontCacheDir
 }: CreateFramePreviewSessionInput): Promise<FramePreviewSession> {
   const logger = createRenderLogger(job.id, NOOP_PROGRESS_EMITTER);
   const previewProfiler = createPreviewProfiler(job.id);
@@ -54,6 +57,12 @@ export async function createFramePreviewSession({
     )
   );
   const assets = createAssetAccessor(enabledComponents, preloadedAssets);
+  const googleFonts = await prepareGoogleFonts({
+    components: enabledComponents,
+    componentLookup,
+    fontCacheDir,
+    logger
+  });
   const audio = createAudioAnalysisAccessor({
     audioPath: job.audioPath,
     video: job.video,
@@ -112,7 +121,9 @@ export async function createFramePreviewSession({
       signal,
       logger,
       previewProfiler,
-      videoFrameExtractions
+      videoFrameExtractions,
+      fontCss: googleFonts.css,
+      fontCacheDir: googleFonts.cacheDir ?? undefined
     });
 
     return {

@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { performance } from "node:perf_hooks";
+import { workerData } from "node:worker_threads";
 import {
   createRenderJob,
   msToFrame,
@@ -30,11 +31,22 @@ const PREVIEW_MAX_WIDTH = 960;
 const PREVIEW_MAX_HEIGHT = 540;
 
 const previewProfilerEnabled = process.env.LYRIC_VIDEO_PREVIEW_PROFILE === "1";
+let fontCacheDir =
+  workerData && typeof workerData.fontCacheDir === "string" ? workerData.fontCacheDir : undefined;
 const getSubtitleCues = createSubtitleCueLoader();
 const getAudioDuration = createAudioDurationLoader();
 const previewComputationCache = createPreviewComputationCache();
 
 let previewSessionState: PreviewSessionState | null = null;
+
+export async function configurePreviewFontCacheDir(nextFontCacheDir: string | undefined) {
+  if (!nextFontCacheDir || nextFontCacheDir === fontCacheDir) {
+    return;
+  }
+
+  fontCacheDir = nextFontCacheDir;
+  await disposePreviewSession();
+}
 
 export const previewRenderQueue = createLatestOnlyPreviewRenderQueue<
   RenderPreviewRequest,
@@ -134,7 +146,8 @@ async function getOrCreatePreviewSession(request: RenderPreviewRequest) {
       session: await createFramePreviewSession({
         job,
         componentDefinitions: builtInSceneComponents,
-        previewCache: previewComputationCache
+        previewCache: previewComputationCache,
+        fontCacheDir
       }),
       job,
       cues,

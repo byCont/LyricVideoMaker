@@ -14,6 +14,7 @@ const audioPath = join(workspace, "tone.mp3");
 const subtitlePath = join(workspace, "lyrics.srt");
 const imagePath = join(workspace, "background.png");
 const outputPath = join(workspace, "output.mp4");
+const fontCacheDir = join(workspace, "google-font-cache");
 const benchmarkMode = process.env.LYRIC_VIDEO_BENCHMARK_MODE ?? "standard";
 
 try {
@@ -65,7 +66,8 @@ try {
   const startMs = performance.now();
   await renderLyricVideo({
     job,
-    componentDefinitions: builtInSceneComponents
+    componentDefinitions: builtInSceneComponents,
+    fontCacheDir
   });
   const elapsedMs = performance.now() - startMs;
 

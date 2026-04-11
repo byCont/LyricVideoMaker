@@ -4,6 +4,7 @@ export interface PreviewWorkerRenderFrameRequest {
   type: "render-frame";
   requestId: number;
   payload: RenderPreviewRequest;
+  fontCacheDir?: string;
 }
 
 export interface PreviewWorkerDisposeRequest {

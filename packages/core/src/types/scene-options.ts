@@ -54,5 +54,4 @@ export type SceneOptionEntry = SceneOptionField | SceneOptionCategory;
 
 export interface SceneValidationContext {
   isFileAccessible?: (path: string) => boolean;
-  supportedFonts?: readonly string[];
 }

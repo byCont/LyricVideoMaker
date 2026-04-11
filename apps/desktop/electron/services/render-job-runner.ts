@@ -76,6 +76,7 @@ export interface RunRenderJobDeps {
   controller: AbortController;
   renderHistory: RenderHistory;
   abortRegistry: AbortRegistry;
+  fontCacheDir?: string;
   getMainWindow(): BrowserWindow | null;
 }
 
@@ -84,6 +85,7 @@ export async function runRenderJob({
   controller,
   renderHistory,
   abortRegistry,
+  fontCacheDir,
   getMainWindow
 }: RunRenderJobDeps) {
   try {
@@ -91,6 +93,7 @@ export async function runRenderJob({
       job,
       componentDefinitions: builtInSceneComponents,
       signal: controller.signal,
+      fontCacheDir,
       onProgress: (event) => handleProgress({ job, event, renderHistory, getMainWindow })
     });
   } catch (error) {

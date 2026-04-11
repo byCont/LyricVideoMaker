@@ -21,6 +21,13 @@ const imageField: SceneOptionField = {
   label: "Image"
 };
 
+const fontField: SceneOptionField = {
+  type: "font",
+  id: "font",
+  label: "Font",
+  defaultValue: "Montserrat"
+};
+
 describe("OptionField — video field dispatch (T-015)", () => {
   it("renders a file pill with the selected path", () => {
     render(
@@ -94,5 +101,25 @@ describe("OptionField — video field dispatch (T-015)", () => {
     expect(videoPill).not.toBeNull();
     expect(imagePill).not.toBeNull();
     expect(videoPill!.className).toBe(imagePill!.className);
+  });
+
+  it("renders font fields as searchable Google Font inputs with custom values", () => {
+    const onChange = vi.fn();
+    render(
+      <OptionField
+        field={fontField}
+        inputPrefix="font-1"
+        value="Montserrat"
+        fonts={["Montserrat", "Poppins"]}
+        onChange={onChange}
+        onPickFile={() => {}}
+      />
+    );
+
+    const input = screen.getByLabelText("Font");
+    expect(input).toHaveAttribute("placeholder", "Search Google Fonts or type a custom family");
+    expect(screen.getByDisplayValue("Montserrat")).toBeInTheDocument();
+    fireEvent.change(input, { target: { value: "Custom Google Font" } });
+    expect(onChange).toHaveBeenCalledWith("Custom Google Font");
   });
 });

@@ -32,3 +32,9 @@ export { renderFrameWithWorkerRecovery } from "./pipeline/worker-frames";
 export { writeFrameToMuxerInput } from "./ffmpeg/frame-writer";
 export { createBoundedOutputBuffer } from "./ffmpeg/bounded-output-buffer";
 export { createMuxExitMonitor, type MuxExitMonitor } from "./ffmpeg/mux-exit-monitor";
+export {
+  buildGoogleFontsCss2Url,
+  collectGoogleFontRequests,
+  prepareGoogleFonts,
+  rewriteGoogleFontCssUrls
+} from "./fonts/google-fonts";

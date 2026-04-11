@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { ipcMain } from "electron";
 import type { StartRenderRequest } from "../../src/electron-api";
 import {
@@ -18,6 +19,7 @@ const getAudioDuration = createAudioDurationLoader();
 
 export function registerRenderHandlers({
   getMainWindow,
+  getUserDataPath,
   previewWorkerClient,
   renderHistory
 }: IpcDeps) {
@@ -39,7 +41,8 @@ export function registerRenderHandlers({
       controller,
       renderHistory,
       abortRegistry,
-      getMainWindow
+      getMainWindow,
+      fontCacheDir: join(getUserDataPath(), "google-font-cache")
     });
 
     return entry;

@@ -3,6 +3,7 @@ import ffprobe from "ffprobe-static";
 
 export const ASSET_URL_PREFIX = "http://lyric-video.local/assets/";
 export const VIDEO_FRAME_URL_PREFIX = "http://lyric-video.local/video-frames/";
+export const FONT_URL_PREFIX = "http://lyric-video.local/fonts/";
 export const PROGRESS_INTERVAL_MS = 250;
 export const FFMPEG_EXECUTABLE = resolveExecutablePath(ffmpegPath, "ffmpeg");
 export const FFPROBE_EXECUTABLE = resolveExecutablePath(ffprobe.path, "ffprobe");

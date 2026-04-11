@@ -11,6 +11,7 @@ const audioPath = join(workspace, "tone.mp3");
 const subtitlePath = join(workspace, "lyrics.srt");
 const imagePath = join(workspace, "background.png");
 const outputPath = join(workspace, "output.mp4");
+const fontCacheDir = join(workspace, "google-font-cache");
 
 try {
   await runFfmpeg([
@@ -89,7 +90,8 @@ World`,
 
   await renderLyricVideo({
     job,
-    componentDefinitions: builtInSceneComponents
+    componentDefinitions: builtInSceneComponents,
+    fontCacheDir
   });
 
   await access(outputPath);
