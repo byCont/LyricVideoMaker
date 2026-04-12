@@ -9,7 +9,7 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "node scripts/install-subtitle-sidecar.mjs && npm run build --workspaces --if-present",
+    "build": "node scripts/install-subtitle-sidecar.mjs && node scripts/install-chromium.mjs && npm run build --workspaces --if-present",
     "benchmark:renderer": "npm run build && node packages/renderer/tests/render-benchmark.mjs",
     "dev": "npm run dev --workspace @lyric-video-maker/desktop",
     "publish": "node scripts/publish.mjs",
@@ -26,7 +26,6 @@
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.4.1",
     "jsdom": "^26.0.0",
-    "playwright": "^1.51.1",
     "tsup": "^8.4.0",
     "tsx": "^4.19.3",
     "typescript": "^5.8.2",

@@ -8,10 +8,9 @@ the extent of any conflict for that component.
 
 This document is informational. The authoritative license texts live
 in the files referenced below and inside the installed application
-bundle (e.g. `LICENSES.chromium.html`,
-`resources/app/node_modules/playwright-core/NOTICE`, and each Python
-package's `*.dist-info/LICENSE` file inside the frozen subtitle
-sidecar).
+bundle (e.g. `LICENSES.chromium.html`, `LICENSES.chromium-headless.html`
+inside the bundled headless Chromium, and each Python package's
+`*.dist-info/LICENSE` file inside the frozen subtitle sidecar).
 
 ---
 
@@ -19,11 +18,11 @@ sidecar).
 
 | Family        | Components                                                                                      |
 |---------------|--------------------------------------------------------------------------------------------------|
-| **LGPL**      | Electron's internal ffmpeg.dll, Playwright-bundled ffmpeg helper                                |
+| **LGPL**      | Electron's internal ffmpeg.dll                                                                  |
 | **BSD-3**     | Chromium, PyTorch, NumPy, LLVM / llvmlite, SymPy, mpmath, NetworkX, fsspec, torchaudio, colorama |
 | **BSD-2**     | Numba, OpenH264, libwebp                                                                        |
-| **Apache-2.0**| Playwright, Microsoft TypeScript runtime, regex, urllib3, Requests                              |
-| **MIT**       | Electron, React, React DOM, OpenAI Whisper, stable-ts, tiktoken, Jinja2, MarkupSafe, tqdm, idna, ms, debug, playwright-core JS, and most npm dependencies |
+| **Apache-2.0**| @puppeteer/browsers, Microsoft TypeScript runtime, regex, urllib3, Requests                     |
+| **MIT**       | Electron, React, React DOM, chrome-remote-interface, OpenAI Whisper, stable-ts, tiktoken, Jinja2, MarkupSafe, tqdm, idna, ms, debug, and most npm dependencies |
 | **MPL-2.0**   | certifi (Mozilla CA bundle), tqdm (dual MIT/MPL)                                                |
 | **PSF-2.0**   | CPython standard library, typing_extensions                                                     |
 | **Unlicense / Public Domain** | filelock                                                                            |
@@ -82,24 +81,26 @@ the renderer process and is unrelated to the user-installed
 
 ---
 
-### 3. Microsoft Playwright and Playwright Browsers
+### 3. Headless renderer toolchain (@puppeteer/browsers, chrome-remote-interface, bundled Chromium)
 
-**Playwright / playwright-core.** Apache License 2.0. Notice and
-`ThirdPartyNotices.txt` files are preserved inside
-`resources/app/node_modules/playwright-core/`.
+**@puppeteer/browsers.** Apache License 2.0. Used at build time to
+download a pinned Chromium revision into the application's bundled
+browser cache. The package's `LICENSE` file is preserved inside
+`resources/app/node_modules/@puppeteer/browsers/`.
 
-**Bundled Chromium build.** The Playwright browser package downloads
-a second Chromium build (separate from the Electron runtime) into
-`playwright-core/.local-browsers/chromium-*/`. This is an upstream
-open-source Chromium build and is covered by the same BSD-3-Clause
-license and third-party notices described above. The license files
-shipped inside `chromium-*/` must be preserved.
+**chrome-remote-interface.** MIT License. Copyright (c) 2025 Andrea
+Cardaci. Used at runtime to drive the bundled Chromium over the
+Chrome DevTools Protocol. The package's `LICENSE` file is preserved
+inside `resources/app/node_modules/chrome-remote-interface/`.
 
-**Playwright's FFmpeg helper.** A small LGPL-v2.1 build of FFmpeg is
-bundled as `playwright-core/.local-browsers/ffmpeg-*/ffmpeg-win64.exe`
-and used by Playwright for video recording. Its license text is
-`COPYING.LGPLv2.1` inside the same directory and is preserved on
-disk.
+**Bundled Chromium build.** A second Chromium build (separate from the
+Electron runtime) is downloaded by `@puppeteer/browsers` and shipped
+inside the application as
+`resources/app/.chromium-cache/chromium/<platform>-<buildId>/`. This is
+an upstream open-source Chromium build covered by the same
+BSD-3-Clause license and third-party notices described in section 2
+above. The `LICENSES.chromium-headless.html` file (and any other
+license files) shipped inside the bundled directory must be preserved.
 
 ---
 
@@ -114,9 +115,9 @@ Source: <https://github.com/facebook/react>.
 
 ### 5. Other npm dependencies bundled inside `resources/app/node_modules/`
 
-These packages are included as transitive dependencies of Playwright,
-React, and (historically) ffmpeg-static. They are all permissively
-licensed:
+These packages are included as transitive dependencies of
+@puppeteer/browsers, chrome-remote-interface, React, and
+(historically) ffmpeg-static. They are all permissively licensed:
 
 | Package | License |
 |---|---|
@@ -273,12 +274,11 @@ original license notices:
 - `LICENSE` and `LICENSES.chromium.html` at the root of the installed
   application directory (Electron + Chromium).
 - All `LICENSE`, `NOTICE`, and `ThirdPartyNotices.txt` files under
-  `resources/app/node_modules/playwright-core/` and
-  `resources/app/node_modules/playwright/`.
+  `resources/app/node_modules/@puppeteer/browsers/` and
+  `resources/app/node_modules/chrome-remote-interface/`.
 - Chromium license files distributed inside
-  `resources/app/node_modules/playwright-core/.local-browsers/chromium-*/`.
-- The `COPYING.LGPLv2.1` file inside
-  `resources/app/node_modules/playwright-core/.local-browsers/ffmpeg-*/`.
+  `resources/app/.chromium-cache/chromium/<platform>-<buildId>/`
+  (e.g. `LICENSES.chromium-headless.html`).
 - Every `*.dist-info/LICENSE` (and `licenses/` subdirectory) found
   inside the frozen subtitle sidecar at
   `resources/app/sidecars/subtitle-aligner/bin/lyric-video-subtitle-aligner/`.

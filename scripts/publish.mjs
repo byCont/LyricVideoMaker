@@ -83,21 +83,11 @@ async function main() {
     getNpmCommand(),
     ["install", "--omit=dev", "--no-audit", "--no-fund"],
     {
-      cwd: stageDir,
-      env: {
-        ...process.env,
-        PLAYWRIGHT_BROWSERS_PATH: "0"
-      }
+      cwd: stageDir
     }
   );
-  await runCommand(process.execPath, [join("node_modules", "playwright", "cli.js"), "install", "chromium"], {
-    cwd: stageDir,
-    env: {
-      ...process.env,
-      PLAYWRIGHT_BROWSERS_PATH: "0"
-    },
-    shell: false
-  });
+
+  await stageBundledChromium();
 
   console.log("Packaging the Windows app folder...");
   const packagePaths = await packager({
@@ -134,6 +124,21 @@ async function assertFrozenSidecarExists() {
         "Check the PyInstaller output above for errors."
     );
   }
+}
+
+async function stageBundledChromium() {
+  // Mirror the dev-cache layout under the staged app so the renderer's
+  // chromium-loader finds the bundled binary at packaged-app runtime.
+  const cacheSource = join(rootDir, "node_modules", ".chromium-cache");
+  if (!(await pathExists(cacheSource))) {
+    throw new Error(
+      `Bundled Chromium cache not found at "${cacheSource}". Run "node scripts/install-chromium.mjs" before publishing.`
+    );
+  }
+
+  const cacheDestination = join(stageDir, ".chromium-cache");
+  console.log("Staging bundled Chromium...");
+  await cp(cacheSource, cacheDestination, { recursive: true });
 }
 
 async function stageSidecars() {

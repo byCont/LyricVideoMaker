@@ -99,7 +99,7 @@ Headless render coordinator. `src/index.ts` thin public barrel; behavior in focu
 - `src/logging.ts`: `createRenderLogger`, `createLogEntry`
 - `src/profiling.ts`: render/preview profilers, measure helpers, `traceRenderStep`
 - `src/ffmpeg/`: subprocess + mux pipeline — `run-command.ts` (single source for `runCommand`/`runBinaryCommand`), `probe.ts`, `frame-muxer.ts`, `frame-writer.ts`, `bounded-output-buffer.ts`, `mux-diagnostics.ts`
-- `src/browser/`: Playwright orchestration — `chromium-loader.ts`, `render-page.ts`, `asset-routes.ts`, `capture.ts`, `diagnostics.ts`, `dispose.ts`, `live-dom-session.ts`
+- `src/browser/`: headless Chromium orchestration over CDP — `chromium-loader.ts` (resolves bundled Chromium binary), `launch.ts` (spawns Chromium with `--remote-debugging-port`), `cdp-session.ts` (CRI wrapper exposing `BrowserClient` / `PageClient`), `render-page.ts`, `asset-routes.ts`, `capture.ts`, `diagnostics.ts`, `dispose.ts`, `live-dom-session.ts`
 - `src/react-ssr/`: server-side React markup — `composite-markup.ts`, `lyric-runtime-bridge.ts`
 - `src/scene-prep/`: component prepare orchestration — `prepare-components.ts`, `cache-keys.ts`
 - `src/assets/`: asset preload + serve — `preload.ts`, `cache-body.ts`, `mime.ts`, `preview-cache.ts`
@@ -117,7 +117,7 @@ Happy path:
 3. Electron main calls `renderLyricVideo(...)` from `packages/renderer`.
 4. Renderer runs optional scene `prepare(...)`.
 5. Each frame: server-render scene React component to static HTML.
-6. Playwright Chromium captures each frame.
+6. Bundled headless Chromium (driven over CDP via `chrome-remote-interface`) captures each frame.
 7. `ffmpeg` muxes frame sequence + source audio → H.264/AAC MP4.
 8. Electron main emits progress updates to React UI.
 
@@ -180,7 +180,7 @@ Match new code to owning layer:
 
 - **New tunable / env var:** `src/constants.ts`. No inline `process.env` lookups in feature files.
 - **New ffmpeg invocation:** `src/ffmpeg/`. Reuse `runCommand`/`runBinaryCommand` from `src/ffmpeg/run-command.ts` — single copy.
-- **New Playwright orchestration:** `src/browser/`. No Playwright APIs from `src/pipeline/`.
+- **New browser orchestration:** `src/browser/`. Talk to Chromium only through `cdp-session.ts`'s `BrowserClient` / `PageClient` — no raw `chrome-remote-interface` imports outside that file, no browser APIs from `src/pipeline/`.
 - **New render orchestration step:** `src/pipeline/`. Keep `pipeline/render-lyric-video.ts` and `pipeline/preview-session.ts` thin — extract reusable steps to sibling files.
 - **New frame state helper:** `src/scene-prep/`, `src/react-ssr/`, or `src/assets/` by concern.
 - **Profiling / measurement:** use `src/profiling.ts` helpers.
@@ -224,12 +224,12 @@ Also run gated smoke test when changing:
 - `packages/renderer/src/index.ts`
 - scene rendering behavior
 - temp-file handling
-- Playwright or `ffmpeg` invocation
+- CDP browser orchestration (`src/browser/`) or `ffmpeg` invocation
 - render-job timing/duration logic
 
 ## Agent Notes
 
 - Read source files under `apps/desktop/src`, `apps/desktop/electron`, `packages/*/src` before touching anything.
 - Blank Electron window debug: check preload format, asset paths in built `index.html`, `file://` vs dev server loading.
-- Render failure debug: inspect `ffprobe`, `ffmpeg`, Playwright Chromium availability first.
+- Render failure debug: inspect `ffprobe`, `ffmpeg`, and the bundled Chromium under `node_modules/.chromium-cache/` (or `resources/app/.chromium-cache/` in packaged builds) first.
 - New scene/component: reuse existing scene registry structure, no separate registration path.

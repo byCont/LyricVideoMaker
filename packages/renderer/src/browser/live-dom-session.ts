@@ -1,4 +1,3 @@
-import type { Browser, BrowserContext, CDPSession, Page } from "playwright";
 import {
   createLyricRuntimeCursor,
   type PreparedSceneStackData,
@@ -34,11 +33,13 @@ import type {
 } from "../types";
 import type { VideoFrameExtractionEntry } from "../video-frame-extraction";
 import { captureFrameBuffer } from "./capture";
-import { loadChromium } from "./chromium-loader";
+import { resolveChromiumExecutable } from "./chromium-loader";
 import { wirePageDiagnostics } from "./diagnostics";
 import { disposePreviewBrowserResources } from "./dispose";
 import { registerAssetRoutes } from "./asset-routes";
 import { createRenderPage } from "./render-page";
+import { connectBrowser, type BrowserClient, type PageClient } from "./cdp-session";
+import { launchChromium, type LaunchedChromium } from "./launch";
 
 export async function createLiveDomRenderSession({
   sessionLabel,
@@ -73,34 +74,37 @@ export async function createLiveDomRenderSession({
   fontCss?: string;
   fontCacheDir?: string;
 }): Promise<FramePreviewSession> {
-  let browser: Browser | null = null;
-  let browserContext: BrowserContext | null = null;
-  let page: Page | null = null;
-  let cdpSession: CDPSession | null = null;
+  let launched: LaunchedChromium | null = null;
+  let browser: BrowserClient | null = null;
+  let page: PageClient | null = null;
+  let detachAssetRoutes: (() => Promise<void>) | null = null;
+  let detachDiagnostics: (() => void) | null = null;
   let disposed = false;
   let renderChain = Promise.resolve();
   const lyricRuntimeCursor = createLyricRuntimeCursor(job.lyrics, 0);
 
   try {
-    const chromium = await loadChromium();
-    browser = await chromium.launch({
-      headless: true
-    });
+    const executable = await resolveChromiumExecutable();
+    launched = await launchChromium({ executable });
+    browser = await connectBrowser({ port: launched.port, wsEndpoint: launched.wsEndpoint });
 
     const renderPage = await createRenderPage({
       browser,
       width: job.video.width,
       height: job.video.height
     });
-    browserContext = renderPage.context;
     page = renderPage.page;
 
-    wirePageDiagnostics(page, logger);
-    await registerAssetRoutes(page, preloadedAssets, logger, videoFrameExtractions, fontCacheDir);
-    await page.setContent(renderPageShell(fontCss), { waitUntil: "domcontentloaded" });
-
-    cdpSession = await page.context().newCDPSession(page);
-    await cdpSession.send("Page.enable");
+    detachDiagnostics = wirePageDiagnostics(page, logger);
+    const assetRoutes = await registerAssetRoutes(
+      page,
+      preloadedAssets,
+      logger,
+      videoFrameExtractions,
+      fontCacheDir
+    );
+    detachAssetRoutes = assetRoutes.dispose;
+    await page.setContent(renderPageShell(fontCss));
 
     const mountWarnings = await maybeMeasureAsync(profiler, "browserUpdate", async () => {
       return await mountLiveDomScene(page!, scenePayload);
@@ -110,14 +114,17 @@ export async function createLiveDomRenderSession({
       logger.warn(warning);
     }
   } catch (error) {
-    await disposePreviewBrowserResources({ page, cdpSession, browserContext, browser });
+    if (detachDiagnostics) {
+      detachDiagnostics();
+    }
+    await disposePreviewBrowserResources({ page, browser, launched, detachAssetRoutes });
     throw error;
   }
 
   return {
     async renderFrame({ frame }) {
       const nextRender = renderChain.then(async () => {
-        if (disposed || !page || !cdpSession) {
+        if (disposed || !page) {
           throw new Error("Preview session has already been disposed.");
         }
 
@@ -172,7 +179,7 @@ export async function createLiveDomRenderSession({
           return await withTimeout(
             maybeMeasureAsync(profiler, "capture", async () => {
               return await captureFrameBuffer({
-                cdpSession: cdpSession!
+                page: page!
               });
             }),
             createFrameStageTimeoutError({
@@ -201,11 +208,15 @@ export async function createLiveDomRenderSession({
       }
 
       disposed = true;
-      await disposePreviewBrowserResources({ page, cdpSession, browserContext, browser });
+      if (detachDiagnostics) {
+        detachDiagnostics();
+        detachDiagnostics = null;
+      }
+      await disposePreviewBrowserResources({ page, browser, launched, detachAssetRoutes });
       page = null;
-      cdpSession = null;
-      browserContext = null;
       browser = null;
+      launched = null;
+      detachAssetRoutes = null;
     }
   };
 }

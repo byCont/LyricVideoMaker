@@ -1,11 +1,7 @@
-import type { CDPSession } from "playwright";
+import type { PageClient } from "./cdp-session";
 
-export async function captureFrameBuffer({
-  cdpSession
-}: {
-  cdpSession: CDPSession;
-}): Promise<Buffer> {
-  const screenshot = await cdpSession.send("Page.captureScreenshot", {
+export async function captureFrameBuffer({ page }: { page: PageClient }): Promise<Buffer> {
+  const screenshot = await page.send<{ data: string }>("Page.captureScreenshot", {
     format: "png",
     fromSurface: true,
     captureBeyondViewport: false,

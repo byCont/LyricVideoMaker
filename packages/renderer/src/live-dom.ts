@@ -1,4 +1,4 @@
-import type { Page } from "playwright";
+import type { PageClient } from "./browser/cdp-session";
 import type {
   BrowserLyricRuntime,
   PreparedSceneStackData,
@@ -133,7 +133,7 @@ export function createLiveDomFramePayload({
   };
 }
 
-export async function mountLiveDomScene(page: Page, payload: LiveDomScenePayload) {
+export async function mountLiveDomScene(page: PageClient, payload: LiveDomScenePayload) {
   return await page.evaluate(async (scenePayload) => {
     const mountScene = (
       window as Window & {
@@ -151,7 +151,7 @@ export async function mountLiveDomScene(page: Page, payload: LiveDomScenePayload
   }, payload);
 }
 
-export async function updateLiveDomScene(page: Page, payload: LiveDomFramePayload) {
+export async function updateLiveDomScene(page: PageClient, payload: LiveDomFramePayload) {
   if (payload.components.length === 0) {
     return;
   }
@@ -184,7 +184,7 @@ export async function updateLiveDomScene(page: Page, payload: LiveDomFramePayloa
  * the render logger can surface them without aborting the render.
  */
 export async function awaitFrameReadiness(
-  page: Page
+  page: PageClient
 ): Promise<{ timeouts: ReadinessTimeoutEvent[] }> {
   return await page.evaluate(async () => {
     const hook = (
@@ -194,11 +194,43 @@ export async function awaitFrameReadiness(
       }
     ).__frameReadiness;
 
-    if (!hook) {
-      return { timeouts: [] as ReadinessTimeoutEvent[] };
+    if (hook) {
+      await hook.awaitAll();
     }
 
-    await hook.awaitAll();
+    // Wait for any in-flight @font-face loads to settle. Without this, the
+    // first few frames render with fallback metrics and reflow once the
+    // real font arrives — visible as text in slightly wrong positions.
+    if (typeof document !== "undefined" && document.fonts && document.fonts.ready) {
+      try {
+        await document.fonts.ready;
+      } catch {
+        // Some browsers reject fonts.ready on internal failures — ignore
+        // and let the screenshot proceed with whatever fonts are loaded.
+      }
+    }
+
+    // // Force a synchronous style/layout flush so the compositor frame
+    // // captured next sees final positions instead of stale ones from the
+    // // previous frame's update.
+    // if (typeof document !== "undefined" && document.body) {
+    //   // Reading offsetHeight is the standard "force layout" trick.
+    //   void document.body.offsetHeight;
+    // }
+
+    // // Yield two animation frames so any CSS transitions / transforms
+    // // applied during updateLiveDomScene get a chance to commit to the
+    // // compositor before captureScreenshot reads the surface.
+    // await new Promise<void>((resolve) => {
+    //   const raf = (window as Window & {
+    //     requestAnimationFrame?: (cb: () => void) => number;
+    //   }).requestAnimationFrame;
+    //   if (typeof raf === "function") {
+    //     raf(() => raf(() => resolve()));
+    //   } else {
+    //     resolve();
+    //   }
+    // });
 
     const drain = (
       window as Window & {

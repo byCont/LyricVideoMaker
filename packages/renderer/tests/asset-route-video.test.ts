@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { Route } from "playwright";
-import { fulfillAssetRoute } from "../src/browser/asset-routes";
+import { fulfillAssetRoute, type RouteLike } from "../src/browser/asset-routes";
 import type { PreloadedAsset, RenderLogger } from "../src/types";
 
 const logger: RenderLogger = { info: () => {}, warn: () => {}, error: () => {} };
@@ -9,11 +8,11 @@ function makeRoute(
   url: string,
   fulfill: (args: unknown) => void,
   headers: Record<string, string> = {}
-): Route {
+): RouteLike {
   return {
     request: () => ({ url: () => url, headers: () => headers }),
-    fulfill: async (args: unknown) => fulfill(args)
-  } as unknown as Route;
+    fulfill: async (args) => fulfill(args)
+  };
 }
 
 describe("asset route serves video bodies with content-type (T-012)", () => {

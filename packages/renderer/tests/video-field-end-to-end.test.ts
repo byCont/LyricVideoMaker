@@ -143,12 +143,12 @@ describe("T-016 — video field type end-to-end plumbing", () => {
     const asset = preloaded.get("test-2:clip") as PreloadedAsset;
 
     let captured: Record<string, unknown> = {};
-    const route = {
+    const route: import("../src/browser/asset-routes").RouteLike = {
       request: () => ({ url: () => asset.url }),
-      fulfill: async (args: unknown) => {
-        captured = args as Record<string, unknown>;
+      fulfill: async (args) => {
+        captured = args as unknown as Record<string, unknown>;
       }
-    } as unknown as import("playwright").Route;
+    };
 
     await fulfillAssetRoute(route, preloaded, logger);
 

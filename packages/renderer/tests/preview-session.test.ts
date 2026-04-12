@@ -2,22 +2,17 @@ import { vi } from "vitest";
 import type { RenderJob, SceneComponentDefinition } from "@lyric-video-maker/core";
 
 const previewRuntime = vi.hoisted(() => {
-  const cdpSession = {
+  const page = {
+    targetId: "mock-target",
     send: vi.fn(async (command: string) => {
       if (command === "Page.captureScreenshot") {
         return {
           data: Buffer.from("preview-frame").toString("base64")
         };
       }
-
       return {};
     }),
-    detach: vi.fn(async () => undefined)
-  };
-
-  const page = {
-    route: vi.fn(async () => undefined),
-    unroute: vi.fn(async () => undefined),
+    on: vi.fn(() => () => {}),
     setContent: vi.fn(async () => undefined),
     evaluate: vi.fn(async (_handler: unknown, payload: unknown) => {
       if (
@@ -39,39 +34,51 @@ const previewRuntime = vi.hoisted(() => {
 
       return undefined;
     }),
-    on: vi.fn(),
-    context: vi.fn()
-  };
-
-  const context = {
-    newPage: vi.fn(async () => page),
-    newCDPSession: vi.fn(async () => cdpSession),
     close: vi.fn(async () => undefined)
   };
-
-  page.context.mockReturnValue(context);
 
   const browser = {
-    newContext: vi.fn(async () => context),
-    newBrowserCDPSession: vi.fn(),
+    client: {},
+    port: 9999,
     close: vi.fn(async () => undefined)
   };
 
-  const launchMock = vi.fn(async () => browser);
+  const launched = {
+    process: { kill: vi.fn() },
+    port: 9999,
+    wsEndpoint: "ws://127.0.0.1:9999/devtools/browser/mock",
+    userDataDir: "/tmp/lvm-mock",
+    kill: vi.fn(async () => undefined)
+  };
+
+  const launchMock = vi.fn(async () => launched);
+  const connectBrowserMock = vi.fn(async () => browser);
+  const createPageMock = vi.fn(async () => page);
+  const resolveExecutableMock = vi.fn(async () => "/mock/chromium");
 
   return {
+    page,
     browser,
-    cdpSession,
-    context,
+    launched,
     launchMock,
-    page
+    connectBrowserMock,
+    createPageMock,
+    resolveExecutableMock
   };
 });
 
-vi.mock("playwright", () => ({
-  chromium: {
-    launch: previewRuntime.launchMock
-  }
+vi.mock("../src/browser/launch", () => ({
+  launchChromium: previewRuntime.launchMock
+}));
+
+vi.mock("../src/browser/chromium-loader", () => ({
+  resolveChromiumExecutable: previewRuntime.resolveExecutableMock,
+  CHROMIUM_BUILD_ID: "mock"
+}));
+
+vi.mock("../src/browser/cdp-session", () => ({
+  connectBrowser: previewRuntime.connectBrowserMock,
+  createPage: previewRuntime.createPageMock
 }));
 
 import { createFramePreviewSession, createPreviewComputationCache } from "../src/index";
@@ -79,17 +86,16 @@ import { createFramePreviewSession, createPreviewComputationCache } from "../src
 describe("createFramePreviewSession", () => {
   beforeEach(() => {
     previewRuntime.launchMock.mockClear();
-    previewRuntime.browser.newContext.mockClear();
+    previewRuntime.connectBrowserMock.mockClear();
+    previewRuntime.createPageMock.mockClear();
+    previewRuntime.resolveExecutableMock.mockClear();
     previewRuntime.browser.close.mockClear();
-    previewRuntime.context.newCDPSession.mockClear();
-    previewRuntime.context.close.mockClear();
-    previewRuntime.page.route.mockClear();
-    previewRuntime.page.unroute.mockClear();
+    previewRuntime.launched.kill.mockClear();
+    previewRuntime.page.send.mockClear();
+    previewRuntime.page.on.mockClear();
     previewRuntime.page.setContent.mockClear();
     previewRuntime.page.evaluate.mockClear();
-    previewRuntime.page.on.mockClear();
-    previewRuntime.cdpSession.send.mockClear();
-    previewRuntime.cdpSession.detach.mockClear();
+    previewRuntime.page.close.mockClear();
   });
 
   it("captures successive preview frames and disposes cleanly", async () => {
@@ -103,10 +109,12 @@ describe("createFramePreviewSession", () => {
     const second = await session.renderFrame({ frame: 30 });
 
     expect(previewRuntime.launchMock).toHaveBeenCalledTimes(1);
+    expect(previewRuntime.connectBrowserMock).toHaveBeenCalledTimes(1);
+    expect(previewRuntime.createPageMock).toHaveBeenCalledTimes(1);
     // 1 mount + 2 (updateLiveDomScene + awaitFrameReadiness) per rendered frame = 5
     expect(previewRuntime.page.evaluate).toHaveBeenCalledTimes(5);
-    expect(previewRuntime.cdpSession.send).toHaveBeenCalledWith("Page.enable");
-    expect(previewRuntime.cdpSession.send).toHaveBeenCalledWith(
+    expect(previewRuntime.page.send).toHaveBeenCalledWith("Fetch.enable", expect.any(Object));
+    expect(previewRuntime.page.send).toHaveBeenCalledWith(
       "Page.captureScreenshot",
       expect.any(Object)
     );
@@ -118,10 +126,10 @@ describe("createFramePreviewSession", () => {
 
     await session.dispose();
 
-    expect(previewRuntime.page.unroute).toHaveBeenCalledTimes(3);
-    expect(previewRuntime.cdpSession.detach).toHaveBeenCalledTimes(1);
-    expect(previewRuntime.context.close).toHaveBeenCalledTimes(1);
+    expect(previewRuntime.page.send).toHaveBeenCalledWith("Fetch.disable");
+    expect(previewRuntime.page.close).toHaveBeenCalledTimes(1);
     expect(previewRuntime.browser.close).toHaveBeenCalledTimes(1);
+    expect(previewRuntime.launched.kill).toHaveBeenCalledTimes(1);
 
     await expect(session.renderFrame({ frame: 1 })).rejects.toThrow(
       "Preview session has already been disposed."

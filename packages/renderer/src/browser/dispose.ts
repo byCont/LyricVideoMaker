@@ -1,32 +1,56 @@
-import type { Browser, BrowserContext, CDPSession, Page } from "playwright";
-import { ASSET_URL_PREFIX, FONT_URL_PREFIX, VIDEO_FRAME_URL_PREFIX } from "../constants";
+import type { LaunchedChromium } from "./launch";
+import type { BrowserClient, PageClient } from "./cdp-session";
 
+/**
+ * Tear down everything created during a preview session, in the right
+ * order: detach asset routes, close the page target, close the browser
+ * client, then kill the spawned Chromium process and remove its temp
+ * user-data-dir.
+ *
+ * Each step is independently best-effort — failures are swallowed because
+ * the consumer of this function is the disposal path itself, and we'd
+ * rather guarantee progress than abort cleanup mid-way.
+ */
 export async function disposePreviewBrowserResources({
   page,
-  cdpSession,
-  browserContext,
-  browser
+  browser,
+  launched,
+  detachAssetRoutes
 }: {
-  page: Page | null;
-  cdpSession: CDPSession | null;
-  browserContext: BrowserContext | null;
-  browser: Browser | null;
+  page: PageClient | null;
+  browser: BrowserClient | null;
+  launched: LaunchedChromium | null;
+  detachAssetRoutes?: (() => Promise<void>) | null;
 }) {
+  if (detachAssetRoutes) {
+    try {
+      await detachAssetRoutes();
+    } catch {
+      // Ignore.
+    }
+  }
+
   if (page) {
-    await page.unroute(`${ASSET_URL_PREFIX}**`);
-    await page.unroute(`${VIDEO_FRAME_URL_PREFIX}**`);
-    await page.unroute(`${FONT_URL_PREFIX}**`);
-  }
-
-  if (cdpSession) {
-    await cdpSession.detach();
-  }
-
-  if (browserContext) {
-    await browserContext.close();
+    try {
+      await page.close();
+    } catch {
+      // Ignore.
+    }
   }
 
   if (browser) {
-    await browser.close();
+    try {
+      await browser.close();
+    } catch {
+      // Ignore.
+    }
+  }
+
+  if (launched) {
+    try {
+      await launched.kill();
+    } catch {
+      // Ignore.
+    }
   }
 }

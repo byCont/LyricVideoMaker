@@ -2,8 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { Route } from "playwright";
-import { fulfillVideoFrameRoute } from "../src/browser/asset-routes";
+import { fulfillVideoFrameRoute, type RouteLike } from "../src/browser/asset-routes";
 import { VIDEO_FRAME_URL_PREFIX } from "../src/constants";
 import type { VideoFrameExtractionEntry } from "../src/video-frame-extraction";
 
@@ -16,11 +15,11 @@ afterEach(async () => {
   vi.clearAllMocks();
 });
 
-function makeRoute(url: string, fulfill: (args: Record<string, unknown>) => void): Route {
+function makeRoute(url: string, fulfill: (args: Record<string, unknown>) => void): RouteLike {
   return {
     request: () => ({ url: () => url, headers: () => ({}) }),
-    fulfill: async (args: unknown) => fulfill(args as Record<string, unknown>)
-  } as unknown as Route;
+    fulfill: async (args) => fulfill(args as unknown as Record<string, unknown>)
+  };
 }
 
 describe("video frame route", () => {
