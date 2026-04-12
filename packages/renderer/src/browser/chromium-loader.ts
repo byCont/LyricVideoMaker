@@ -16,7 +16,7 @@ export const CHROMIUM_BUILD_ID = "1613329";
  *     publish step copies the cache here so the renderer finds Chromium at
  *     runtime without depending on a system install.
  *  2. Development checkout — `<repo-root>/node_modules/.chromium-cache`,
- *     populated by `scripts/install-chromium.mjs` during `npm run build`.
+ *     populated by `npm run setup:runtime`.
  *
  * Throws if neither location contains the expected binary.
  */
@@ -53,7 +53,7 @@ export async function resolveChromiumExecutable(): Promise<string> {
   throw new Error(
     `Bundled Chromium (buildId=${CHROMIUM_BUILD_ID}) was not found in any of: ${candidates.join(
       ", "
-    )}. Did the build step run scripts/install-chromium.mjs?`
+    )}. Run "npm run setup:runtime" before rendering.`
   );
 }
 

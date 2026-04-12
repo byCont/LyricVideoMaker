@@ -61,7 +61,12 @@ export function parseSceneFileData(raw: unknown): SerializedSceneDefinition {
     id: String(sceneRecord.id),
     name: String(sceneRecord.name),
     description: sceneRecord.description ? String(sceneRecord.description) : undefined,
-    source: sceneRecord.source === "built-in" ? "built-in" : "user",
+    source:
+      sceneRecord.source === "built-in"
+        ? "built-in"
+        : sceneRecord.source === "plugin"
+          ? "plugin"
+          : "user",
     readOnly: sceneRecord.readOnly === true,
     filePath: sceneRecord.filePath ? String(sceneRecord.filePath) : undefined,
     components: sceneRecord.components.map(parseSceneComponentInstance)

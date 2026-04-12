@@ -38,7 +38,7 @@ async function resolveBootstrapPython() {
     }
   }
 
-  throw new Error("Python 3.10+ was not found. Install Python before running the build.");
+  throw new Error("Python 3.10+ was not found. Install Python before running npm run setup:runtime.");
 }
 
 function canRun(command, args) {

@@ -9,10 +9,11 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "node scripts/install-subtitle-sidecar.mjs && node scripts/install-chromium.mjs && npm run build --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
     "benchmark:renderer": "npm run build && node packages/renderer/tests/render-benchmark.mjs",
     "dev": "npm run dev --workspace @lyric-video-maker/desktop",
-    "publish": "node scripts/publish.mjs",
+    "setup:runtime": "node scripts/install-subtitle-sidecar.mjs && node scripts/install-chromium.mjs",
+    "publish": "npm run setup:runtime && node scripts/publish.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -b"

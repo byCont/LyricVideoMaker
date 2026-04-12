@@ -5,6 +5,9 @@
       "path": "./packages/core"
     },
     {
+      "path": "./packages/plugin-types"
+    },
+    {
       "path": "./packages/scene-registry"
     },
     {

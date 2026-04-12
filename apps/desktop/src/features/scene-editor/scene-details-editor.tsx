@@ -1,13 +1,16 @@
-import React from "react";
+import React, { useState } from "react";
 import type {
   SerializedSceneComponentDefinition,
   SerializedSceneDefinition
 } from "@lyric-video-maker/core";
+import type { InstalledPluginSummary } from "../../electron-api";
 import { InfoTip } from "../../components/ui/form-fields";
 
 export function SceneDetailsEditor({
   builtInScenes,
+  pluginScenes,
   userScenes,
+  plugins,
   selectedScene,
   components,
   componentCatalog,
@@ -15,12 +18,16 @@ export function SceneDetailsEditor({
   onSceneNameChange,
   onSceneDescriptionChange,
   onImportScene,
+  onImportPlugin,
+  onRemovePlugin,
   onExportScene,
   onSaveScene,
   onDeleteScene
 }: {
   builtInScenes: SerializedSceneDefinition[];
+  pluginScenes: SerializedSceneDefinition[];
   userScenes: SerializedSceneDefinition[];
+  plugins: InstalledPluginSummary[];
   selectedScene: SerializedSceneDefinition;
   components: SerializedSceneComponentDefinition[];
   componentCatalog: ReadonlyMap<string, SerializedSceneComponentDefinition>;
@@ -28,10 +35,49 @@ export function SceneDetailsEditor({
   onSceneNameChange: (name: string) => void;
   onSceneDescriptionChange: (description: string) => void;
   onImportScene: () => void | Promise<void>;
+  onImportPlugin: (url: string) => void | Promise<void>;
+  onRemovePlugin: (pluginId: string) => void | Promise<void>;
   onExportScene: () => void | Promise<void>;
   onSaveScene: () => void | Promise<void>;
   onDeleteScene: () => void | Promise<void>;
 }) {
+  const [pluginUrl, setPluginUrl] = useState("");
+  const [pluginError, setPluginError] = useState("");
+  const [isPluginImporting, setIsPluginImporting] = useState(false);
+
+  async function handleImportPlugin() {
+    const url = pluginUrl.trim();
+    if (!url) {
+      setPluginError("Paste a GitHub URL or local plugin folder path.");
+      return;
+    }
+    const confirmed = window.confirm(
+      "External plugins run trusted code from the cloned repository and can access local files through the app process. Import only plugins you trust."
+    );
+    if (!confirmed) {
+      return;
+    }
+    setIsPluginImporting(true);
+    setPluginError("");
+    try {
+      await onImportPlugin(url);
+      setPluginUrl("");
+    } catch (error) {
+      setPluginError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setIsPluginImporting(false);
+    }
+  }
+
+  async function handleRemovePlugin(pluginId: string) {
+    setPluginError("");
+    try {
+      await onRemovePlugin(pluginId);
+    } catch (error) {
+      setPluginError(error instanceof Error ? error.message : String(error));
+    }
+  }
+
   return (
     <section className="panel inspector-panel">
 
@@ -55,6 +101,15 @@ export function SceneDetailsEditor({
                     </option>
                   ))}
                 </optgroup>
+                {pluginScenes.length > 0 ? (
+                  <optgroup label="Plugin Scenes">
+                    {pluginScenes.map((scene) => (
+                      <option key={scene.id} value={scene.id}>
+                        {scene.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ) : null}
                 {userScenes.length > 0 ? (
                   <optgroup label="User Scenes">
                     {userScenes.map((scene) => (
@@ -69,11 +124,13 @@ export function SceneDetailsEditor({
 
             <div className="scene-status-card">
               <span className="eyebrow">Status</span>
-              <strong>{selectedScene.source === "built-in" ? "Built-in scene" : "User scene"}</strong>
+              <strong>{getSceneStatusTitle(selectedScene.source)}</strong>
               <p>
                 {selectedScene.source === "built-in"
                   ? "Changes stay local until you save a user-owned copy."
-                  : "Stored locally and available for future renders."}
+                  : selectedScene.source === "plugin"
+                    ? "Loaded from an installed plugin. Save a user copy to make it editable."
+                    : "Stored locally and available for future renders."}
               </p>
             </div>
           </div>
@@ -93,6 +150,60 @@ export function SceneDetailsEditor({
                 Delete Scene
               </button>
             ) : null}
+          </div>
+        </section>
+
+        <section className="inspector-section">
+          <div className="inspector-section-header">
+            <div className="section-title-row">
+              <h3>External Plugins</h3>
+              <InfoTip text="Import trusted prebuilt scene/component plugins from GitHub or local plugin folders." />
+            </div>
+          </div>
+
+          <div className="plugin-import-row">
+            <label className="field">
+              <span>GitHub URL or local folder</span>
+              <input
+                value={pluginUrl}
+                placeholder="https://github.com/owner/repo"
+                onChange={(event) => setPluginUrl(event.target.value)}
+              />
+            </label>
+            <button
+              type="button"
+              className="secondary"
+              disabled={isPluginImporting}
+              onClick={() => void handleImportPlugin()}
+            >
+              {isPluginImporting ? "Importing..." : "Import Plugin"}
+            </button>
+          </div>
+
+          {pluginError ? <div className="error-banner">{pluginError}</div> : null}
+
+          <div className="plugin-list">
+            {plugins.length === 0 ? (
+              <div className="workspace-empty-state">No external plugins installed.</div>
+            ) : (
+              plugins.map((plugin) => (
+                <div key={plugin.id} className="plugin-row">
+                  <div>
+                    <strong>{plugin.name}</strong>
+                    <p>
+                      {plugin.version} - {plugin.componentCount} components - {plugin.sceneCount} scenes
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="secondary danger"
+                    onClick={() => void handleRemovePlugin(plugin.id)}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))
+            )}
           </div>
         </section>
 
@@ -137,4 +248,14 @@ export function SceneDetailsEditor({
       </div>
     </section>
   );
+}
+
+function getSceneStatusTitle(source: SerializedSceneDefinition["source"]) {
+  if (source === "built-in") {
+    return "Built-in scene";
+  }
+  if (source === "plugin") {
+    return "Plugin scene";
+  }
+  return "User scene";
 }

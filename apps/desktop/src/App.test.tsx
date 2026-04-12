@@ -96,6 +96,9 @@ describe("App", () => {
       deleteScene: vi.fn().mockResolvedValue(undefined),
       importScene: vi.fn().mockResolvedValue(null),
       exportScene: vi.fn().mockResolvedValue(null),
+      listPlugins: vi.fn().mockResolvedValue([]),
+      importPlugin: vi.fn().mockResolvedValue(createBootstrapData()),
+      removePlugin: vi.fn().mockResolvedValue(createBootstrapData()),
       savePaneLayout: vi.fn().mockResolvedValue(undefined),
       setupFfmpeg: vi.fn().mockResolvedValue({ available: true }),
       disposePreview: vi.fn().mockResolvedValue(undefined),
@@ -326,6 +329,7 @@ function createBootstrapData(overrides: Partial<AppBootstrapData> = {}): AppBoot
         }
       }
     ],
+    plugins: [],
     fonts: ["Montserrat", "Poppins"],
     history: [],
     previewProfilerEnabled: false,

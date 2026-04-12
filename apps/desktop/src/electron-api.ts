@@ -12,6 +12,7 @@ import type {
 export interface AppBootstrapData {
   scenes: SerializedSceneDefinition[];
   components: SerializedSceneComponentDefinition[];
+  plugins: InstalledPluginSummary[];
   fonts: string[];
   history: RenderHistoryEntry[];
   previewProfilerEnabled: boolean;
@@ -19,6 +20,16 @@ export interface AppBootstrapData {
   layoutPreferences?: {
     panes?: PaneLayoutPreferences;
   };
+}
+
+export interface InstalledPluginSummary {
+  id: string;
+  name: string;
+  version: string;
+  url: string;
+  repoDir: string;
+  componentCount: number;
+  sceneCount: number;
 }
 
 export interface SetupFfmpegResult {
@@ -99,6 +110,9 @@ export interface ElectronApi {
   deleteScene(sceneId: string): Promise<void>;
   importScene(): Promise<SerializedSceneDefinition | null>;
   exportScene(scene: SerializedSceneDefinition): Promise<string | null>;
+  listPlugins(): Promise<InstalledPluginSummary[]>;
+  importPlugin(url: string): Promise<AppBootstrapData>;
+  removePlugin(pluginId: string): Promise<AppBootstrapData>;
   savePaneLayout(panes: PaneLayoutPreferences): Promise<void>;
   setupFfmpeg(): Promise<SetupFfmpegResult>;
   disposePreview(): Promise<void>;

@@ -62,6 +62,10 @@ export function App() {
     () => scenes.filter((scene) => scene.source === "built-in"),
     [scenes]
   );
+  const pluginScenes = useMemo(
+    () => scenes.filter((scene) => scene.source === "plugin"),
+    [scenes]
+  );
   const userScenes = useMemo(() => scenes.filter((scene) => scene.source === "user"), [scenes]);
   const selectedVideoSizePresetId =
     VIDEO_SIZE_PRESETS.find(
@@ -158,12 +162,42 @@ export function App() {
     }
   }
 
+  async function handleImportPlugin(url: string) {
+    const nextBootstrap = await lyricVideoApp.importPlugin(url);
+    setBootstrap(nextBootstrap);
+    if (nextBootstrap.components[0]) {
+      setComponentToAddId((current) =>
+        nextBootstrap.components.some((component) => component.id === current)
+          ? current
+          : nextBootstrap.components[0].id
+      );
+    }
+  }
+
+  async function handleRemovePlugin(pluginId: string) {
+    const nextBootstrap = await lyricVideoApp.removePlugin(pluginId);
+    setBootstrap(nextBootstrap);
+    const selectedSceneStillExists = nextBootstrap.scenes.some(
+      (scene) => scene.id === composer.composer.scene?.id
+    );
+    if (!selectedSceneStillExists && nextBootstrap.scenes[0]) {
+      composer.selectScene(nextBootstrap.scenes, nextBootstrap.scenes[0].id);
+    }
+    setComponentToAddId((current) =>
+      nextBootstrap.components.some((component) => component.id === current)
+        ? current
+        : nextBootstrap.components[0]?.id ?? ""
+    );
+  }
+
   function renderInspector() {
     if (selection.type === "scene") {
       return (
         <SceneDetailsEditor
           builtInScenes={builtInScenes}
+          pluginScenes={pluginScenes}
           userScenes={userScenes}
+          plugins={loadedBootstrap.plugins}
           selectedScene={loadedSelectedScene}
           components={components}
           componentCatalog={componentCatalog}
@@ -171,6 +205,8 @@ export function App() {
           onSceneNameChange={composer.setSceneName}
           onSceneDescriptionChange={composer.setSceneDescription}
           onImportScene={() => void composer.importScene()}
+          onImportPlugin={(url) => void handleImportPlugin(url)}
+          onRemovePlugin={(pluginId) => void handleRemovePlugin(pluginId)}
           onExportScene={() => void composer.exportScene()}
           onSaveScene={() => void composer.saveScene()}
           onDeleteScene={() => void composer.deleteScene(scenes)}

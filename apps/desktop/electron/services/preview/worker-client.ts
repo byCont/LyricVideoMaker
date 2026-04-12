@@ -10,21 +10,24 @@ interface PendingRequest {
 export interface PreviewWorkerClientOptions {
   workerPath: string;
   fontCacheDir?: string;
+  userDataPath?: string;
   createWorker?: (filename: string, options?: WorkerOptions) => Worker;
 }
 
 export class PreviewWorkerClient {
   private readonly workerPath: string;
   private readonly fontCacheDir?: string;
+  private readonly userDataPath?: string;
   private readonly createWorkerInstance: (filename: string, options?: WorkerOptions) => Worker;
   private worker: Worker | null = null;
   private nextRequestId = 1;
   private pending = new Map<number, PendingRequest>();
   private disposed = false;
 
-  constructor({ workerPath, fontCacheDir, createWorker }: PreviewWorkerClientOptions) {
+  constructor({ workerPath, fontCacheDir, userDataPath, createWorker }: PreviewWorkerClientOptions) {
     this.workerPath = workerPath;
     this.fontCacheDir = fontCacheDir;
+    this.userDataPath = userDataPath;
     this.createWorkerInstance = createWorker ?? ((filename) => new Worker(filename));
   }
 
@@ -33,18 +36,20 @@ export class PreviewWorkerClient {
       this.worker = this.bindWorker(
         this.createWorkerInstance(this.workerPath, {
           workerData: {
-            fontCacheDir: this.fontCacheDir
+            fontCacheDir: this.fontCacheDir,
+            userDataPath: this.userDataPath
           }
         })
       );
     }
   }
 
-  async renderFrame(request: RenderPreviewRequest) {
+  async renderFrame(request: RenderPreviewRequest, userDataPath = this.userDataPath) {
     return (await this.sendRequest({
       type: "render-frame",
       requestId: this.nextRequestId++,
       fontCacheDir: this.fontCacheDir,
+      userDataPath,
       payload: request
     })) as RenderPreviewResponse;
   }

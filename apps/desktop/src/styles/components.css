@@ -253,6 +253,32 @@
   color: var(--text-muted);
 }
 
+.plugin-import-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-stack-md);
+  align-items: end;
+}
+
+.plugin-list {
+  display: grid;
+  gap: var(--space-stack-sm);
+}
+
+.plugin-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-stack-md);
+  align-items: center;
+  padding-top: var(--space-stack-sm);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.plugin-row p {
+  margin: 0.18rem 0 0;
+  color: var(--text-muted);
+}
+
 .inspector-panel {
   overflow: auto;
 }
@@ -752,6 +778,8 @@
   .component-chip-list,
   .top-level-options,
   .option-list,
+  .plugin-import-row,
+  .plugin-row,
   .workspace-add-component {
     grid-template-columns: 1fr;
   }

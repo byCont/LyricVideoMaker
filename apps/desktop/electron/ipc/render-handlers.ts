@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { ipcMain } from "electron";
+import { builtInSceneComponents } from "@lyric-video-maker/scene-registry";
 import type { StartRenderRequest } from "../../src/electron-api";
 import {
   buildInitialRenderHistoryEntry,
@@ -21,14 +22,16 @@ export function registerRenderHandlers({
   getMainWindow,
   getUserDataPath,
   previewWorkerClient,
-  renderHistory
+  renderHistory,
+  pluginCatalog
 }: IpcDeps) {
   ipcMain.handle("render:start", async (_event, request: StartRenderRequest) => {
     await previewWorkerClient.disposePreview();
 
     const cues = await getSubtitleCues(request.subtitlePath);
     const durationMs = await getAudioDuration(request.audioPath);
-    const job = buildRenderJob({ request, cues, durationMs });
+    const componentDefinitions = [...builtInSceneComponents, ...pluginCatalog.components()];
+    const job = buildRenderJob({ request, componentDefinitions, cues, durationMs });
 
     const controller = new AbortController();
     abortRegistry.set(job.id, controller);
@@ -38,6 +41,7 @@ export function registerRenderHandlers({
 
     void runRenderJob({
       job,
+      componentDefinitions,
       controller,
       renderHistory,
       abortRegistry,

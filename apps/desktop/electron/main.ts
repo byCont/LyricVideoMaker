@@ -15,6 +15,8 @@ import {
   type LayoutPreferencesStore
 } from "./services/layout-preferences";
 import { PreviewWorkerClient } from "./services/preview/worker-client";
+import { createPluginCatalog } from "./services/plugin-catalog";
+import { loadInstalledPlugins } from "./services/plugin-library";
 import { createRenderHistory } from "./services/render-history";
 import { createSceneCatalog } from "./services/scene-catalog";
 import { loadUserScenes } from "./services/scene-library";
@@ -26,13 +28,15 @@ let layoutPreferencesStore: LayoutPreferencesStore | null = null;
 
 const previewWorkerClient = new PreviewWorkerClient({
   workerPath: join(__dirname, "preview-worker-thread.js"),
-  fontCacheDir: join(app.getPath("userData"), "google-font-cache")
+  fontCacheDir: join(app.getPath("userData"), "google-font-cache"),
+  userDataPath: app.getPath("userData")
 });
 const subtitleGenerationRunner = createSubtitleGenerationRunner({
   rootDir: getAppRootDir()
 });
 const renderHistory = createRenderHistory();
 const sceneCatalog = createSceneCatalog();
+const pluginCatalog = createPluginCatalog();
 
 function openMainWindow() {
   const windowLayout = getRestorableWindowPreferences(
@@ -59,7 +63,13 @@ app.whenReady().then(async () => {
     userDataPath: app.getPath("userData")
   });
   await layoutPreferencesStore.load();
-  sceneCatalog.replaceAll(await loadUserScenes(app.getPath("userData")));
+  const userScenes = await loadUserScenes(app.getPath("userData"));
+  sceneCatalog.replaceAll(userScenes);
+  pluginCatalog.replaceAll(
+    await loadInstalledPlugins(app.getPath("userData"), {
+      existingSceneIds: userScenes.map((scene) => scene.id)
+    })
+  );
 
   const ffmpegAvailability = await initializeFfmpeg(layoutPreferencesStore);
   previewWorkerClient.start();
@@ -71,6 +81,7 @@ app.whenReady().then(async () => {
     subtitleGenerationRunner,
     renderHistory,
     sceneCatalog,
+    pluginCatalog,
     layoutPreferencesStore,
     previewProfilerEnabled,
     ffmpegAvailability

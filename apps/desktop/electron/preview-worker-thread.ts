@@ -1,6 +1,7 @@
 import { parentPort } from "node:worker_threads";
 import {
   configurePreviewFontCacheDir,
+  configurePreviewUserDataPath,
   previewRenderQueue
 } from "./services/preview/worker-runtime";
 import type {
@@ -20,6 +21,7 @@ async function handleMessage(message: PreviewWorkerRequest) {
   try {
     if (message.type === "render-frame") {
       await configurePreviewFontCacheDir(message.fontCacheDir);
+      await configurePreviewUserDataPath(message.userDataPath);
       const response = await previewRenderQueue.render(message.payload);
       parentPort?.postMessage({
         type: "success",

@@ -1,0 +1,20 @@
+{
+  "name": "lyric-video-maker-example-caption-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Buildable example plugin for Lyric Video Maker.",
+  "type": "module",
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@lyric-video-maker/plugin-types": "file:../../packages/plugin-types",
+    "react": "^18.3.1",
+    "tsup": "^8.4.0",
+    "typescript": "^5.8.2"
+  },
+  "dependencies": {
+    "lyric-video-maker": "file:../.."
+  }
+}

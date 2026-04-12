@@ -18,6 +18,7 @@ import type { RenderPreviewRequest, RenderPreviewResponse } from "../../../src/e
 import { createLatestOnlyPreviewRenderQueue } from "./render-queue";
 import { clamp } from "../../shared/clamp";
 import { createAudioDurationLoader, createSubtitleCueLoader } from "../../shared/media-cache";
+import { loadInstalledPlugins } from "../plugin-library";
 
 interface PreviewSessionState {
   key: string;
@@ -33,6 +34,8 @@ const PREVIEW_MAX_HEIGHT = 540;
 const previewProfilerEnabled = process.env.LYRIC_VIDEO_PREVIEW_PROFILE === "1";
 let fontCacheDir =
   workerData && typeof workerData.fontCacheDir === "string" ? workerData.fontCacheDir : undefined;
+let userDataPath =
+  workerData && typeof workerData.userDataPath === "string" ? workerData.userDataPath : undefined;
 const getSubtitleCues = createSubtitleCueLoader();
 const getAudioDuration = createAudioDurationLoader();
 const previewComputationCache = createPreviewComputationCache();
@@ -45,6 +48,15 @@ export async function configurePreviewFontCacheDir(nextFontCacheDir: string | un
   }
 
   fontCacheDir = nextFontCacheDir;
+  await disposePreviewSession();
+}
+
+export async function configurePreviewUserDataPath(nextUserDataPath: string | undefined) {
+  if (!nextUserDataPath || nextUserDataPath === userDataPath) {
+    return;
+  }
+
+  userDataPath = nextUserDataPath;
   await disposePreviewSession();
 }
 
@@ -121,14 +133,18 @@ export const previewRenderQueue = createLatestOnlyPreviewRenderQueue<
 
 async function getOrCreatePreviewSession(request: RenderPreviewRequest) {
   const timingStartMs = performance.now();
-  const cues = await getSubtitleCues(request.subtitlePath);
-  const durationMs = await getAudioDuration(request.audioPath);
-  const job = createRenderJob({
+    const cues = await getSubtitleCues(request.subtitlePath);
+    const durationMs = await getAudioDuration(request.audioPath);
+    const pluginComponents = userDataPath
+      ? (await loadInstalledPlugins(userDataPath)).flatMap((plugin) => plugin.components)
+      : [];
+    const componentDefinitions = [...builtInSceneComponents, ...pluginComponents];
+    const job = createRenderJob({
     audioPath: request.audioPath,
     subtitlePath: request.subtitlePath,
     outputPath: join(tmpdir(), "lyric-video-preview.mp4"),
     scene: request.scene,
-    componentDefinitions: builtInSceneComponents,
+      componentDefinitions,
     cues,
     durationMs,
     video: getPreviewVideoSettings(request),
@@ -145,7 +161,7 @@ async function getOrCreatePreviewSession(request: RenderPreviewRequest) {
       key,
       session: await createFramePreviewSession({
         job,
-        componentDefinitions: builtInSceneComponents,
+        componentDefinitions,
         previewCache: previewComputationCache,
         fontCacheDir
       }),

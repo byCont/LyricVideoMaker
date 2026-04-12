@@ -21,7 +21,7 @@ async function main() {
   if (!(await pathExists(venvPython))) {
     throw new Error(
       `Virtual environment python.exe not found at "${venvPython}". ` +
-        `Run "node scripts/install-subtitle-sidecar.mjs" first to bootstrap the venv.`
+        `Run "npm run setup:runtime" first to bootstrap the venv.`
     );
   }
 

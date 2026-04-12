@@ -1,6 +1,7 @@
 import type { BrowserWindow } from "electron";
 import type { PreviewWorkerClient } from "../services/preview/worker-client";
 import type { LayoutPreferencesStore } from "../services/layout-preferences";
+import type { PluginCatalog } from "../services/plugin-catalog";
 import type { RenderHistory } from "../services/render-history";
 import type { SceneCatalog } from "../services/scene-catalog";
 import type { SubtitleGenerationRunner } from "../services/subtitle-generator";
@@ -12,6 +13,7 @@ import { registerRenderHandlers } from "./render-handlers";
 import { registerSubtitleHandlers } from "./subtitle-handlers";
 import { registerPreviewHandlers } from "./preview-handlers";
 import { registerLayoutHandlers } from "./layout-handlers";
+import { registerPluginHandlers } from "./plugin-handlers";
 
 export interface FfmpegAvailability {
   isAvailable(): boolean;
@@ -25,6 +27,7 @@ export interface IpcDeps {
   subtitleGenerationRunner: SubtitleGenerationRunner;
   renderHistory: RenderHistory;
   sceneCatalog: SceneCatalog;
+  pluginCatalog: PluginCatalog;
   layoutPreferencesStore: LayoutPreferencesStore;
   previewProfilerEnabled: boolean;
   ffmpegAvailability: FfmpegAvailability;
@@ -38,5 +41,6 @@ export function registerIpcHandlers(deps: IpcDeps) {
   registerRenderHandlers(deps);
   registerSubtitleHandlers(deps);
   registerPreviewHandlers(deps);
+  registerPluginHandlers(deps);
   registerLayoutHandlers(deps);
 }

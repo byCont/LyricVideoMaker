@@ -23,6 +23,7 @@ describe("PreviewWorkerClient", () => {
     const client = new PreviewWorkerClient({
       workerPath: "preview-worker.js",
       fontCacheDir: "user/google-font-cache",
+      userDataPath: "user/data",
       createWorker
     });
 
@@ -56,11 +57,13 @@ describe("PreviewWorkerClient", () => {
     await expect(renderPromise).resolves.toMatchObject({ frame: 7, timeMs: 250 });
     expect(worker.postedMessages[0]).toMatchObject({
       type: "render-frame",
-      fontCacheDir: "user/google-font-cache"
+      fontCacheDir: "user/google-font-cache",
+      userDataPath: "user/data"
     });
     expect(createWorker).toHaveBeenCalledWith("preview-worker.js", {
       workerData: {
-        fontCacheDir: "user/google-font-cache"
+        fontCacheDir: "user/google-font-cache",
+        userDataPath: "user/data"
       }
     });
 

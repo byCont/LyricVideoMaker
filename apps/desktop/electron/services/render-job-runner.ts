@@ -4,10 +4,10 @@ import {
   createRenderJob,
   type LyricCue,
   type RenderHistoryEntry,
-  type RenderProgressEvent
+  type RenderProgressEvent,
+  type SceneComponentDefinition
 } from "@lyric-video-maker/core";
 import { renderLyricVideo } from "@lyric-video-maker/renderer";
-import { builtInSceneComponents } from "@lyric-video-maker/scene-registry";
 import type { StartRenderRequest } from "../../src/electron-api";
 import type { RenderHistory } from "./render-history";
 
@@ -36,17 +36,23 @@ export function createAbortRegistry(): AbortRegistry {
 
 export interface BuildRenderJobOptions {
   request: StartRenderRequest;
+  componentDefinitions: SceneComponentDefinition<Record<string, unknown>>[];
   cues: LyricCue[];
   durationMs: number;
 }
 
-export function buildRenderJob({ request, cues, durationMs }: BuildRenderJobOptions): RenderJob {
+export function buildRenderJob({
+  request,
+  componentDefinitions,
+  cues,
+  durationMs
+}: BuildRenderJobOptions): RenderJob {
   return createRenderJob({
     audioPath: request.audioPath,
     subtitlePath: request.subtitlePath,
     outputPath: request.outputPath,
     scene: request.scene,
-    componentDefinitions: builtInSceneComponents,
+    componentDefinitions,
     cues,
     durationMs,
     video: request.video,
@@ -73,6 +79,7 @@ export function buildInitialRenderHistoryEntry(job: RenderJob): RenderHistoryEnt
 
 export interface RunRenderJobDeps {
   job: RenderJob;
+  componentDefinitions: SceneComponentDefinition<Record<string, unknown>>[];
   controller: AbortController;
   renderHistory: RenderHistory;
   abortRegistry: AbortRegistry;
@@ -82,6 +89,7 @@ export interface RunRenderJobDeps {
 
 export async function runRenderJob({
   job,
+  componentDefinitions,
   controller,
   renderHistory,
   abortRegistry,
@@ -91,7 +99,7 @@ export async function runRenderJob({
   try {
     await renderLyricVideo({
       job,
-      componentDefinitions: builtInSceneComponents,
+      componentDefinitions,
       signal: controller.signal,
       fontCacheDir,
       onProgress: (event) => handleProgress({ job, event, renderHistory, getMainWindow })

@@ -256,7 +256,7 @@ async function resolveSidecarLaunchCommand(
   throw new Error(
     "Subtitle generator runtime was not found. Expected the frozen " +
       "sidecar executable in the packaged app or a local Python 3 " +
-      "virtual environment created by scripts/install-subtitle-sidecar.mjs."
+      "virtual environment created by npm run setup:runtime."
   );
 }
 

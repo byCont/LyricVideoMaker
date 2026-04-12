@@ -132,7 +132,7 @@ async function stageBundledChromium() {
   const cacheSource = join(rootDir, "node_modules", ".chromium-cache");
   if (!(await pathExists(cacheSource))) {
     throw new Error(
-      `Bundled Chromium cache not found at "${cacheSource}". Run "node scripts/install-chromium.mjs" before publishing.`
+      `Bundled Chromium cache not found at "${cacheSource}". Run "npm run setup:runtime" before publishing.`
     );
   }
 

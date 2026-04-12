@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "id": "example.caption-pack",
+  "name": "Example Caption Pack",
+  "version": "0.1.0",
+  "entry": "dist/plugin.cjs",
+  "components": ["example.caption-box"],
+  "scenes": ["example.caption-demo"]
+}
