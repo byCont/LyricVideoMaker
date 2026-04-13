@@ -7562,7 +7562,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
   });
 
   // src/browser/browser-entry.tsx
-  var import_react12 = __toESM(require_react(), 1);
+  var import_react11 = __toESM(require_react(), 1);
 
   // src/browser/react-shell.tsx
   var import_react = __toESM(require_react(), 1);
@@ -7828,10 +7828,20 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
   }
 
   // ../scene-registry/src/components/background-color.tsx
+  var GRADIENT_DIRECTIONS = [
+    { label: "Top to Bottom", value: "180deg" },
+    { label: "Bottom to Top", value: "0deg" },
+    { label: "Left to Right", value: "90deg" },
+    { label: "Right to Left", value: "270deg" },
+    { label: "Top-Left to Bottom-Right", value: "135deg" },
+    { label: "Top-Right to Bottom-Left", value: "225deg" },
+    { label: "Bottom-Left to Top-Right", value: "45deg" },
+    { label: "Bottom-Right to Top-Left", value: "315deg" }
+  ];
   var backgroundColorComponent = {
     id: "background-color",
     name: "Background Color",
-    description: "Adds a gradient color wash over the full frame.",
+    description: "Fills the frame with a solid color or gradient.",
     staticWhenMarkupUnchanged: true,
     options: [
       {
@@ -7840,21 +7850,48 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
         label: "Background",
         defaultExpanded: false,
         options: [
-          { type: "color", id: "topColor", label: "Color Top", defaultValue: "#09090f" },
+          {
+            type: "select",
+            id: "mode",
+            label: "Mode",
+            defaultValue: "gradient",
+            options: [
+              { label: "Solid", value: "solid" },
+              { label: "Gradient", value: "gradient" }
+            ]
+          },
+          { type: "color", id: "color", label: "Color", defaultValue: "#09090f" },
           {
             type: "number",
-            id: "topOpacity",
-            label: "Color Top Opacity",
+            id: "opacity",
+            label: "Opacity",
             defaultValue: 60,
             min: 0,
             max: 100,
             step: 1
           },
-          { type: "color", id: "bottomColor", label: "Color Bottom", defaultValue: "#09090f" },
+          {
+            type: "select",
+            id: "direction",
+            label: "Direction",
+            defaultValue: "180deg",
+            options: GRADIENT_DIRECTIONS
+          },
+          { type: "color", id: "topColor", label: "Start Color", defaultValue: "#09090f" },
+          {
+            type: "number",
+            id: "topOpacity",
+            label: "Start Opacity",
+            defaultValue: 60,
+            min: 0,
+            max: 100,
+            step: 1
+          },
+          { type: "color", id: "bottomColor", label: "End Color", defaultValue: "#09090f" },
           {
             type: "number",
             id: "bottomOpacity",
-            label: "Color Bottom Opacity",
+            label: "End Opacity",
             defaultValue: 60,
             min: 0,
             max: 100,
@@ -7864,54 +7901,27 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
       }
     ],
     defaultOptions: {
+      mode: "gradient",
+      color: "#09090f",
+      opacity: 60,
+      direction: "180deg",
       topColor: "#09090f",
       topOpacity: 60,
       bottomColor: "#09090f",
       bottomOpacity: 60
     },
-    Component: ({ options }) => /* @__PURE__ */ import_react2.default.createElement(
-      "div",
-      {
-        style: {
-          position: "absolute",
-          inset: 0,
-          background: \`linear-gradient(180deg, \${withAlpha(options.topColor, options.topOpacity / 100)} 0%, \${withAlpha(
-            options.bottomColor,
-            options.bottomOpacity / 100
-          )} 100%)\`
-        }
-      }
-    )
-  };
-
-  // ../scene-registry/src/components/background-image.tsx
-  var import_react3 = __toESM(require_react2(), 1);
-  var backgroundImageComponent = {
-    id: "background-image",
-    name: "Background Image",
-    description: "Covers the frame with one full-song image.",
-    staticWhenMarkupUnchanged: true,
-    options: [{ type: "image", id: "imagePath", label: "Background Image", required: true }],
-    defaultOptions: {
-      imagePath: ""
-    },
-    Component: ({ instance, assets }) => {
-      const imageUrl = assets.getUrl(instance.id, "imagePath");
-      if (!imageUrl) {
-        return null;
-      }
-      return /* @__PURE__ */ import_react3.default.createElement(
-        "img",
+    Component: ({ options }) => {
+      const background = options.mode === "solid" ? withAlpha(options.color, options.opacity / 100) : \`linear-gradient(\${options.direction}, \${withAlpha(options.topColor, options.topOpacity / 100)} 0%, \${withAlpha(
+        options.bottomColor,
+        options.bottomOpacity / 100
+      )} 100%)\`;
+      return /* @__PURE__ */ import_react2.default.createElement(
+        "div",
         {
-          src: imageUrl,
-          alt: "",
           style: {
             position: "absolute",
             inset: 0,
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            transform: "scale(1.03)"
+            background
           }
         }
       );
@@ -7919,7 +7929,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
   };
 
   // ../scene-registry/src/components/image/component.tsx
-  var import_react4 = __toESM(require_react2(), 1);
+  var import_react3 = __toESM(require_react2(), 1);
 
   // ../plugin-base/src/transform.ts
   var DEFAULT_TRANSFORM_OPTIONS = {
@@ -8345,7 +8355,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
       if (!initial.sourceUrl) {
         return null;
       }
-      return /* @__PURE__ */ import_react4.default.createElement(
+      return /* @__PURE__ */ import_react3.default.createElement(
         "div",
         {
           style: initial.containerStyle,
@@ -8357,7 +8367,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
   };
 
   // ../scene-registry/src/components/shape/component.tsx
-  var import_react5 = __toESM(require_react2(), 1);
+  var import_react4 = __toESM(require_react2(), 1);
 
   // ../scene-registry/src/components/shape/options.ts
   var DEFAULT_SHAPE_OPTIONS = {
@@ -8596,7 +8606,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
     defaultOptions: DEFAULT_SHAPE_OPTIONS,
     Component: ({ options, video, timeMs }) => {
       const initial = buildShapeInitialState(options, video, timeMs);
-      return /* @__PURE__ */ import_react5.default.createElement(
+      return /* @__PURE__ */ import_react4.default.createElement(
         "div",
         {
           style: initial.containerStyle,
@@ -8608,7 +8618,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
   };
 
   // ../scene-registry/src/components/static-text/component.tsx
-  var import_react6 = __toESM(require_react2(), 1);
+  var import_react5 = __toESM(require_react2(), 1);
 
   // ../core/src/constants.ts
   var DEFAULT_VIDEO_WIDTH = 1920;
@@ -9009,7 +9019,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
     Component: ({ options, video, timeMs, lyrics }) => {
       const metadata = extractMetadata(lyrics);
       const initial = buildStaticTextInitialState(options, video, timeMs, metadata);
-      return /* @__PURE__ */ import_react6.default.createElement(
+      return /* @__PURE__ */ import_react5.default.createElement(
         "div",
         {
           style: initial.containerStyle,
@@ -9298,7 +9308,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
   }
 
   // ../scene-registry/src/components/equalizer/react/component.tsx
-  var import_react9 = __toESM(require_react2(), 1);
+  var import_react8 = __toESM(require_react2(), 1);
 
   // ../scene-registry/src/components/equalizer/bar-plan.ts
   function buildBarRenderPlan(values, layoutMode) {
@@ -9524,7 +9534,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
   }
 
   // ../scene-registry/src/components/equalizer/react/equalizer-line-graph.tsx
-  var import_react7 = __toESM(require_react2(), 1);
+  var import_react6 = __toESM(require_react2(), 1);
 
   // ../scene-registry/src/components/equalizer/line-geometry.ts
   function buildLineGeometry(values, baseline) {
@@ -9614,7 +9624,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
     staticValues
   }) {
     const geometry = buildLineGeometry(values, staticValues.layout.lineBaseline);
-    return /* @__PURE__ */ import_react7.default.createElement(
+    return /* @__PURE__ */ import_react6.default.createElement(
       "svg",
       {
         "data-equalizer-line": "",
@@ -9622,7 +9632,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
         preserveAspectRatio: "none",
         style: staticValues.lineStyle.svgStyle
       },
-      /* @__PURE__ */ import_react7.default.createElement("defs", null, /* @__PURE__ */ import_react7.default.createElement(
+      /* @__PURE__ */ import_react6.default.createElement("defs", null, /* @__PURE__ */ import_react6.default.createElement(
         "linearGradient",
         {
           id: staticValues.lineStyle.gradientId,
@@ -9632,9 +9642,9 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
           x2: geometry.gradientAxis.x2,
           y2: geometry.gradientAxis.y2
         },
-        buildGradientStops(colors).map((stop) => /* @__PURE__ */ import_react7.default.createElement("stop", { key: stop.offset, offset: stop.offset, stopColor: stop.color }))
+        buildGradientStops(colors).map((stop) => /* @__PURE__ */ import_react6.default.createElement("stop", { key: stop.offset, offset: stop.offset, stopColor: stop.color }))
       )),
-      options.lineStyle === "area" ? /* @__PURE__ */ import_react7.default.createElement(
+      options.lineStyle === "area" ? /* @__PURE__ */ import_react6.default.createElement(
         "path",
         {
           d: geometry.areaPath,
@@ -9645,7 +9655,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
           }
         }
       ) : null,
-      /* @__PURE__ */ import_react7.default.createElement(
+      /* @__PURE__ */ import_react6.default.createElement(
         "path",
         {
           d: geometry.linePath,
@@ -9664,7 +9674,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
   }
 
   // ../scene-registry/src/components/equalizer/react/equalizer-bar.tsx
-  var import_react8 = __toESM(require_react2(), 1);
+  var import_react7 = __toESM(require_react2(), 1);
   function EqualizerBar({
     value,
     color,
@@ -9674,7 +9684,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
   }) {
     const amplitude = getBarAmplitude(value, options);
     if (options.layoutMode === "mirrored") {
-      return isHorizontal ? /* @__PURE__ */ import_react8.default.createElement(
+      return isHorizontal ? /* @__PURE__ */ import_react7.default.createElement(
         "div",
         {
           "data-equalizer-bar": "",
@@ -9684,7 +9694,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
             height: "100%"
           }
         },
-        /* @__PURE__ */ import_react8.default.createElement(
+        /* @__PURE__ */ import_react7.default.createElement(
           "div",
           {
             style: {
@@ -9700,7 +9710,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
             }
           }
         ),
-        /* @__PURE__ */ import_react8.default.createElement(
+        /* @__PURE__ */ import_react7.default.createElement(
           "div",
           {
             style: {
@@ -9716,7 +9726,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
             }
           }
         )
-      ) : /* @__PURE__ */ import_react8.default.createElement(
+      ) : /* @__PURE__ */ import_react7.default.createElement(
         "div",
         {
           "data-equalizer-bar": "",
@@ -9726,7 +9736,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
             width: "100%"
           }
         },
-        /* @__PURE__ */ import_react8.default.createElement(
+        /* @__PURE__ */ import_react7.default.createElement(
           "div",
           {
             style: {
@@ -9742,7 +9752,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
             }
           }
         ),
-        /* @__PURE__ */ import_react8.default.createElement(
+        /* @__PURE__ */ import_react7.default.createElement(
           "div",
           {
             style: {
@@ -9760,7 +9770,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
         )
       );
     }
-    return /* @__PURE__ */ import_react8.default.createElement(
+    return /* @__PURE__ */ import_react7.default.createElement(
       "div",
       {
         "data-equalizer-bar": "",
@@ -9770,7 +9780,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
           [isHorizontal ? "height" : "width"]: "100%"
         }
       },
-      /* @__PURE__ */ import_react8.default.createElement(
+      /* @__PURE__ */ import_react7.default.createElement(
         "div",
         {
           style: getSingleBarFillStyle({
@@ -9789,13 +9799,13 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
   function renderBarPlan(frameValues, colors, options, staticValues) {
     const barPlan = buildBarRenderPlan(frameValues, options.layoutMode);
     return barPlan.map(
-      (entry, index) => entry.type === "gap" ? /* @__PURE__ */ import_react8.default.createElement(
+      (entry, index) => entry.type === "gap" ? /* @__PURE__ */ import_react7.default.createElement(
         "div",
         {
           key: \`gap-\${index}\`,
           style: staticValues.layout.isHorizontal ? { flex: \`0 0 \${Math.max(12, options.barGap * 4)}px\` } : { flex: \`0 0 \${Math.max(12, options.barGap * 4)}px\` }
         }
-      ) : /* @__PURE__ */ import_react8.default.createElement(
+      ) : /* @__PURE__ */ import_react7.default.createElement(
         EqualizerBar,
         {
           key: \`bar-\${index}\`,
@@ -9821,7 +9831,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
     const frameValues = buildRenderableBars(preparedData.frames?.[frame] ?? [], options);
     const staticValues = getEqualizerStaticValues(instance.id, options, frameValues.length, video);
     const colors = buildEqualizerColorPlan(frameValues, options);
-    return /* @__PURE__ */ import_react9.default.createElement("div", { style: staticValues.layout.wrapperStyle }, options.backgroundPlateEnabled ? /* @__PURE__ */ import_react9.default.createElement("div", { "data-equalizer-plate": "", style: staticValues.layout.plateStyle }) : null, /* @__PURE__ */ import_react9.default.createElement("div", { "data-equalizer-track": "", style: staticValues.layout.trackStyle }, options.graphMode === "line" ? /* @__PURE__ */ import_react9.default.createElement(
+    return /* @__PURE__ */ import_react8.default.createElement("div", { style: staticValues.layout.wrapperStyle }, options.backgroundPlateEnabled ? /* @__PURE__ */ import_react8.default.createElement("div", { "data-equalizer-plate": "", style: staticValues.layout.plateStyle }) : null, /* @__PURE__ */ import_react8.default.createElement("div", { "data-equalizer-track": "", style: staticValues.layout.trackStyle }, options.graphMode === "line" ? /* @__PURE__ */ import_react8.default.createElement(
       EqualizerLineGraph,
       {
         values: frameValues,
@@ -10026,7 +10036,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
   };
 
   // ../scene-registry/src/components/lyrics-by-line/react/component.tsx
-  var import_react10 = __toESM(require_react2(), 1);
+  var import_react9 = __toESM(require_react2(), 1);
 
   // ../scene-registry/src/components/lyrics-by-line/caches.ts
   var LYRIC_LAYOUT_CACHE_LIMIT = 200;
@@ -13278,7 +13288,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
     });
     const letterShadow = options.shadowEnabled && options.shadowIntensity > 0 ? createTextShadow(lyricFontSize, options.shadowColor, options.shadowIntensity) : "none";
     const letterStroke = options.borderEnabled && scaledLayout.borderThickness > 0 ? \`\${scaledLayout.borderThickness}px \${options.borderColor}\` : void 0;
-    return /* @__PURE__ */ import_react10.default.createElement(
+    return /* @__PURE__ */ import_react9.default.createElement(
       "div",
       {
         style: {
@@ -13292,7 +13302,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
           fontFamily: \`"\${options.lyricFont}", sans-serif\`
         }
       },
-      /* @__PURE__ */ import_react10.default.createElement(
+      /* @__PURE__ */ import_react9.default.createElement(
         "div",
         {
           style: {
@@ -13327,7 +13337,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
   };
 
   // ../scene-registry/src/components/video/react-component.tsx
-  var import_react11 = __toESM(require_react2(), 1);
+  var import_react10 = __toESM(require_react2(), 1);
 
   // ../scene-registry/src/components/video/runtime.ts
   function buildVideoInitialState(options, video, _resolvedUrl, frameExtraction) {
@@ -13403,7 +13413,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
     if (!initial.sourceUrl) {
       return null;
     }
-    return /* @__PURE__ */ import_react11.default.createElement(
+    return /* @__PURE__ */ import_react10.default.createElement(
       "div",
       {
         style: initial.containerStyle,
@@ -13432,7 +13442,6 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
   // src/browser/browser-entry.tsx
   var register = window.__registerReactComponent;
   register("background-color", backgroundColorComponent.Component);
-  register("background-image", backgroundImageComponent.Component);
   register("image", imageComponent.Component);
   register("shape", shapeComponent.Component);
   register("static-text", staticTextComponent.Component);
@@ -13441,7 +13450,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
   register("video", VideoRenderComponent);
   window.__getPluginHost = function() {
     return {
-      React: import_react12.default,
+      React: import_react11.default,
       core: {},
       transform: {
         computeTransformStyle,

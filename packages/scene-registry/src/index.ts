@@ -1,7 +1,6 @@
 import type { SceneComponentDefinition, SceneDefinition } from "@lyric-video-maker/core";
 import {
   backgroundColorComponent,
-  backgroundImageComponent,
   builtInSceneComponents,
   equalizerComponent,
   lyricsByLineComponent
@@ -10,7 +9,6 @@ import { singleImageLyricsScene } from "./scenes/single-image-lyrics";
 
 export {
   backgroundColorComponent,
-  backgroundImageComponent,
   equalizerComponent,
   builtInSceneComponents,
   lyricsByLineComponent,

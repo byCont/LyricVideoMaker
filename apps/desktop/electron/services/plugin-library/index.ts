@@ -102,7 +102,7 @@ export async function loadInstalledPlugins(
   const plugins = await Promise.all(
     summaries.map((summary) => loadPluginFromRepo(summary.url, summary.repoDir))
   );
-  validatePluginSet(plugins, options);
+  validatePluginSet(plugins, { ...options, strict: false });
   return plugins;
 }
 
@@ -345,7 +345,11 @@ function parseSceneDefinitions(
   return scenes;
 }
 
-function validatePluginSet(plugins: LoadedPlugin[], options: LoadInstalledPluginOptions) {
+function validatePluginSet(
+  plugins: LoadedPlugin[],
+  options: LoadInstalledPluginOptions & { strict?: boolean }
+) {
+  const strict = options.strict ?? true;
   const componentIds = new Set([
     ...builtInSceneComponents.map((component) => component.id),
     ...(options.existingComponentIds ?? [])
@@ -367,19 +371,33 @@ function validatePluginSet(plugins: LoadedPlugin[], options: LoadInstalledPlugin
   }
 
   for (const plugin of plugins) {
+    const validScenes: SceneDefinition[] = [];
     for (const scene of plugin.scenes) {
       if (sceneIds.has(scene.id)) {
-        throw new Error(`Plugin scene id "${scene.id}" conflicts with another scene.`);
+        if (strict) {
+          throw new Error(`Plugin scene id "${scene.id}" conflicts with another scene.`);
+        }
+        console.warn(`Plugin "${plugin.summary.id}": scene "${scene.id}" conflicts with another scene, skipping.`);
+        continue;
       }
-      sceneIds.add(scene.id);
-      for (const instance of scene.components) {
-        if (!componentIds.has(instance.componentId)) {
+      const unknownRef = scene.components.find(
+        (instance) => !componentIds.has(instance.componentId)
+      );
+      if (unknownRef) {
+        if (strict) {
           throw new Error(
-            `Plugin scene "${scene.id}" references unknown component "${instance.componentId}".`
+            `Plugin scene "${scene.id}" references unknown component "${unknownRef.componentId}".`
           );
         }
+        console.warn(
+          `Plugin "${plugin.summary.id}": scene "${scene.id}" references unknown component "${unknownRef.componentId}", skipping.`
+        );
+        continue;
       }
+      sceneIds.add(scene.id);
+      validScenes.push(scene);
     }
+    plugin.scenes = validScenes;
   }
 }
 

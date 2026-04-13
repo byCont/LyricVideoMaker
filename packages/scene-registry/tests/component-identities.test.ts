@@ -21,11 +21,10 @@ describe("built-in component identities", () => {
     expect(staticTextComponent.id).toBe("static-text");
   });
 
-  it("image identifier is exactly 'image' and does not collide with background-image", () => {
+  it("image identifier is exactly 'image'", () => {
     expect(imageComponent.id).toBe("image");
     const ids = builtInSceneComponents.map((c) => c.id);
     expect(ids).toContain("image");
-    expect(ids).toContain("background-image");
     expect(ids.filter((id) => id === "image")).toHaveLength(1);
   });
 

@@ -106,10 +106,10 @@ export function activate(host: LyricVideoPluginHost): LyricVideoPluginActivation
         components: [
           {
             id: "bg",
-            componentId: "background-image",
+            componentId: "image",
             enabled: true,
             options: {
-              imagePath: createPluginAssetUri("example.caption-pack", "assets/default-bg.png")
+              source: createPluginAssetUri("example.caption-pack", "assets/default-bg.png")
             }
           },
           {

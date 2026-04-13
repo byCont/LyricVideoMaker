@@ -1,6 +1,5 @@
 import type { SceneComponentDefinition } from "@lyric-video-maker/core";
 import { backgroundColorComponent } from "./background-color";
-import { backgroundImageComponent } from "./background-image";
 import { equalizerComponent } from "./equalizer";
 import { imageComponent } from "./image";
 import { lyricsByLineComponent } from "./lyrics-by-line";
@@ -10,7 +9,6 @@ import { videoComponent } from "./video";
 
 export {
   backgroundColorComponent,
-  backgroundImageComponent,
   equalizerComponent,
   imageComponent,
   lyricsByLineComponent,
@@ -20,7 +18,6 @@ export {
 };
 
 export const builtInSceneComponents: SceneComponentDefinition<Record<string, unknown>>[] = [
-  backgroundImageComponent as unknown as SceneComponentDefinition<Record<string, unknown>>,
   backgroundColorComponent as unknown as SceneComponentDefinition<Record<string, unknown>>,
   lyricsByLineComponent as unknown as SceneComponentDefinition<Record<string, unknown>>,
   equalizerComponent as unknown as SceneComponentDefinition<Record<string, unknown>>,

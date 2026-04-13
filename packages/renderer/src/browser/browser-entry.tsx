@@ -20,7 +20,6 @@ import "./react-shell";
 // Built-in component definitions (all browser-safe — no Node.js deps)
 // Paths use the ~scene-registry alias resolved by the build script.
 import { backgroundColorComponent } from "~scene-registry/components/background-color";
-import { backgroundImageComponent } from "~scene-registry/components/background-image";
 import { imageComponent } from "~scene-registry/components/image/component";
 import { shapeComponent } from "~scene-registry/components/shape/component";
 import { staticTextComponent } from "~scene-registry/components/static-text/component";
@@ -44,7 +43,6 @@ import {
 const register = (window as any).__registerReactComponent;
 
 register("background-color", backgroundColorComponent.Component);
-register("background-image", backgroundImageComponent.Component);
 register("image", imageComponent.Component);
 register("shape", shapeComponent.Component);
 register("static-text", staticTextComponent.Component);

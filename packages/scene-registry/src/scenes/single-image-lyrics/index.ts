@@ -9,7 +9,7 @@ export const singleImageLyricsScene: SceneDefinition = {
   components: [
     {
       id: "background-image-1",
-      componentId: "background-image",
+      componentId: "image",
       enabled: true,
       options: {}
     },

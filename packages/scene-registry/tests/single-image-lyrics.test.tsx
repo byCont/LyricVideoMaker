@@ -6,51 +6,12 @@ import { render, screen } from "@testing-library/react";
 import { createLyricRuntime } from "@lyric-video-maker/core";
 import {
   backgroundColorComponent,
-  backgroundImageComponent,
   equalizerComponent,
   lyricsByLineComponent,
   singleImageLyricsScene
 } from "../src";
 
 describe("scene registry components", () => {
-  it("renders the background image component with the instance-scoped asset url", () => {
-    const getUrl = vi.fn(() => "file:///background.png");
-
-    render(
-      backgroundImageComponent.Component({
-        instance: {
-          id: "bg-1",
-          componentId: "background-image",
-          componentName: "Background Image",
-          enabled: true,
-          options: {
-            imagePath: "cover.png"
-          }
-        },
-        options: {
-          imagePath: "cover.png"
-        },
-        frame: 0,
-        timeMs: 0,
-        video: {
-          width: 1920,
-          height: 1080,
-          fps: 30,
-          durationMs: 2000,
-          durationInFrames: 60
-        },
-        lyrics: createLyricRuntime([], 0),
-        assets: {
-          getUrl
-        },
-        prepared: {}
-      })
-    );
-
-    expect(document.querySelector("img")).toHaveAttribute("src", "file:///background.png");
-    expect(getUrl).toHaveBeenCalledWith("bg-1", "imagePath");
-  });
-
   it("renders the background color gradient component", () => {
     render(
       backgroundColorComponent.Component({
@@ -62,6 +23,10 @@ describe("scene registry components", () => {
           options: {}
         },
         options: {
+          mode: "gradient",
+          color: "#000000",
+          opacity: 50,
+          direction: "180deg",
           topColor: "#000000",
           topOpacity: 50,
           bottomColor: "#ffffff",
@@ -299,7 +264,7 @@ describe("scene registry components", () => {
     expect(singleImageLyricsScene.components).toEqual([
       {
         id: "background-image-1",
-        componentId: "background-image",
+        componentId: "image",
         enabled: true,
         options: {}
       },

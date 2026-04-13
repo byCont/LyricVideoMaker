@@ -15,8 +15,8 @@ interface BackgroundImageOptions {
 }
 
 const backgroundImageComponent: SceneComponentDefinition<BackgroundImageOptions> = {
-  id: "background-image",
-  name: "Background Image",
+  id: "image",
+  name: "Image",
   options: [{ type: "image", id: "imagePath", label: "Background", required: true }],
   defaultOptions: {
     imagePath: ""
@@ -111,7 +111,7 @@ const scene: SerializedSceneDefinition = {
   components: [
     {
       id: "bg-1",
-      componentId: "background-image",
+      componentId: "image",
       enabled: true,
       options: {
         imagePath: "cover.png"
@@ -185,8 +185,8 @@ describe("scene validation", () => {
     expect(result).toEqual([
       {
         id: "bg-1",
-        componentId: "background-image",
-        componentName: "Background Image",
+        componentId: "image",
+        componentName: "Image",
         enabled: true,
         options: {
           imagePath: "cover.png"

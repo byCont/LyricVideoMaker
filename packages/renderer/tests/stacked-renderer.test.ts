@@ -130,8 +130,8 @@ describe("stacked renderer helpers", () => {
 
 function createImageComponent(): SceneComponentDefinition<Record<string, unknown>> {
   return {
-    id: "background-image",
-    name: "Background Image",
+    id: "image",
+    name: "Image",
     staticWhenMarkupUnchanged: true,
     options: [{ type: "image", id: "imagePath", label: "Image", required: true }],
     defaultOptions: {
@@ -144,8 +144,8 @@ function createImageComponent(): SceneComponentDefinition<Record<string, unknown
 function createImageInstance(id: string, imagePath: string): ValidatedSceneComponentInstance {
   return {
     id,
-    componentId: "background-image",
-    componentName: "Background Image",
+    componentId: "image",
+    componentName: "Image",
     enabled: true,
     options: {
       imagePath
