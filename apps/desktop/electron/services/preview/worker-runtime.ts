@@ -135,9 +135,11 @@ async function getOrCreatePreviewSession(request: RenderPreviewRequest) {
   const timingStartMs = performance.now();
     const cues = await getSubtitleCues(request.subtitlePath);
     const durationMs = await getAudioDuration(request.audioPath);
-    const pluginComponents = userDataPath
-      ? (await loadInstalledPlugins(userDataPath)).flatMap((plugin) => plugin.components)
+    const loadedPlugins = userDataPath
+      ? await loadInstalledPlugins(userDataPath)
       : [];
+    const pluginComponents = loadedPlugins.flatMap((plugin) => plugin.components);
+    const pluginBundleSources = loadedPlugins.map((plugin) => plugin.bundleSource);
     const componentDefinitions = [...builtInSceneComponents, ...pluginComponents];
     const job = createRenderJob({
     audioPath: request.audioPath,
@@ -162,6 +164,7 @@ async function getOrCreatePreviewSession(request: RenderPreviewRequest) {
       session: await createFramePreviewSession({
         job,
         componentDefinitions,
+        pluginBundleSources,
         previewCache: previewComputationCache,
         fontCacheDir
       }),

@@ -18,14 +18,6 @@ const video: VideoSettings = {
 const SHORT_CLIP_DURATION_MS = 5_000; // simulated 5s clip
 const ONE_FRAME_MS = 1000 / 30;
 
-function opts(overrides: Partial<VideoComponentOptions>): VideoComponentOptions {
-  return {
-    ...DEFAULT_VIDEO_OPTIONS,
-    ...overrides,
-    source: "/synthetic/clip.mp4"
-  };
-}
-
 /**
  * T-059 — cavekit-video-component R10 verification.
  *
@@ -36,41 +28,6 @@ function opts(overrides: Partial<VideoComponentOptions>): VideoComponentOptions 
  * handling are covered in renderer package tests.
  */
 describe("T-059 — Video component end-to-end smoke", () => {
-  describe("preview plays a short clip across all four playback modes", () => {
-    it.each([
-      "sync-with-song",
-      "loop",
-      "play-once-clamp",
-      "play-once-hide"
-    ] as const)("mode=%s produces a frame state for the first frame", (playbackMode) => {
-      if (!videoComponent.browserRuntime?.getFrameState) {
-        throw new Error("video browserRuntime missing");
-      }
-      const state = videoComponent.browserRuntime.getFrameState({
-        instance: {
-          id: "v1",
-          componentId: "video",
-          componentName: "Video",
-          enabled: true,
-          options: opts({ playbackMode })
-        },
-        options: opts({ playbackMode }),
-        frame: 0,
-        timeMs: 0,
-        video,
-        lyrics: { current: null, next: null, all: [] },
-        assets: { getUrl: () => "/asset/clip.mp4" },
-        prepared: {
-          durationMs: SHORT_CLIP_DURATION_MS,
-          width: 640,
-          height: 360,
-          frameRate: 30
-        }
-      });
-      expect(state).toBeDefined();
-    });
-  });
-
   describe("thirty-second simulated render keeps frame sync per mode", () => {
     function simulateRender(playbackMode: VideoComponentOptions["playbackMode"]) {
       const positions: number[] = [];

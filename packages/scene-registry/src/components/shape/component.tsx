@@ -1,7 +1,5 @@
 import React from "react";
 import type { SceneComponentDefinition } from "@lyric-video-maker/core";
-import { staticFxLayerBrowserScript } from "../../shared/static-fx-layer.browser-runtime";
-import { computeTimingOpacity } from "../../shared/timing-runtime";
 import {
   DEFAULT_SHAPE_OPTIONS,
   shapeOptionsSchema,
@@ -30,16 +28,6 @@ export const shapeComponent: SceneComponentDefinition<ShapeComponentOptions> = {
   staticWhenMarkupUnchanged: true,
   options: shapeOptionsSchema,
   defaultOptions: DEFAULT_SHAPE_OPTIONS,
-  browserRuntime: {
-    runtimeId: "static-fx-layer",
-    browserScript: staticFxLayerBrowserScript,
-    getInitialState({ options, video }) {
-      return buildShapeInitialState(options, video, 0) as unknown as Record<string, unknown>;
-    },
-    getFrameState({ options, timeMs }) {
-      return { opacity: computeTimingOpacity(timeMs, options) };
-    }
-  },
   Component: ({ options, video, timeMs }) => {
     const initial = buildShapeInitialState(options, video, timeMs);
     return (

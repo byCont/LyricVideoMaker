@@ -15,8 +15,8 @@
       "@lyric-video-maker/core": [
         "packages/core/src/index.ts"
       ],
-      "@lyric-video-maker/plugin-types": [
-        "packages/plugin-types/src/index.ts"
+      "@lyric-video-maker/plugin-base": [
+        "packages/plugin-base/src/index.ts"
       ],
       "@lyric-video-maker/scene-registry": [
         "packages/scene-registry/src/index.ts"

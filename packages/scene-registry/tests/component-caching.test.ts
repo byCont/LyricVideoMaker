@@ -1,25 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-const pretextRuntime = vi.hoisted(() => ({
-  measureNaturalWidth: vi.fn(() => 800),
-  prepareWithSegments: vi.fn(() => ({ segments: [] }))
-}));
-
-vi.mock("@chenglou/pretext", () => pretextRuntime);
-
-import { equalizerComponent, lyricsByLineComponent } from "../src/components";
-import {
-  clearAllCaches as clearLyricsByLineCaches,
-  getMeasurementCacheSize as getLyricsByLineMeasurementCacheSize
-} from "../src/components/lyrics-by-line/caches";
+import { equalizerComponent } from "../src/components";
 
 describe("component caching", () => {
-  beforeEach(() => {
-    pretextRuntime.measureNaturalWidth.mockClear();
-    pretextRuntime.prepareWithSegments.mockClear();
-    clearLyricsByLineCaches();
-  });
-
   it("keeps the equalizer prepare cache key stable for cosmetic-only option changes", () => {
     const baseOptions = equalizerComponent.defaultOptions;
     const cacheKey = equalizerComponent.getPrepareCacheKey?.({
@@ -69,82 +52,5 @@ describe("component caching", () => {
     });
 
     expect(cacheKey).toBe(cosmeticKey);
-  });
-
-  it("memoizes repeated lyrics single-line width measurements", () => {
-    const options = {
-      ...lyricsByLineComponent.defaultOptions,
-      forceSingleLine: true
-    };
-    const runtime = lyricsByLineComponent.browserRuntime!;
-
-    runtime.getFrameState?.({
-      instance: {
-        id: "lyrics-1",
-        componentId: lyricsByLineComponent.id,
-        componentName: lyricsByLineComponent.name,
-        enabled: true,
-        options
-      },
-      options,
-      frame: 0,
-      timeMs: 100,
-      video: {
-        width: 1920,
-        height: 1080,
-        fps: 30,
-        durationMs: 1000,
-        durationInFrames: 30
-      },
-      lyrics: {
-        current: {
-          index: 1,
-          startMs: 0,
-          endMs: 500,
-          text: "hello world",
-          lines: ["hello", "world"]
-        },
-        next: null
-      },
-      assets: {
-        getUrl: () => null
-      },
-      prepared: {}
-    });
-    runtime.getFrameState?.({
-      instance: {
-        id: "lyrics-1",
-        componentId: lyricsByLineComponent.id,
-        componentName: lyricsByLineComponent.name,
-        enabled: true,
-        options
-      },
-      options,
-      frame: 1,
-      timeMs: 150,
-      video: {
-        width: 1920,
-        height: 1080,
-        fps: 30,
-        durationMs: 1000,
-        durationInFrames: 30
-      },
-      lyrics: {
-        current: {
-          index: 1,
-          startMs: 0,
-          endMs: 500,
-          text: "hello world",
-          lines: ["hello", "world"]
-        },
-        next: null
-      },
-      assets: {
-        getUrl: () => null
-      },
-      prepared: {}
-    });
-
-    expect(getLyricsByLineMeasurementCacheSize()).toBe(1);
   });
 });

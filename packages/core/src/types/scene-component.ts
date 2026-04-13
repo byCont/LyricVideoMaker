@@ -1,13 +1,10 @@
-import type { SerializedSceneDefinition } from "@lyric-video-maker/plugin-types";
+import type { SerializedSceneDefinition } from "@lyric-video-maker/plugin-base";
 
 export type {
   BrowserLyricRuntime,
   PreparedSceneComponentData,
   PreparedSceneStackData,
   SceneAssetAccessor,
-  SceneBrowserFrameStateContext,
-  SceneBrowserInitialStateContext,
-  SceneBrowserRuntimeDefinition,
   SceneComponentDefinition,
   SceneComponentInstance,
   SceneDefinition,
@@ -18,7 +15,7 @@ export type {
   SerializedSceneComponentDefinition,
   SerializedSceneDefinition,
   ValidatedSceneComponentInstance
-} from "@lyric-video-maker/plugin-types";
+} from "@lyric-video-maker/plugin-base";
 
 export interface SceneFileData {
   version: number;

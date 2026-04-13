@@ -1,4 +1,8 @@
 import type React from "react";
+import type { CSSProperties } from "react";
+import type { TransformOptions } from "./transform";
+import type { TransformCanvas } from "./transform-runtime";
+import type { TimingOptions } from "./timing";
 
 export interface LyricCue {
   index: number;
@@ -161,35 +165,6 @@ export interface SceneRenderProps<TOptions> {
   prepared: PreparedSceneComponentData;
 }
 
-export interface SceneBrowserInitialStateContext<TOptions> {
-  instance: ValidatedSceneComponentInstance;
-  options: TOptions;
-  video: VideoSettings;
-  lyrics: BrowserLyricRuntime;
-  assets: Pick<SceneAssetAccessor, "getUrl">;
-  prepared: PreparedSceneComponentData;
-}
-
-export interface SceneBrowserFrameStateContext<TOptions> {
-  instance: ValidatedSceneComponentInstance;
-  options: TOptions;
-  frame: number;
-  timeMs: number;
-  video: VideoSettings;
-  lyrics: BrowserLyricRuntime;
-  assets: Pick<SceneAssetAccessor, "getUrl">;
-  prepared: PreparedSceneComponentData;
-}
-
-export interface SceneBrowserRuntimeDefinition<TOptions> {
-  runtimeId: string;
-  browserScript?: string;
-  getInitialState?: (
-    ctx: SceneBrowserInitialStateContext<TOptions>
-  ) => Record<string, unknown> | null;
-  getFrameState?: (ctx: SceneBrowserFrameStateContext<TOptions>) => Record<string, unknown> | null;
-}
-
 export interface SceneComponentDefinition<TOptions> {
   id: string;
   name: string;
@@ -200,7 +175,6 @@ export interface SceneComponentDefinition<TOptions> {
   validate?: (raw: unknown) => TOptions;
   getPrepareCacheKey?: (ctx: ScenePrepareCacheKeyContext<TOptions>) => string | null;
   prepare?: (ctx: ScenePrepareContext<TOptions>) => Promise<PreparedSceneComponentData>;
-  browserRuntime?: SceneBrowserRuntimeDefinition<TOptions>;
   Component: (props: SceneRenderProps<TOptions>) => React.ReactElement | null;
 }
 
@@ -250,9 +224,19 @@ export interface LyricVideoPluginCoreHost {
   ): TOptions;
 }
 
+export interface LyricVideoPluginTransformHost {
+  computeTransformStyle(options: TransformOptions, canvas: TransformCanvas): CSSProperties;
+  computeTimingOpacity(currentTimeMs: number, timing: TimingOptions): number;
+  transformCategory: SceneOptionCategory;
+  timingCategory: SceneOptionCategory;
+  DEFAULT_TRANSFORM_OPTIONS: TransformOptions;
+  DEFAULT_TIMING_OPTIONS: TimingOptions;
+}
+
 export interface LyricVideoPluginHost {
   React: typeof React;
   core: LyricVideoPluginCoreHost;
+  transform: LyricVideoPluginTransformHost;
 }
 
 export interface LyricVideoPluginActivation {
@@ -263,3 +247,25 @@ export interface LyricVideoPluginActivation {
 export interface LyricVideoPluginModule {
   activate(host: LyricVideoPluginHost): LyricVideoPluginActivation;
 }
+
+// Transform system
+export {
+  DEFAULT_TRANSFORM_OPTIONS,
+  TRANSFORM_ANCHOR_VALUES,
+  transformCategory,
+  type TransformAnchor,
+  type TransformOptions
+} from "./transform";
+
+export { computeTransformStyle, type TransformCanvas } from "./transform-runtime";
+
+// Timing system
+export {
+  DEFAULT_TIMING_OPTIONS,
+  TIMING_EASING_VALUES,
+  timingCategory,
+  type TimingEasing,
+  type TimingOptions
+} from "./timing";
+
+export { computeTimingOpacity } from "./timing-runtime";

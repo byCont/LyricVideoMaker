@@ -1,6 +1,5 @@
 import type { VideoSettings } from "@lyric-video-maker/core";
-import { computeTransformStyle } from "../../shared/transform-runtime";
-import { computeTimingOpacity } from "../../shared/timing-runtime";
+import { computeTransformStyle, computeTimingOpacity } from "../../shared";
 import { withAlpha } from "../../shared/color";
 import type { VideoComponentOptions } from "./options";
 

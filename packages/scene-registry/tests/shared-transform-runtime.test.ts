@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_TRANSFORM_OPTIONS,
-  TRANSFORM_ANCHOR_VALUES
-} from "../src/shared/transform";
-import { computeTransformStyle } from "../src/shared/transform-runtime";
+  TRANSFORM_ANCHOR_VALUES,
+  computeTransformStyle
+} from "../src/shared";
 
 const canvas = { width: 1920, height: 1080 };
 

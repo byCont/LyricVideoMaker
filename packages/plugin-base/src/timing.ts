@@ -1,4 +1,4 @@
-import type { SceneOptionCategory } from "@lyric-video-maker/core";
+import type { SceneOptionCategory } from "./index";
 
 /**
  * Easing curves supported by the shared timing runtime helper.

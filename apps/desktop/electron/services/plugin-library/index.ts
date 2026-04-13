@@ -15,6 +15,14 @@ import { basename, isAbsolute, join, relative, resolve } from "node:path";
 import { promisify } from "node:util";
 import * as Core from "@lyric-video-maker/core";
 import type { SceneComponentDefinition, SceneDefinition } from "@lyric-video-maker/core";
+import {
+  computeTransformStyle,
+  computeTimingOpacity,
+  transformCategory,
+  timingCategory,
+  DEFAULT_TRANSFORM_OPTIONS,
+  DEFAULT_TIMING_OPTIONS
+} from "@lyric-video-maker/plugin-base";
 import React from "react";
 import { builtInSceneComponents, builtInScenes } from "@lyric-video-maker/scene-registry";
 
@@ -37,6 +45,7 @@ export interface LoadedPlugin {
   summary: InstalledPluginSummary;
   components: SceneComponentDefinition<Record<string, unknown>>[];
   scenes: SceneDefinition[];
+  bundleSource: string;
 }
 
 interface PluginManifest {
@@ -70,6 +79,14 @@ interface PluginModule {
 interface PluginHost {
   React: typeof React;
   core: typeof Core;
+  transform: {
+    computeTransformStyle: typeof computeTransformStyle;
+    computeTimingOpacity: typeof computeTimingOpacity;
+    transformCategory: typeof transformCategory;
+    timingCategory: typeof timingCategory;
+    DEFAULT_TRANSFORM_OPTIONS: typeof DEFAULT_TRANSFORM_OPTIONS;
+    DEFAULT_TIMING_OPTIONS: typeof DEFAULT_TIMING_OPTIONS;
+  };
 }
 
 interface PluginActivationResult {
@@ -171,10 +188,19 @@ export function getPluginRepoRootDir(userDataPath: string) {
 async function loadPluginFromRepo(url: string, repoDir: string): Promise<LoadedPlugin> {
   const manifest = await readPluginManifest(repoDir);
   const entryPath = resolveManifestPath(repoDir, manifest.entry, "entry");
+  const bundleSource = await readFile(entryPath, "utf-8");
   const moduleExports = loadPluginModule(entryPath);
   const activation = moduleExports.activate?.({
     React,
-    core: Core
+    core: Core,
+    transform: {
+      computeTransformStyle,
+      computeTimingOpacity,
+      transformCategory,
+      timingCategory,
+      DEFAULT_TRANSFORM_OPTIONS,
+      DEFAULT_TIMING_OPTIONS
+    }
   });
 
   if (!activation || typeof activation !== "object") {
@@ -195,7 +221,8 @@ async function loadPluginFromRepo(url: string, repoDir: string): Promise<LoadedP
       sceneCount: scenes.length
     },
     components,
-    scenes
+    scenes,
+    bundleSource
   };
 }
 
@@ -271,21 +298,6 @@ function parseComponentDefinitions(
       throw new Error(
         `Plugin "${manifest.id}" component "${candidate.id}" defaultOptions must be serializable.`
       );
-    }
-    if (candidate.browserRuntime) {
-      if (!candidate.browserRuntime.runtimeId) {
-        throw new Error(
-          `Plugin "${manifest.id}" component "${candidate.id}" browserRuntime needs runtimeId.`
-        );
-      }
-      if (
-        candidate.browserRuntime.browserScript !== undefined &&
-        typeof candidate.browserRuntime.browserScript !== "string"
-      ) {
-        throw new Error(
-          `Plugin "${manifest.id}" component "${candidate.id}" browserScript must be a string.`
-        );
-      }
     }
     return candidate as SceneComponentDefinition<Record<string, unknown>>;
   });

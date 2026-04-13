@@ -5,6 +5,7 @@ export interface PluginCatalog {
   list(): InstalledPluginSummary[];
   components(): SceneComponentDefinition<Record<string, unknown>>[];
   scenes(): SceneDefinition[];
+  pluginBundleSources(): string[];
   replaceAll(plugins: LoadedPlugin[]): void;
   upsert(plugin: LoadedPlugin): void;
   remove(pluginId: string): void;
@@ -22,6 +23,9 @@ export function createPluginCatalog(): PluginCatalog {
     },
     scenes() {
       return plugins.flatMap((plugin) => plugin.scenes);
+    },
+    pluginBundleSources() {
+      return plugins.map((plugin) => plugin.bundleSource);
     },
     replaceAll(nextPlugins) {
       plugins = sortPlugins(nextPlugins);

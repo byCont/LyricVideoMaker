@@ -17,6 +17,6 @@
     "build": "tsup src/index.ts --format esm,cjs"
   },
   "dependencies": {
-    "@lyric-video-maker/plugin-types": "file:../plugin-types"
+    "@lyric-video-maker/plugin-base": "file:../plugin-base"
   }
 }

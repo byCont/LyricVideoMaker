@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_TIMING_OPTIONS, type TimingOptions } from "../src/shared/timing";
-import { computeTimingOpacity } from "../src/shared/timing-runtime";
+import { DEFAULT_TIMING_OPTIONS, computeTimingOpacity, type TimingOptions } from "../src/shared";
 
 const base: TimingOptions = {
   startTime: 1000,

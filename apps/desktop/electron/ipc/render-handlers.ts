@@ -31,6 +31,7 @@ export function registerRenderHandlers({
     const cues = await getSubtitleCues(request.subtitlePath);
     const durationMs = await getAudioDuration(request.audioPath);
     const componentDefinitions = [...builtInSceneComponents, ...pluginCatalog.components()];
+    const pluginBundleSources = pluginCatalog.pluginBundleSources();
     const job = buildRenderJob({ request, componentDefinitions, cues, durationMs });
 
     const controller = new AbortController();
@@ -42,6 +43,7 @@ export function registerRenderHandlers({
     void runRenderJob({
       job,
       componentDefinitions,
+      pluginBundleSources,
       controller,
       renderHistory,
       abortRegistry,

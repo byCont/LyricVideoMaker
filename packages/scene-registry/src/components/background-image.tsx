@@ -1,6 +1,5 @@
 import React from "react";
 import type { SceneComponentDefinition } from "@lyric-video-maker/core";
-import { backgroundImageBrowserScript } from "./background-image.browser-runtime";
 
 export interface BackgroundImageOptions {
   imagePath: string;
@@ -11,15 +10,6 @@ export const backgroundImageComponent: SceneComponentDefinition<BackgroundImageO
   name: "Background Image",
   description: "Covers the frame with one full-song image.",
   staticWhenMarkupUnchanged: true,
-  browserRuntime: {
-    runtimeId: "background-image",
-    browserScript: backgroundImageBrowserScript,
-    getInitialState({ instance, assets }) {
-      return {
-        imageUrl: assets.getUrl(instance.id, "imagePath")
-      };
-    }
-  },
   options: [{ type: "image", id: "imagePath", label: "Background Image", required: true }],
   defaultOptions: {
     imagePath: ""

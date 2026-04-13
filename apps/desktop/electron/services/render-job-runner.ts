@@ -80,6 +80,7 @@ export function buildInitialRenderHistoryEntry(job: RenderJob): RenderHistoryEnt
 export interface RunRenderJobDeps {
   job: RenderJob;
   componentDefinitions: SceneComponentDefinition<Record<string, unknown>>[];
+  pluginBundleSources?: string[];
   controller: AbortController;
   renderHistory: RenderHistory;
   abortRegistry: AbortRegistry;
@@ -90,6 +91,7 @@ export interface RunRenderJobDeps {
 export async function runRenderJob({
   job,
   componentDefinitions,
+  pluginBundleSources,
   controller,
   renderHistory,
   abortRegistry,
@@ -100,6 +102,7 @@ export async function runRenderJob({
     await renderLyricVideo({
       job,
       componentDefinitions,
+      pluginBundleSources,
       signal: controller.signal,
       fontCacheDir,
       onProgress: (event) => handleProgress({ job, event, renderHistory, getMainWindow })

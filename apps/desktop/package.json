@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@lyric-video-maker/core": "file:../../packages/core",
+    "@lyric-video-maker/plugin-base": "file:../../packages/plugin-base",
     "@lyric-video-maker/renderer": "file:../../packages/renderer",
     "@lyric-video-maker/scene-registry": "file:../../packages/scene-registry",
     "electron": "^35.0.0",

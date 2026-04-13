@@ -8,12 +8,11 @@ import {
 import { isAbortError, throwIfAborted } from "../abort";
 import { createAudioAnalysisAccessor } from "../audio-analysis";
 import { createAssetAccessor, preloadSceneAssets } from "../assets/preload";
-import { createLiveDomRenderSession } from "../browser/live-dom-session";
+import { createRenderSession } from "../browser/render-session";
 import { PROGRESS_INTERVAL_MS } from "../constants";
 import { startFrameMuxer } from "../ffmpeg/frame-muxer";
 import { createMuxPipelineDiagnostics } from "../ffmpeg/mux-diagnostics";
 import { prepareGoogleFonts } from "../fonts/google-fonts";
-import { canRenderWithLiveDom, createLiveDomScenePayload } from "../live-dom";
 import { createRenderLogger } from "../logging";
 import { logRenderProfile, createRenderProfiler, measureAsync } from "../profiling";
 import { prepareSceneComponents } from "../scene-prep/prepare-components";
@@ -37,6 +36,7 @@ import {
 export interface RenderLyricVideoInput {
   job: RenderJob;
   componentDefinitions: SceneComponentDefinition<Record<string, unknown>>[];
+  pluginBundleSources?: string[];
   parallelism?: number;
   signal?: AbortSignal;
   onProgress?: (event: RenderProgressEvent) => void;
@@ -46,6 +46,7 @@ export interface RenderLyricVideoInput {
 export async function renderLyricVideo({
   job,
   componentDefinitions,
+  pluginBundleSources = [],
   parallelism,
   signal,
   onProgress,
@@ -79,10 +80,6 @@ export async function renderLyricVideo({
   const muxDiagnostics = createMuxPipelineDiagnostics();
   try {
     throwIfAborted(renderSignal);
-
-    if (!canRenderWithLiveDom(enabledComponents, componentLookup)) {
-      throw new Error("One or more enabled scene components do not support the live DOM renderer.");
-    }
 
     const preloadedAssets = await preloadSceneAssets(
       enabledComponents,
@@ -140,13 +137,6 @@ export async function renderLyricVideo({
     });
     videoFrameExtractions = extractionResult.entries;
 
-    const scenePayload = createLiveDomScenePayload({
-      job,
-      components: enabledComponents,
-      componentLookup,
-      assets,
-      prepared
-    });
     const workerCount = resolveRenderParallelism({
       parallelism: parallelism ?? job.render.threads,
       totalFrames: job.video.durationInFrames
@@ -156,7 +146,7 @@ export async function renderLyricVideo({
 
     for (let workerIndex = 0; workerIndex < workerCount; workerIndex += 1) {
       workerHandles.push({
-        current: await createLiveDomRenderSession({
+        current: await createRenderSession({
           sessionLabel: `worker-${workerIndex}`,
           job,
           componentLookup,
@@ -164,7 +154,7 @@ export async function renderLyricVideo({
           assets,
           preloadedAssets,
           prepared,
-          scenePayload,
+          pluginBundleSources,
           signal: renderSignal,
           logger,
           profiler,
@@ -229,7 +219,7 @@ export async function renderLyricVideo({
           totalFrames: job.video.durationInFrames,
           orderedFrameQueue: orderedFrameQueue!,
           createWorkerSession: async () =>
-            await createLiveDomRenderSession({
+            await createRenderSession({
               sessionLabel: `worker-${workerIndex}`,
               job,
               componentLookup,
@@ -237,7 +227,7 @@ export async function renderLyricVideo({
               assets,
               preloadedAssets,
               prepared,
-              scenePayload,
+              pluginBundleSources,
               signal: renderSignal,
               logger,
               profiler,

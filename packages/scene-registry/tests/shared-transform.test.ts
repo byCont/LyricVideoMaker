@@ -4,7 +4,7 @@ import {
   TRANSFORM_ANCHOR_VALUES,
   transformCategory,
   type TransformOptions
-} from "../src/shared/transform";
+} from "../src/shared";
 
 describe("TransformOptions defaults", () => {
   it("place a centered visible element with no rotation or flip", () => {

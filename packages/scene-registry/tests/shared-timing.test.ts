@@ -4,7 +4,7 @@ import {
   TIMING_EASING_VALUES,
   timingCategory,
   type TimingOptions
-} from "../src/shared/timing";
+} from "../src/shared";
 
 describe("TimingOptions defaults", () => {
   it("produce an always-visible component with no fades", () => {

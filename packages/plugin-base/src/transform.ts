@@ -1,4 +1,4 @@
-import type { SceneOptionCategory } from "@lyric-video-maker/core";
+import type { SceneOptionCategory } from "./index";
 
 /**
  * Nine-position anchor point for placing a positioned element on the canvas.

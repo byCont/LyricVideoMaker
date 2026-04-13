@@ -1,7 +1,6 @@
 import type React from "react";
 import { withAlpha } from "../../shared/color";
-import { computeTransformStyle } from "../../shared/transform-runtime";
-import type { TransformOptions } from "../../shared";
+import { computeTransformStyle, type TransformOptions } from "../../shared";
 import type {
   EqualizerLayout,
   EqualizerOptions

@@ -6,8 +6,7 @@ import {
 import { throwIfAborted } from "../abort";
 import { createAudioAnalysisAccessor } from "../audio-analysis";
 import { createAssetAccessor, preloadSceneAssets } from "../assets/preload";
-import { createLiveDomRenderSession } from "../browser/live-dom-session";
-import { canRenderWithLiveDom, createLiveDomScenePayload } from "../live-dom";
+import { createRenderSession } from "../browser/render-session";
 import { prepareGoogleFonts } from "../fonts/google-fonts";
 import { createRenderLogger } from "../logging";
 import { createPreviewProfiler, measurePreviewStage } from "../profiling";
@@ -27,6 +26,7 @@ import {
 export interface CreateFramePreviewSessionInput {
   job: RenderJob;
   componentDefinitions: SceneComponentDefinition<Record<string, unknown>>[];
+  pluginBundleSources?: string[];
   signal?: AbortSignal;
   assetCache?: PreviewAssetCache;
   previewCache?: PreviewComputationCache;
@@ -36,6 +36,7 @@ export interface CreateFramePreviewSessionInput {
 export async function createFramePreviewSession({
   job,
   componentDefinitions,
+  pluginBundleSources = [],
   signal,
   assetCache,
   previewCache,
@@ -73,10 +74,6 @@ export async function createFramePreviewSession({
 
   throwIfAborted(signal);
 
-  if (!canRenderWithLiveDom(enabledComponents, componentLookup)) {
-    throw new Error("One or more enabled scene components do not support the live DOM renderer.");
-  }
-
   const initialLyricsRuntime = createLyricRuntime(job.lyrics, 0);
   const prepared = await measurePreviewStage(previewProfiler, "prepareSceneComponents", async () =>
     await prepareSceneComponents(enabledComponents, componentLookup, {
@@ -103,7 +100,7 @@ export async function createFramePreviewSession({
     );
     videoFrameExtractions = extractionResult.entries;
 
-    const session = await createLiveDomRenderSession({
+    const session = await createRenderSession({
       sessionLabel: "preview",
       job,
       componentLookup,
@@ -111,13 +108,7 @@ export async function createFramePreviewSession({
       assets,
       preloadedAssets,
       prepared,
-      scenePayload: createLiveDomScenePayload({
-        job,
-        components: enabledComponents,
-        componentLookup,
-        assets,
-        prepared
-      }),
+      pluginBundleSources,
       signal,
       logger,
       previewProfiler,

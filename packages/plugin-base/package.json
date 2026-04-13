@@ -1,5 +1,5 @@
 {
-  "name": "@lyric-video-maker/plugin-types",
+  "name": "@lyric-video-maker/plugin-base",
   "version": "0.1.0",
   "license": "SEE LICENSE IN EULA.txt",
   "author": "Kevin Gravier",
@@ -15,7 +15,7 @@
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts --format esm,cjs --dts"
+    "build": "tsup src/index.ts --format esm,cjs && tsc --emitDeclarationOnly --declaration --outDir dist"
   },
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0"

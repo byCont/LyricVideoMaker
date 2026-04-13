@@ -1,7 +1,6 @@
 import { DEFAULT_VIDEO_HEIGHT, DEFAULT_VIDEO_WIDTH } from "@lyric-video-maker/core";
 import { safeScale } from "../../shared/math";
-import { computeTransformStyle } from "../../shared/transform-runtime";
-import type { TransformOptions } from "../../shared";
+import { computeTransformStyle, type TransformOptions } from "../../shared";
 import { lyricBlockStyleCache, lyricScaledLayoutCache, setCachedValue } from "./caches";
 import {
   LYRIC_VERTICAL_INSET,

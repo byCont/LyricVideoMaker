@@ -18,7 +18,8 @@
   },
   "dependencies": {
     "@chenglou/pretext": "^0.0.5",
-    "@lyric-video-maker/core": "file:../core"
+    "@lyric-video-maker/core": "file:../core",
+    "@lyric-video-maker/plugin-base": "file:../plugin-base"
   },
   "peerDependencies": {
     "react": "^18.3.1"

@@ -14,7 +14,7 @@
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts --format esm,cjs"
+    "build": "node scripts/build-browser-bundle.mjs && tsup src/index.ts --format esm,cjs"
   },
   "dependencies": {
     "@lyric-video-maker/core": "file:../core",

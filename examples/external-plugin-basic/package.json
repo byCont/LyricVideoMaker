@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@lyric-video-maker/plugin-types": "file:../../packages/plugin-types",
+    "@lyric-video-maker/plugin-base": "file:../../packages/plugin-base",
     "react": "^18.3.1",
     "tsup": "^8.4.0",
     "typescript": "^5.8.2"

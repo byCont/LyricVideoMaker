@@ -17,6 +17,6 @@ npm run typecheck
 npm run build
 ```
 
-For a real plugin repo, install `@lyric-video-maker/plugin-types` from npm instead of the local `file:../../packages/plugin-types` dependency used by this monorepo example.
+For a real plugin repo, install `@lyric-video-maker/plugin-base` from npm instead of the local `file:../../packages/plugin-base` dependency used by this monorepo example.
 
 Commit `dist/plugin.cjs` with the plugin repo. Lyric Video Maker v1 does not run `npm install` or build plugins during import.

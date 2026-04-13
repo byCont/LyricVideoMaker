@@ -3,4 +3,4 @@ export type {
   SceneOptionEntry,
   SceneOptionField,
   SceneValidationContext
-} from "@lyric-video-maker/plugin-types";
+} from "@lyric-video-maker/plugin-base";

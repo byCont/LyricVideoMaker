@@ -21,20 +21,17 @@ export {
   DEFAULT_TRANSFORM_OPTIONS,
   TRANSFORM_ANCHOR_VALUES,
   transformCategory,
-  type TransformAnchor,
-  type TransformOptions
-} from "./transform";
-
-export {
+  computeTransformStyle,
   DEFAULT_TIMING_OPTIONS,
   TIMING_EASING_VALUES,
   timingCategory,
+  computeTimingOpacity,
+  type TransformAnchor,
+  type TransformOptions,
+  type TransformCanvas,
   type TimingEasing,
   type TimingOptions
-} from "./timing";
-
-export { computeTransformStyle, type TransformCanvas } from "./transform-runtime";
-export { computeTimingOpacity } from "./timing-runtime";
+} from "@lyric-video-maker/plugin-base";
 
 // Keep the preexisting math / color helpers accessible through this barrel
 // too so consumers do not have to juggle two paths.
