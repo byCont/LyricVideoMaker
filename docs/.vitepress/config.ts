@@ -2,7 +2,7 @@ import { defineConfig } from "vitepress";
 
 export default defineConfig({
   title: "Lyric Video Maker",
-  description: "Create stunning lyric videos with code and plugins",
+  description: "Create stunning lyric videos with AI-powered subtitles and audio-reactive visuals",
   base: "/LyricVideoMaker/",
 
   head: [
@@ -11,7 +11,8 @@ export default defineConfig({
       "meta",
       {
         property: "og:description",
-        content: "Desktop app for creating lyric videos with an extensible plugin system",
+        content:
+          "Desktop app for creating lyric videos with AI subtitle alignment and an extensible plugin system",
       },
     ],
   ],
@@ -28,12 +29,32 @@ export default defineConfig({
 
     sidebar: [
       {
-        text: "Getting Started",
-        items: [{ text: "Quick Start", link: "/guide/getting-started" }],
+        text: "User Guide",
+        items: [
+          { text: "Getting Started", link: "/guide/getting-started" },
+          { text: "The Workspace", link: "/guide/workspace" },
+          {
+            text: "Scenes & Components",
+            link: "/guide/scenes-and-components",
+          },
+          {
+            text: "Preview & Rendering",
+            link: "/guide/preview-and-rendering",
+          },
+          {
+            text: "Subtitle Generation",
+            link: "/guide/subtitle-generation",
+          },
+          { text: "Plugins", link: "/guide/plugins" },
+        ],
       },
       {
         text: "Plugin Development",
         items: [
+          {
+            text: "Plugin Quick Start",
+            link: "/guide/plugin-development",
+          },
           { text: "Plugin API Reference", link: "/guide/plugin-api" },
         ],
       },
@@ -44,8 +65,8 @@ export default defineConfig({
     ],
 
     footer: {
-      message: "Plugin SDK released under the MIT License.",
-      copyright: "Copyright © 2025 Kevin Gravier",
+      message: "Released under the MIT License.",
+      copyright: "Copyright © 2026 Kevin Gravier",
     },
   },
 });

@@ -1,200 +1,69 @@
-# Getting Started with Plugins
+# Getting Started
 
-Lyric Video Maker supports external plugins that add scene components and scene presets. Plugins are CommonJS modules loaded at runtime by the desktop app.
+This guide walks you through installing Lyric Video Maker and creating your first lyric video.
 
-## Prerequisites
+## Download & Install
 
-- [Node.js](https://nodejs.org/) 18+
-- A code editor (VS Code recommended)
-- Basic TypeScript and React knowledge
+1. Go to the [Releases page](https://github.com/mrkmg/LyricVideoMaker/releases) on GitHub.
+2. Download the installer for your platform (Windows).
+3. Run the installer and follow the prompts.
 
-## Quick Start
+## FFmpeg Setup
 
-```bash
-mkdir my-plugin && cd my-plugin
-npm init -y
-npm install --save-dev @lyric-video-maker/plugin-base react tsup typescript
-```
+Lyric Video Maker uses [FFmpeg](https://ffmpeg.org/) to render and preview video frames. On first launch, if FFmpeg isn't found on your system, you'll be prompted to set it up.
 
-Create `src/plugin.ts`:
+You have several options:
 
-```typescript
-import type {
-  LyricVideoPluginActivation,
-  LyricVideoPluginHost,
-  SceneComponentDefinition,
-  TransformOptions,
-  TimingOptions,
-} from "@lyric-video-maker/plugin-base";
+- **Install via winget** — Runs `winget install --id=Gyan.FFmpeg` automatically (recommended on Windows).
+- **Locate ffmpeg.exe** — Browse to an existing FFmpeg installation on your machine.
+- **Open download page** — Opens the FFmpeg website so you can download it manually.
+- **Continue without FFmpeg** — Use the app without preview or rendering (you can set up FFmpeg later from the menu).
 
-interface MyOptions
-  extends TransformOptions,
-    TimingOptions,
-    Record<string, unknown> {
-  textColor: string;
-}
+The app searches common install locations automatically, including winget, Scoop, Chocolatey, and Program Files paths.
 
-export function activate(
-  host: LyricVideoPluginHost
-): LyricVideoPluginActivation {
-  const { React } = host;
-  const {
-    transformCategory,
-    timingCategory,
-    DEFAULT_TRANSFORM_OPTIONS,
-    DEFAULT_TIMING_OPTIONS,
-    computeTransformStyle,
-    computeTimingOpacity,
-  } = host.transform;
+::: tip
+If you skip FFmpeg setup, a banner at the top of the workspace will remind you. Click **Set up FFmpeg** at any time to configure it.
+:::
 
-  const component: SceneComponentDefinition<MyOptions> = {
-    id: "myplugin.hello",
-    name: "Hello World",
-    options: [
-      transformCategory,
-      timingCategory,
-      {
-        id: "textColor",
-        label: "Text Color",
-        type: "color",
-        defaultValue: "#ffffff",
-      },
-    ],
-    defaultOptions: {
-      ...DEFAULT_TRANSFORM_OPTIONS,
-      ...DEFAULT_TIMING_OPTIONS,
-      textColor: "#ffffff",
-    },
-    Component({ options, video, timeMs }) {
-      const style = {
-        ...computeTransformStyle(options, video),
-        opacity: computeTimingOpacity(timeMs, options),
-        color: options.textColor,
-        fontSize: 48,
-        fontFamily: "sans-serif",
-      };
-      return React.createElement("div", { style }, "Hello from my plugin!");
-    },
-  };
+## Prepare Your Files
 
-  return { components: [component], scenes: [] };
-}
-```
+To create a lyric video you need:
 
-Create `lyric-video-plugin.json` at the project root:
+- **An audio file** — MP3 format.
+- **A subtitle file** — SRT format with timed lyrics. Don't have one? Lyric Video Maker can [generate subtitles](/guide/subtitle-generation) from your audio using AI.
 
-```json
-{
-  "schemaVersion": 1,
-  "id": "myplugin.hello-pack",
-  "name": "Hello Pack",
-  "version": "0.1.0",
-  "entry": "dist/plugin.cjs",
-  "components": ["myplugin.hello"],
-  "scenes": []
-}
-```
+## Your First Video
 
-Build and commit the output:
+### 1. Pick your audio
 
-```bash
-npx tsup src/plugin.ts --format cjs --out-dir dist --out-extension .cjs
-git add dist/plugin.cjs
-```
+In the **Project Setup** panel on the left, click **Pick MP3** and select your song.
 
-## Project Structure
+### 2. Add subtitles
 
-```
-my-plugin/
-  lyric-video-plugin.json   # Manifest (required at repo root)
-  package.json
-  tsconfig.json
-  tsup.config.ts            # Or any bundler that outputs CJS
-  src/
-    plugin.ts               # Entry point exporting activate()
-  dist/
-    plugin.cjs              # Prebuilt bundle (committed to repo)
-```
+Click **Pick SRT** and select your subtitle file. If you don't have one yet, click **Generate SRT** to create one from your audio — see the [Subtitle Generation](/guide/subtitle-generation) guide for details.
 
-### Recommended package.json
+### 3. Choose an output location
 
-```json
-{
-  "name": "my-lyric-video-plugin",
-  "version": "0.1.0",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "build": "tsup",
-    "typecheck": "tsc --noEmit"
-  },
-  "devDependencies": {
-    "@lyric-video-maker/plugin-base": "^0.1.0",
-    "react": "^18.3.1",
-    "tsup": "^8.4.0",
-    "typescript": "^5.8.2"
-  }
-}
-```
+Click **Save As** to choose where to save the rendered video. The default filename is `lyric-video.mp4`.
 
-### Recommended tsconfig.json
+### 4. Preview your video
 
-```json
-{
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
-    "strict": true,
-    "jsx": "react-jsx",
-    "skipLibCheck": true,
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true
-  },
-  "include": ["src/**/*.ts"]
-}
-```
+Once audio and subtitles are loaded, the **Frame Preview** panel comes alive. Use the timeline scrubber to move through the video and see how it looks. Use the jump buttons on the right to hop between subtitle cues.
 
-### Recommended tsup.config.ts
+### 5. Customize the look
 
-```typescript
-import { defineConfig } from "tsup";
+The default scene ("Single Image Lyrics") includes a background image, an optional color wash, and lyrics. Click any component in the **Scene Builder** panel to customize it — change colors, fonts, sizes, and positioning in the options panel below.
 
-export default defineConfig({
-  entry: ["src/plugin.ts"],
-  format: ["cjs"],
-  outDir: "dist",
-  clean: true,
-  dts: false,
-  outExtension() {
-    return { js: ".cjs" };
-  },
-});
-```
+See [Scenes & Components](/guide/scenes-and-components) for a full guide on customizing your video.
 
-## Distribution
+### 6. Render
 
-Plugins are imported into the app via GitHub URL or local path.
-
-### Via GitHub
-
-Push your repo (with `dist/plugin.cjs` committed) to GitHub. Users import via the HTTPS clone URL:
-
-```
-https://github.com/yourname/my-lyric-video-plugin.git
-```
-
-The app clones the repo, reads the manifest, and loads the plugin.
-
-### Via Local Path
-
-For development, users can import from a local directory path.
-
-### What to Commit
-
-Always commit `dist/plugin.cjs` to the repository. The app does **not** run `npm install` or any build commands on import.
+When you're happy with the preview, click the **Render MP4** button at the bottom of the Project Setup panel. A progress dialog shows rendering status, FPS, and ETA. When it's done, your lyric video is ready to share.
 
 ## Next Steps
 
-- Read the full [Plugin API Reference](/guide/plugin-api) for details on all component interfaces, options schema, transform/timing systems, audio analysis, and more.
-- Check out the [example plugin](https://github.com/mrkmg/LyricVideoMaker/tree/main/examples/external-plugin-basic) for a complete working reference.
+- [The Workspace](/guide/workspace) — Learn what each panel does
+- [Scenes & Components](/guide/scenes-and-components) — Understand the component layer system
+- [Preview & Rendering](/guide/preview-and-rendering) — Master the preview controls and render settings
+- [Subtitle Generation](/guide/subtitle-generation) — Create SRT files from audio with AI
+- [Plugins](/guide/plugins) — Extend the app with community plugins
