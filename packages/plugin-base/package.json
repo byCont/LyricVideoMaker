@@ -1,12 +1,20 @@
 {
   "name": "@lyric-video-maker/plugin-base",
   "version": "0.1.0",
-  "license": "SEE LICENSE IN EULA.txt",
+  "description": "Plugin SDK for Lyric Video Maker",
+  "license": "MIT",
   "author": "Kevin Gravier",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mrkmg/LyricVideoMaker.git",
+    "directory": "packages/plugin-base"
+  },
+  "homepage": "https://mrkmg.github.io/LyricVideoMaker/",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "files": ["dist"],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -16,6 +24,10 @@
   },
   "scripts": {
     "build": "tsup src/index.ts --format esm,cjs && tsc --emitDeclarationOnly --declaration --outDir dist"
+  },
+  "publishConfig": {
+    "provenance": true,
+    "access": "public"
   },
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0"

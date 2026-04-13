@@ -88,7 +88,7 @@ export async function normalizeImageAsset(
         "-i",
         path,
         "-vf",
-        `scale=${video.width}:${video.height}:force_original_aspect_ratio=increase,crop=${video.width}:${video.height}`,
+        `scale='min(${video.width},iw)':'min(${video.height},ih)':force_original_aspect_ratio=decrease`,
         "-frames:v",
         "1",
         "-f",

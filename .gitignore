@@ -34,3 +34,7 @@ sidecars/subtitle-aligner/.venv/
 
 build-frozen/
 dist-frozen/
+
+docs/.vitepress/dist/
+docs/.vitepress/cache/
+docs/node_modules/

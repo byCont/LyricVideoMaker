@@ -1,0 +1,44 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: npm ci
+
+      - name: Sync version from tag
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+
+      - run: npm run publish
+
+      - name: Create release archive
+        shell: pwsh
+        run: |
+          $outDir = Get-ChildItem -Path publish -Directory | Select-Object -First 1
+          Compress-Archive -Path "$($outDir.FullName)\*" -DestinationPath "publish\LyricVideoMaker-$env:GITHUB_REF_NAME-win-x64.zip"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: publish/LyricVideoMaker-*.zip

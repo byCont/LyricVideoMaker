@@ -1,0 +1,36 @@
+name: Publish plugin-base
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - run: npm ci
+
+      - name: Ensure latest npm (trusted publishing requires >=11.5.1)
+        run: npm install -g npm@latest
+
+      - name: Sync version from tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          cd packages/plugin-base
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+
+      - name: Build plugin-base
+        run: npm run build --workspace @lyric-video-maker/plugin-base
+
+      - name: Publish to npm
+        run: npm publish --workspace packages/plugin-base --provenance --access public
