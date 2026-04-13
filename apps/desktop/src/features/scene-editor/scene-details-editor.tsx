@@ -23,6 +23,7 @@ export function SceneDetailsEditor({
   onRemovePlugin,
   onExportScene,
   onSaveScene,
+  onSaveSceneAsNew,
   onDeleteScene
 }: {
   builtInScenes: SerializedSceneDefinition[];
@@ -41,6 +42,7 @@ export function SceneDetailsEditor({
   onRemovePlugin: (pluginId: string) => void | Promise<void>;
   onExportScene: () => void | Promise<void>;
   onSaveScene: () => void | Promise<void>;
+  onSaveSceneAsNew: () => void | Promise<void>;
   onDeleteScene: () => void | Promise<void>;
 }) {
   const [pendingSceneId, setPendingSceneId] = useState<string | null>(null);
@@ -99,8 +101,72 @@ export function SceneDetailsEditor({
         <section className="inspector-section">
           <div className="inspector-section-header">
             <div className="section-title-row">
+              <h3>Metadata</h3>
+              <InfoTip text="Update the local scene name and description used by the composer." />
+            </div>
+          </div>
+
+          <div className="inspector-grid inspector-grid-two">
+            <label className="field">
+              <span>Scene name</span>
+              <input
+                value={selectedScene.name}
+                onChange={(event) => onSceneNameChange(event.target.value)}
+              />
+            </label>
+
+            <div className="scene-status-card">
+              <span className="eyebrow">Stack Summary</span>
+              <strong>{selectedScene.components.length} components</strong>
+              <p>
+                {selectedScene.components
+                  .map((instance) => componentCatalog.get(instance.componentId)?.name)
+                  .filter(Boolean)
+                  .join(", ") || "No components in this scene."}
+              </p>
+            </div>
+          </div>
+
+          <label className="field">
+            <span>Description</span>
+            <textarea
+              value={selectedScene.description ?? ""}
+              onChange={(event) => onSceneDescriptionChange(event.target.value)}
+            />
+          </label>
+
+          <div className="button-row">
+            {selectedScene.source === "user" ? (
+              <>
+                <button type="button" className="secondary" onClick={onSaveScene}>
+                  Replace
+                </button>
+                <button type="button" className="secondary" onClick={onSaveSceneAsNew}>
+                  Save as New
+                </button>
+                <button type="button" className="secondary danger" onClick={onDeleteScene}>
+                  Delete
+                </button>
+              </>
+            ) : (
+              <button type="button" className="secondary" onClick={onSaveScene}>
+                Save as User Scene
+              </button>
+            )}
+            <button type="button" className="secondary" onClick={onImportScene}>
+              Import JSON
+            </button>
+            <button type="button" className="secondary" onClick={onExportScene}>
+              Export JSON
+            </button>
+          </div>
+        </section>
+
+        <section className="inspector-section">
+          <div className="inspector-section-header">
+            <div className="section-title-row">
               <h3>Saved Scenes</h3>
-              <InfoTip text="Switch between built-in and user scenes, then save or export changes." />
+              <InfoTip text="Switch between built-in and user scenes." />
             </div>
           </div>
 
@@ -147,23 +213,6 @@ export function SceneDetailsEditor({
                     : "Stored locally and available for future renders."}
               </p>
             </div>
-          </div>
-
-          <div className="button-row">
-            <button type="button" className="secondary" onClick={onImportScene}>
-              Import JSON
-            </button>
-            <button type="button" className="secondary" onClick={onExportScene}>
-              Export JSON
-            </button>
-            <button type="button" className="secondary" onClick={onSaveScene}>
-              {selectedScene.source === "user" ? "Save Scene" : "Save as User Scene"}
-            </button>
-            {selectedScene.source === "user" ? (
-              <button type="button" className="secondary danger" onClick={onDeleteScene}>
-                Delete Scene
-              </button>
-            ) : null}
           </div>
         </section>
 
@@ -221,44 +270,6 @@ export function SceneDetailsEditor({
           </div>
         </section>
 
-        <section className="inspector-section">
-          <div className="inspector-section-header">
-            <div className="section-title-row">
-              <h3>Metadata</h3>
-              <InfoTip text="Update the local scene name and description used by the composer." />
-            </div>
-          </div>
-
-          <div className="inspector-grid inspector-grid-two">
-            <label className="field">
-              <span>Scene name</span>
-              <input
-                value={selectedScene.name}
-                onChange={(event) => onSceneNameChange(event.target.value)}
-              />
-            </label>
-
-            <div className="scene-status-card">
-              <span className="eyebrow">Stack Summary</span>
-              <strong>{selectedScene.components.length} components</strong>
-              <p>
-                {selectedScene.components
-                  .map((instance) => componentCatalog.get(instance.componentId)?.name)
-                  .filter(Boolean)
-                  .join(", ") || "No components in this scene."}
-              </p>
-            </div>
-          </div>
-
-          <label className="field">
-            <span>Description</span>
-            <textarea
-              value={selectedScene.description ?? ""}
-              onChange={(event) => onSceneDescriptionChange(event.target.value)}
-            />
-          </label>
-        </section>
-      
       </div>
 
       {pendingSceneId !== null && (

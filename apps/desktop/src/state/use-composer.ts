@@ -39,6 +39,7 @@ export interface ComposerActions {
   selectScene(scenes: SerializedSceneDefinition[], sceneId: string): void;
   mergeSceneComponents(scenes: SerializedSceneDefinition[], sceneId: string): void;
   saveScene(): Promise<void>;
+  saveSceneAsNew(): Promise<void>;
   deleteScene(scenes: SerializedSceneDefinition[]): Promise<void>;
   importScene(): Promise<void>;
   exportScene(): Promise<void>;
@@ -197,6 +198,23 @@ export function useComposer(
     setComposer((current) => ({ ...current, scene: cloneScene(saved) }));
   }, [composer.scene, setBootstrap]);
 
+  const saveSceneAsNew = useCallback(async () => {
+    if (!composer.scene) {
+      return;
+    }
+    const clone: SerializedSceneDefinition = {
+      ...composer.scene,
+      id: "",
+      source: "built-in",
+      filePath: undefined
+    };
+    const saved = await lyricVideoApp.saveScene(clone);
+    setBootstrap((current) =>
+      current ? { ...current, scenes: upsertScene(current.scenes, saved) } : current
+    );
+    setComposer((current) => ({ ...current, scene: cloneScene(saved) }));
+  }, [composer.scene, setBootstrap]);
+
   const deleteScene = useCallback(
     async (scenes: SerializedSceneDefinition[]) => {
       if (!composer.scene || composer.scene.source !== "user") {
@@ -220,12 +238,15 @@ export function useComposer(
     if (!imported) {
       return;
     }
-    setBootstrap((current) =>
-      current ? { ...current, scenes: upsertScene(current.scenes, imported) } : current
-    );
-    setComposer((current) => ({ ...current, scene: cloneScene(imported) }));
+    const workspace: SerializedSceneDefinition = {
+      ...imported,
+      id: "",
+      source: "built-in",
+      filePath: undefined
+    };
+    setComposer((current) => ({ ...current, scene: cloneScene(workspace) }));
     setSelection({ type: "scene" });
-  }, [setBootstrap, setSelection]);
+  }, [setSelection]);
 
   const exportScene = useCallback(async () => {
     if (composer.scene) {
@@ -355,6 +376,7 @@ export function useComposer(
     selectScene,
     mergeSceneComponents,
     saveScene,
+    saveSceneAsNew,
     deleteScene,
     importScene,
     exportScene,

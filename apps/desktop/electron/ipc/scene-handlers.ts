@@ -3,7 +3,7 @@ import type { SerializedSceneDefinition } from "@lyric-video-maker/core";
 import {
   deleteUserScene,
   exportSceneToFile,
-  importUserScene,
+  readSceneFile,
   saveUserScene
 } from "../services/scene-library";
 import type { IpcDeps } from "./register-ipc-handlers";
@@ -39,9 +39,7 @@ export function registerSceneHandlers({
       return null;
     }
 
-    const imported = await importUserScene(getUserDataPath(), result.filePaths[0]);
-    sceneCatalog.upsert(imported);
-    return imported;
+    return await readSceneFile(result.filePaths[0]);
   });
 
   ipcMain.handle("scene:export", async (_event, scene: SerializedSceneDefinition) => {

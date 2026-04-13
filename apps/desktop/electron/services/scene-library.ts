@@ -60,12 +60,16 @@ export async function deleteUserScene(userDataPath: string, sceneId: string): Pr
   await rm(filePath, { force: true });
 }
 
+export async function readSceneFile(importPath: string): Promise<SerializedSceneDefinition> {
+  const raw = JSON.parse(await readFile(importPath, "utf8"));
+  return parseSceneFileData(raw);
+}
+
 export async function importUserScene(
   userDataPath: string,
   importPath: string
 ): Promise<SerializedSceneDefinition> {
-  const raw = JSON.parse(await readFile(importPath, "utf8"));
-  const scene = parseSceneFileData(raw);
+  const scene = await readSceneFile(importPath);
   return await saveUserScene(userDataPath, {
     ...scene,
     source: "user",

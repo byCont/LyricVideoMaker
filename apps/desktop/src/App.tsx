@@ -210,6 +210,7 @@ export function App() {
           onRemovePlugin={(pluginId) => void handleRemovePlugin(pluginId)}
           onExportScene={() => void composer.exportScene()}
           onSaveScene={() => void composer.saveScene()}
+          onSaveSceneAsNew={() => void composer.saveSceneAsNew()}
           onDeleteScene={() => void composer.deleteScene(scenes)}
         />
       );
