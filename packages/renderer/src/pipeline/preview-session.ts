@@ -31,6 +31,7 @@ export interface CreateFramePreviewSessionInput {
   assetCache?: PreviewAssetCache;
   previewCache?: PreviewComputationCache;
   fontCacheDir?: string;
+  resolvePluginAsset?: (uri: string) => string | null;
 }
 
 export async function createFramePreviewSession({
@@ -40,7 +41,8 @@ export async function createFramePreviewSession({
   signal,
   assetCache,
   previewCache,
-  fontCacheDir
+  fontCacheDir,
+  resolvePluginAsset
 }: CreateFramePreviewSessionInput): Promise<FramePreviewSession> {
   const logger = createRenderLogger(job.id, NOOP_PROGRESS_EMITTER);
   const previewProfiler = createPreviewProfiler(job.id);
@@ -54,7 +56,9 @@ export async function createFramePreviewSession({
       job.video,
       logger,
       signal,
-      effectiveAssetCache
+      effectiveAssetCache,
+      {},
+      resolvePluginAsset
     )
   );
   const assets = createAssetAccessor(enabledComponents, preloadedAssets);

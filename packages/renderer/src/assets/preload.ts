@@ -4,6 +4,7 @@ import type {
   SceneComponentDefinition,
   ValidatedSceneComponentInstance
 } from "@lyric-video-maker/core";
+import { isPluginAssetUri } from "@lyric-video-maker/core";
 import { ASSET_URL_PREFIX } from "../constants";
 import type { PreloadedAsset, PreviewAssetCache, RenderLogger } from "../types";
 import { loadCachedAssetBody } from "./cache-body";
@@ -16,7 +17,8 @@ export async function preloadSceneAssets(
   logger: RenderLogger,
   signal?: AbortSignal,
   assetCache?: PreviewAssetCache,
-  options: { includeVideoAssets?: boolean } = {}
+  options: { includeVideoAssets?: boolean } = {},
+  resolvePluginAsset?: (uri: string) => string | null
 ): Promise<Map<string, PreloadedAsset>> {
   const assets = new Map<string, PreloadedAsset>();
 
@@ -43,8 +45,26 @@ export async function preloadSceneAssets(
         continue;
       }
 
+      let loadPath = optionValue;
+      if (isPluginAssetUri(optionValue)) {
+        if (!resolvePluginAsset) {
+          logger.warn(
+            `Skipping plugin asset "${optionValue}" for "${instance.id}/${field.id}": no resolver available.`
+          );
+          continue;
+        }
+        const resolved = resolvePluginAsset(optionValue);
+        if (!resolved) {
+          logger.warn(
+            `Skipping plugin asset "${optionValue}" for "${instance.id}/${field.id}": could not resolve.`
+          );
+          continue;
+        }
+        loadPath = resolved;
+      }
+
       const cachedBody = await loadCachedAssetBody(
-        optionValue,
+        loadPath,
         video,
         signal,
         logger,
@@ -55,7 +75,7 @@ export async function preloadSceneAssets(
         instanceId: instance.id,
         optionId: field.id,
         path: optionValue,
-        url: `${ASSET_URL_PREFIX}${encodeURIComponent(instance.id)}-${encodeURIComponent(field.id)}${getExtensionSuffix(optionValue)}`,
+        url: `${ASSET_URL_PREFIX}${encodeURIComponent(instance.id)}-${encodeURIComponent(field.id)}${getExtensionSuffix(loadPath)}`,
         contentType: cachedBody.contentType,
         body: cachedBody.body
       } satisfies PreloadedAsset;

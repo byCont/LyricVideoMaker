@@ -6,6 +6,7 @@ export interface PluginCatalog {
   components(): SceneComponentDefinition<Record<string, unknown>>[];
   scenes(): SceneDefinition[];
   pluginBundleSources(): string[];
+  getRepoDirs(): Map<string, string>;
   replaceAll(plugins: LoadedPlugin[]): void;
   upsert(plugin: LoadedPlugin): void;
   remove(pluginId: string): void;
@@ -26,6 +27,9 @@ export function createPluginCatalog(): PluginCatalog {
     },
     pluginBundleSources() {
       return plugins.map((plugin) => plugin.bundleSource);
+    },
+    getRepoDirs() {
+      return new Map(plugins.map((plugin) => [plugin.summary.id, plugin.summary.repoDir]));
     },
     replaceAll(nextPlugins) {
       plugins = sortPlugins(nextPlugins);

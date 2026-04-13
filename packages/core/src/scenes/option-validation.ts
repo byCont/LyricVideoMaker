@@ -1,4 +1,5 @@
 import { validateGoogleFontFamilyName } from "../fonts";
+import { isPluginAssetUri, parsePluginAssetUri } from "../plugin-assets";
 import type {
   SceneComponentDefinition,
   SerializedSceneDefinition,
@@ -155,6 +156,19 @@ function validateFileField(
   const path = String(rawValue);
   if (field.required && !path.trim()) {
     throw new Error(`"${field.label}" is required.`);
+  }
+  if (path && isPluginAssetUri(path)) {
+    const parsed = parsePluginAssetUri(path);
+    if (!parsed) {
+      throw new Error(`"${field.label}" has a malformed plugin asset reference.`);
+    }
+    if (
+      context.isPluginAssetAccessible &&
+      !context.isPluginAssetAccessible(parsed.pluginId, parsed.relativePath)
+    ) {
+      throw new Error(`"${field.label}" does not point to a readable plugin asset.`);
+    }
+    return path;
   }
   if (context.isFileAccessible && path && !context.isFileAccessible(path)) {
     throw new Error(`"${field.label}" does not point to a readable file.`);

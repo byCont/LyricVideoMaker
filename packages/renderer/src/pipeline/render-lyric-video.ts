@@ -41,6 +41,7 @@ export interface RenderLyricVideoInput {
   signal?: AbortSignal;
   onProgress?: (event: RenderProgressEvent) => void;
   fontCacheDir?: string;
+  resolvePluginAsset?: (uri: string) => string | null;
 }
 
 export async function renderLyricVideo({
@@ -50,7 +51,8 @@ export async function renderLyricVideo({
   parallelism,
   signal,
   onProgress,
-  fontCacheDir
+  fontCacheDir,
+  resolvePluginAsset
 }: RenderLyricVideoInput): Promise<string> {
   const progress = createProgressEmitter(onProgress);
   const logger = createRenderLogger(job.id, progress);
@@ -93,7 +95,10 @@ export async function renderLyricVideo({
       componentLookup,
       job.video,
       logger,
-      renderSignal
+      renderSignal,
+      undefined,
+      {},
+      resolvePluginAsset
     );
     const assets = createAssetAccessor(enabledComponents, preloadedAssets);
     const googleFonts = await prepareGoogleFonts({

@@ -470,6 +470,84 @@ Scene components render back-to-front (first in array = bottom layer).
 
 Scenes can reference built-in component IDs (`background-color`, `background-image`, `lyrics-by-line`, `equalizer`, `shape`, `static-text`, `image`, `video`) in addition to your plugin's own components.
 
+## Bundled Assets
+
+Plugins can bundle asset files (images, videos) alongside their code and reference them in scene definitions. This lets you ship ready-to-use scenes with default backgrounds, overlays, or other visual assets.
+
+### Including Assets
+
+Place asset files anywhere in your plugin repository. No manifest declaration is needed — any file in the repo can be referenced.
+
+```
+my-plugin/
+  lyric-video-plugin.json
+  src/
+    plugin.ts
+  dist/
+    plugin.cjs
+  assets/                  # Convention, but any path works
+    default-background.jpg
+    overlay.png
+```
+
+### Referencing Assets in Scenes
+
+Use `createPluginAssetUri()` from `@lyric-video-maker/plugin-base` to construct asset references for `image` or `video` option fields:
+
+```typescript
+import {
+  createPluginAssetUri,
+  type SceneDefinition,
+} from "@lyric-video-maker/plugin-base";
+
+const myScene: SceneDefinition = {
+  id: "myplugin.showcase",
+  name: "My Plugin Showcase",
+  source: "plugin",
+  readOnly: true,
+  components: [
+    {
+      id: "bg",
+      componentId: "background-image", // Built-in component
+      enabled: true,
+      options: {
+        imagePath: createPluginAssetUri(
+          "myplugin.my-pack",
+          "assets/default-background.jpg"
+        ),
+      },
+    },
+    {
+      id: "overlay-1",
+      componentId: "image", // Built-in image component
+      enabled: true,
+      options: {
+        source: createPluginAssetUri(
+          "myplugin.my-pack",
+          "assets/overlay.png"
+        ),
+      },
+    },
+  ],
+};
+```
+
+The first argument to `createPluginAssetUri` is the plugin ID (from your manifest), and the second is the relative path within the plugin repository.
+
+### How It Works
+
+- Asset references are stored as `plugin-asset://pluginId/path` URI strings.
+- At render time, the app resolves these URIs to the actual files in the plugin's installed directory.
+- The editor displays bundled assets as "Bundled: filename" instead of showing the raw URI.
+- Users can override a bundled asset by picking a different file in the editor. This replaces the plugin asset reference with an absolute file path.
+- If the plugin is uninstalled, scenes referencing its bundled assets will show a validation error (same behavior as a deleted user file).
+
+### Rules
+
+- Relative paths must not contain `..` segments (enforced by `createPluginAssetUri`).
+- Asset files should be committed to the repository alongside `dist/plugin.cjs`.
+- Keep bundled assets small — the entire plugin repo is cloned on import.
+
 ## Transform System
 
 Most components need positioning on the canvas. Use the shared transform system instead of writing your own.

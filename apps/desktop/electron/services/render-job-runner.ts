@@ -39,13 +39,15 @@ export interface BuildRenderJobOptions {
   componentDefinitions: SceneComponentDefinition<Record<string, unknown>>[];
   cues: LyricCue[];
   durationMs: number;
+  isPluginAssetAccessible?: (pluginId: string, relativePath: string) => boolean;
 }
 
 export function buildRenderJob({
   request,
   componentDefinitions,
   cues,
-  durationMs
+  durationMs,
+  isPluginAssetAccessible
 }: BuildRenderJobOptions): RenderJob {
   return createRenderJob({
     audioPath: request.audioPath,
@@ -58,7 +60,8 @@ export function buildRenderJob({
     video: request.video,
     render: request.render,
     validationContext: {
-      isFileAccessible: existsSync
+      isFileAccessible: existsSync,
+      isPluginAssetAccessible
     }
   });
 }
@@ -85,6 +88,7 @@ export interface RunRenderJobDeps {
   renderHistory: RenderHistory;
   abortRegistry: AbortRegistry;
   fontCacheDir?: string;
+  resolvePluginAsset?: (uri: string) => string | null;
   getMainWindow(): BrowserWindow | null;
 }
 
@@ -96,6 +100,7 @@ export async function runRenderJob({
   renderHistory,
   abortRegistry,
   fontCacheDir,
+  resolvePluginAsset,
   getMainWindow
 }: RunRenderJobDeps) {
   try {
@@ -105,6 +110,7 @@ export async function runRenderJob({
       pluginBundleSources,
       signal: controller.signal,
       fontCacheDir,
+      resolvePluginAsset,
       onProgress: (event) => handleProgress({ job, event, renderHistory, getMainWindow })
     });
   } catch (error) {

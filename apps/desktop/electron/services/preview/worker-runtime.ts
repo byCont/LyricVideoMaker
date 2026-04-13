@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { performance } from "node:perf_hooks";
 import { workerData } from "node:worker_threads";
 import {
+  createPluginAssetUri,
   createRenderJob,
   msToFrame,
   type LyricCue
@@ -15,6 +16,7 @@ import {
 } from "@lyric-video-maker/renderer";
 import { builtInSceneComponents } from "@lyric-video-maker/scene-registry";
 import type { RenderPreviewRequest, RenderPreviewResponse } from "../../../src/electron-api";
+import { createPluginAssetResolver } from "../plugin-asset-resolver";
 import { createLatestOnlyPreviewRenderQueue } from "./render-queue";
 import { clamp } from "../../shared/clamp";
 import { createAudioDurationLoader, createSubtitleCueLoader } from "../../shared/media-cache";
@@ -140,6 +142,10 @@ async function getOrCreatePreviewSession(request: RenderPreviewRequest) {
       : [];
     const pluginComponents = loadedPlugins.flatMap((plugin) => plugin.components);
     const pluginBundleSources = loadedPlugins.map((plugin) => plugin.bundleSource);
+    const pluginRepoDirs = new Map(
+      loadedPlugins.map((plugin) => [plugin.summary.id, plugin.summary.repoDir])
+    );
+    const resolver = createPluginAssetResolver(() => pluginRepoDirs);
     const componentDefinitions = [...builtInSceneComponents, ...pluginComponents];
     const job = createRenderJob({
     audioPath: request.audioPath,
@@ -151,7 +157,9 @@ async function getOrCreatePreviewSession(request: RenderPreviewRequest) {
     durationMs,
     video: getPreviewVideoSettings(request),
     validationContext: {
-      isFileAccessible: existsSync
+      isFileAccessible: existsSync,
+      isPluginAssetAccessible: (pluginId, relativePath) =>
+        resolver.exists(createPluginAssetUri(pluginId, relativePath))
     }
   });
   const key = getPreviewSessionKey(request, job.video.width, job.video.height);
@@ -166,7 +174,8 @@ async function getOrCreatePreviewSession(request: RenderPreviewRequest) {
         componentDefinitions,
         pluginBundleSources,
         previewCache: previewComputationCache,
-        fontCacheDir
+        fontCacheDir,
+        resolvePluginAsset: (uri) => resolver.resolve(uri)
       }),
       job,
       cues,

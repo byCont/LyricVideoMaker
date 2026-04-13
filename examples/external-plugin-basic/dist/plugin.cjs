@@ -23,6 +23,21 @@ __export(plugin_exports, {
   activate: () => activate
 });
 module.exports = __toCommonJS(plugin_exports);
+
+// ../../packages/plugin-base/dist/index.js
+var PLUGIN_ASSET_PREFIX = "plugin-asset://";
+function createPluginAssetUri(pluginId, relativePath) {
+  const normalizedPath = relativePath.replace(/\\/g, "/");
+  const segments = normalizedPath.split("/");
+  if (segments.some((segment) => segment === "..")) {
+    throw new Error(
+      `Plugin asset path must not contain ".." segments: "${relativePath}"`
+    );
+  }
+  return `${PLUGIN_ASSET_PREFIX}${pluginId}/${normalizedPath}`;
+}
+
+// src/plugin.ts
 function activate(host) {
   const { React } = host;
   const {
@@ -109,6 +124,14 @@ function activate(host) {
         source: "plugin",
         readOnly: true,
         components: [
+          {
+            id: "bg",
+            componentId: "background-image",
+            enabled: true,
+            options: {
+              imagePath: createPluginAssetUri("example.caption-pack", "assets/default-bg.png")
+            }
+          },
           {
             id: "caption-box-1",
             componentId: "example.caption-box",

@@ -1,7 +1,9 @@
 import { join } from "node:path";
 import { ipcMain } from "electron";
+import { createPluginAssetUri } from "@lyric-video-maker/core";
 import { builtInSceneComponents } from "@lyric-video-maker/scene-registry";
 import type { StartRenderRequest } from "../../src/electron-api";
+import { createPluginAssetResolver } from "../services/plugin-asset-resolver";
 import {
   buildInitialRenderHistoryEntry,
   buildRenderJob,
@@ -32,7 +34,15 @@ export function registerRenderHandlers({
     const durationMs = await getAudioDuration(request.audioPath);
     const componentDefinitions = [...builtInSceneComponents, ...pluginCatalog.components()];
     const pluginBundleSources = pluginCatalog.pluginBundleSources();
-    const job = buildRenderJob({ request, componentDefinitions, cues, durationMs });
+    const resolver = createPluginAssetResolver(() => pluginCatalog.getRepoDirs());
+    const job = buildRenderJob({
+      request,
+      componentDefinitions,
+      cues,
+      durationMs,
+      isPluginAssetAccessible: (pluginId, relativePath) =>
+        resolver.exists(createPluginAssetUri(pluginId, relativePath))
+    });
 
     const controller = new AbortController();
     abortRegistry.set(job.id, controller);
@@ -48,7 +58,8 @@ export function registerRenderHandlers({
       renderHistory,
       abortRegistry,
       getMainWindow,
-      fontCacheDir: join(getUserDataPath(), "google-font-cache")
+      fontCacheDir: join(getUserDataPath(), "google-font-cache"),
+      resolvePluginAsset: (uri) => resolver.resolve(uri)
     });
 
     return entry;

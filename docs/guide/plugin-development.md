@@ -198,6 +198,33 @@ Always commit `dist/plugin.cjs` to the repository. The app does **not** run `npm
 
 Want your plugin discoverable? Open a PR adding it to the [Known Plugins](/guide/plugins#known-plugins) table on the Plugins doc page.
 
+## Bundled Assets
+
+Plugins can include asset files (images, videos) and reference them in scene definitions. Place files anywhere in your repo and use `createPluginAssetUri()` to build references:
+
+```typescript
+import { createPluginAssetUri } from "@lyric-video-maker/plugin-base";
+
+const myScene = {
+  id: "myplugin.showcase",
+  name: "My Showcase",
+  source: "plugin",
+  readOnly: true,
+  components: [
+    {
+      id: "bg",
+      componentId: "background-image",
+      enabled: true,
+      options: {
+        imagePath: createPluginAssetUri("myplugin.hello-pack", "assets/bg.jpg"),
+      },
+    },
+  ],
+};
+```
+
+Asset files should be committed to the repo alongside `dist/plugin.cjs`. Users can override bundled assets by picking a different file in the editor. See the [Plugin API Reference](/guide/plugin-api#bundled-assets) for full details.
+
 ## Next Steps
 
 - Read the full [Plugin API Reference](/guide/plugin-api) for details on all component interfaces, options schema, transform/timing systems, audio analysis, and more.

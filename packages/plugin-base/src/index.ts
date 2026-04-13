@@ -91,6 +91,7 @@ export type SceneOptionEntry = SceneOptionField | SceneOptionCategory;
 
 export interface SceneValidationContext {
   isFileAccessible?: (path: string) => boolean;
+  isPluginAssetAccessible?: (pluginId: string, relativePath: string) => boolean;
 }
 
 export type SceneAudioBandDistribution = "linear" | "log";
@@ -269,3 +270,11 @@ export {
 } from "./timing";
 
 export { computeTimingOpacity } from "./timing-runtime";
+
+// Plugin asset utilities
+export {
+  PLUGIN_ASSET_PREFIX,
+  isPluginAssetUri,
+  parsePluginAssetUri,
+  createPluginAssetUri
+} from "./plugin-assets";

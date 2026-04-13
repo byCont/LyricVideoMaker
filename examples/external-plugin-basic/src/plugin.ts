@@ -6,6 +6,7 @@ import type {
   TransformOptions,
   TimingOptions
 } from "@lyric-video-maker/plugin-base";
+import { createPluginAssetUri } from "@lyric-video-maker/plugin-base";
 
 interface CaptionOptions extends TransformOptions, TimingOptions, Record<string, unknown> {
   textColor: string;
@@ -103,6 +104,14 @@ export function activate(host: LyricVideoPluginHost): LyricVideoPluginActivation
         source: "plugin",
         readOnly: true,
         components: [
+          {
+            id: "bg",
+            componentId: "background-image",
+            enabled: true,
+            options: {
+              imagePath: createPluginAssetUri("example.caption-pack", "assets/default-bg.png")
+            }
+          },
           {
             id: "caption-box-1",
             componentId: "example.caption-box",

@@ -3,6 +3,7 @@ import type {
   SceneOptionCategory,
   SceneOptionField
 } from "@lyric-video-maker/core";
+import { isPluginAssetUri, parsePluginAssetUri } from "@lyric-video-maker/core";
 
 export function InfoTip({
   text,
@@ -150,6 +151,21 @@ export function FileField({
   );
 }
 
+function getAssetDisplayLabel(value: string): string {
+  if (!value) {
+    return "Not selected";
+  }
+  if (isPluginAssetUri(value)) {
+    const parsed = parsePluginAssetUri(value);
+    if (parsed) {
+      const fileName = parsed.relativePath.split("/").pop() ?? parsed.relativePath;
+      return `Bundled: ${fileName}`;
+    }
+    return "Bundled asset";
+  }
+  return value;
+}
+
 export function OptionField({
   field,
   inputPrefix,
@@ -278,7 +294,7 @@ export function OptionField({
             <FieldLabel label={field.label} />
           </div>
           <div className="option-input file-picker-input">
-            <div className="file-pill">{String(value ?? "") || "Not selected"}</div>
+            <div className="file-pill" title={String(value ?? "")}>{getAssetDisplayLabel(String(value ?? ""))}</div>
             <button className="secondary" onClick={() => onPickFile("image")}>Pick image</button>
           </div>
         </div>
@@ -290,7 +306,7 @@ export function OptionField({
             <FieldLabel label={field.label} />
           </div>
           <div className="option-input file-picker-input">
-            <div className="file-pill">{String(value ?? "") || "Not selected"}</div>
+            <div className="file-pill" title={String(value ?? "")}>{getAssetDisplayLabel(String(value ?? ""))}</div>
             <button className="secondary" onClick={() => onPickFile("video")}>Pick video</button>
           </div>
         </div>

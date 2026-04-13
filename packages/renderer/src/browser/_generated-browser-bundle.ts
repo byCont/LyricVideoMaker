@@ -8128,6 +8128,28 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
     }
   }
 
+  // ../plugin-base/src/plugin-assets.ts
+  var PLUGIN_ASSET_PREFIX = "plugin-asset://";
+  function isPluginAssetUri(value) {
+    return value.startsWith(PLUGIN_ASSET_PREFIX);
+  }
+  function parsePluginAssetUri(uri) {
+    if (!uri.startsWith(PLUGIN_ASSET_PREFIX)) {
+      return null;
+    }
+    const rest = uri.slice(PLUGIN_ASSET_PREFIX.length);
+    const slashIndex = rest.indexOf("/");
+    if (slashIndex <= 0) {
+      return null;
+    }
+    const pluginId = rest.slice(0, slashIndex);
+    const relativePath = rest.slice(slashIndex + 1);
+    if (!relativePath) {
+      return null;
+    }
+    return { pluginId, relativePath };
+  }
+
   // ../scene-registry/src/components/image/options.ts
   var DEFAULT_IMAGE_OPTIONS = {
     ...DEFAULT_TRANSFORM_OPTIONS,
@@ -8697,6 +8719,16 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
     const path = String(rawValue);
     if (field.required && !path.trim()) {
       throw new Error(\`"\${field.label}" is required.\`);
+    }
+    if (path && isPluginAssetUri(path)) {
+      const parsed = parsePluginAssetUri(path);
+      if (!parsed) {
+        throw new Error(\`"\${field.label}" has a malformed plugin asset reference.\`);
+      }
+      if (context.isPluginAssetAccessible && !context.isPluginAssetAccessible(parsed.pluginId, parsed.relativePath)) {
+        throw new Error(\`"\${field.label}" does not point to a readable plugin asset.\`);
+      }
+      return path;
     }
     if (context.isFileAccessible && path && !context.isFileAccessible(path)) {
       throw new Error(\`"\${field.label}" does not point to a readable file.\`);
