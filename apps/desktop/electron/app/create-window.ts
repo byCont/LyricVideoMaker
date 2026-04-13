@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { BrowserWindow } from "electron";
+import { BrowserWindow, Menu } from "electron";
 import type { WindowLayoutPreferences } from "../services/layout-preferences";
 
 export interface CreateMainWindowOptions {
@@ -18,12 +18,15 @@ export function createMainWindow({ windowLayout, onClosed }: CreateMainWindowOpt
     minHeight: 760,
     backgroundColor: "#0d1021",
     show: false,
+    autoHideMenuBar: true,
     webPreferences: {
       preload: join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false
     }
   });
+
+  mainWindow.setMenu(null);
 
   const devServerUrl = process.env.VITE_DEV_SERVER_URL;
   if (devServerUrl) {
