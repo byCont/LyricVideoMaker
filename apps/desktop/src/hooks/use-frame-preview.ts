@@ -48,6 +48,8 @@ export function useFramePreview({
   const inFlightRequestRef = useRef<RenderPreviewRequestPayload | null>(null);
   const queuedRequestRef = useRef<RenderPreviewRequestPayload | null>(null);
   const imageUrlRef = useRef<string | null>(null);
+  const playbackWallOriginRef = useRef(0);
+  const playbackTimeOriginRef = useRef(0);
   const enabled = Boolean(composer.audioPath && composer.subtitlePath && composer.scene);
   const deferredComposer = useDeferredValue(composer);
   const deferredRequestedTimeMs = useDeferredValue(preview.requestedTimeMs);
@@ -174,6 +176,9 @@ export function useFramePreview({
     const generation = requestGenerationRef.current;
     const safeTimeMs =
       durationMs !== undefined ? Math.min(startTimeMs, durationMs) : startTimeMs;
+
+    playbackWallOriginRef.current = performance.now();
+    playbackTimeOriginRef.current = safeTimeMs;
     const request: RenderPreviewRequestPayload = {
       audioPath: composer.audioPath,
       subtitlePath: composer.subtitlePath,
@@ -322,9 +327,13 @@ export function useFramePreview({
 
       if (playbackActiveRef.current && requestGenerationRef.current === request.generation && renderedDurationMs !== undefined) {
         const fps = request.video.fps;
-        const currentFrame = msToFrame(request.timeMs, fps);
-        const nextFrame = currentFrame + 1;
         const totalFrames = durationMsToFrameCount(renderedDurationMs, fps);
+        const currentFrame = msToFrame(request.timeMs, fps);
+
+        const wallElapsed = performance.now() - playbackWallOriginRef.current;
+        const targetTimeMs = playbackTimeOriginRef.current + wallElapsed;
+        const targetFrame = msToFrame(targetTimeMs, fps);
+        const nextFrame = Math.max(currentFrame + 1, targetFrame);
 
         if (nextFrame < totalFrames) {
           const nextTimeMs = frameToMs(nextFrame, fps);
@@ -334,9 +343,8 @@ export function useFramePreview({
             generation: requestGenerationRef.current
           };
 
-          const elapsedMs = performance.now() - requestStartMs;
-          const frameIntervalMs = 1000 / fps;
-          const delayMs = Math.max(0, frameIntervalMs - elapsedMs);
+          const nextTargetWallMs = playbackWallOriginRef.current + (nextTimeMs - playbackTimeOriginRef.current);
+          const delayMs = Math.max(0, nextTargetWallMs - performance.now());
 
           const advancePlayback = () => {
             if (!playbackActiveRef.current || requestGenerationRef.current !== nextRequest.generation) {
