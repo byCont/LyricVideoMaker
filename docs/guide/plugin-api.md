@@ -468,7 +468,7 @@ interface SceneComponentInstance {
 
 Scene components render back-to-front (first in array = bottom layer).
 
-Scenes can reference built-in component IDs (`background-color`, `background-image`, `lyrics-by-line`, `equalizer`, `shape`, `static-text`, `image`, `video`) in addition to your plugin's own components.
+Scenes can reference built-in component IDs (`background-color`, `lyrics-by-line`, `equalizer`, `shape`, `static-text`, `image`, `video`) in addition to your plugin's own components.
 
 ## Bundled Assets
 
@@ -508,10 +508,10 @@ const myScene: SceneDefinition = {
   components: [
     {
       id: "bg",
-      componentId: "background-image", // Built-in component
+      componentId: "image", // Built-in component
       enabled: true,
       options: {
-        imagePath: createPluginAssetUri(
+        source: createPluginAssetUri(
           "myplugin.my-pack",
           "assets/default-background.jpg"
         ),
@@ -654,7 +654,9 @@ The defaults (`startTime: 0, endTime: 0, no fades, linear`) produce an always-vi
 
 5. **Render** — The plugin's CJS bundle is evaluated inside each headless Chromium render page and `activate(host)` is called with a browser-side host that provides React and transform utilities. For each frame, `Component()` is called inside the browser and React's reconciler applies minimal DOM updates before the frame is captured.
 
-6. **Uninstall** — Plugin directory and metadata are removed.
+6. **Update** — The app re-clones the plugin's source URL to a temporary directory, validates the new version, and atomically replaces the old repo directory. If validation fails, the old version is preserved.
+
+7. **Uninstall** — Plugin directory and metadata are removed.
 
 ## Rules and Constraints
 

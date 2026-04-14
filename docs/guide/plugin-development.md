@@ -213,10 +213,10 @@ const myScene = {
   components: [
     {
       id: "bg",
-      componentId: "background-image",
+      componentId: "image",
       enabled: true,
       options: {
-        imagePath: createPluginAssetUri("myplugin.hello-pack", "assets/bg.jpg"),
+        source: createPluginAssetUri("myplugin.hello-pack", "assets/bg.jpg"),
       },
     },
   ],

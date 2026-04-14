@@ -45,7 +45,7 @@ Electron + React desktop app, layered structure on both sides of IPC boundary.
 - `preview-worker-thread.ts`: tsup entry, ~40 lines. Worker thread bootstrap delegating to `services/preview/worker-runtime.ts`.
 - `app/`: app lifecycle helpers — `create-window.ts`, `app-paths.ts` (sidecar root resolution), `preview-profiler.ts`.
 - `ipc/`: one file per feature, each exports `registerXxxHandlers(deps)` called by `register-ipc-handlers.ts`. Files: `bootstrap-handlers`, `dialog-handlers`, `scene-handlers`, `render-handlers`, `subtitle-handlers`, `preview-handlers`. **All IPC channel strings live here** — never hardcoded in `main.ts`.
-- `services/`: behavior decoupled from IPC plumbing. `render-history.ts`, `scene-catalog.ts`, `render-job-runner.ts`, `scene-library.ts` (user scene persistence), `subtitle-generator/` (Python sidecar runner), `preview/` (`worker-client.ts`, `worker-protocol.ts`, `render-queue.ts`, `worker-runtime.ts`).
+- `services/`: behavior decoupled from IPC plumbing. `render-history.ts`, `scene-catalog.ts`, `render-job-runner.ts`, `scene-library.ts` (user scene persistence), `plugin-library/` (plugin import/update/remove), `plugin-asset-resolver.ts` (resolves `plugin-asset://` URIs to local files), `subtitle-generator/` (Python sidecar runner), `preview/` (`worker-client.ts`, `worker-protocol.ts`, `render-queue.ts`, `worker-runtime.ts`).
 - `shared/`: cross-cutting code for main process + worker thread — `media-cache.ts` (shared subtitle/audio loader factories), `clamp.ts`.
 
 #### React renderer (`apps/desktop/src/`)
@@ -81,7 +81,7 @@ Built-in scenes + reusable scene components. `src/index.ts` public barrel.
 
 - `src/index.ts`: exports built-in scenes/components + lookup helpers
 - `src/shared/`: package-internal utils across components — `color.ts` (`withAlpha`, `mixHex`, `parseHexColor`, `rgbToHex`), `math.ts` (`clamp01`, `safeScale`). Components import via relative paths; not re-exported from barrel.
-- `src/components/background-image.tsx`, `background-color.tsx`: small single-file components
+- `src/components/background-color.tsx`: single-file component (solid color or gradient)
 - `src/components/lyrics-by-line/`: folder-component — `types.ts`, `options-schema.ts`, `caches.ts`, `measurement.ts`, `fade.ts`, `layout.ts`, `typography.ts`, `browser-state.ts`, `react/component.tsx`, `component.ts` (assembly), `index.ts`
 - `src/components/equalizer/`: folder-component — `types.ts`, `options-schema.ts`, `validation.ts`, `prepare.ts`, `layout.ts`, `color-plan.ts`, `bar-plan.ts`, `line-geometry.ts`, `shadow.ts`, `static-values.ts`, `browser-state.ts`, `react/{component,equalizer-bar,equalizer-line-graph}.tsx`, `component.ts`, `index.ts`
 - `src/scenes/single-image-lyrics/index.ts`: only built-in scene in v1
@@ -105,7 +105,7 @@ Headless render coordinator. `src/index.ts` thin public barrel; behavior in focu
 - `src/assets/`: asset preload + serve — `preload.ts`, `cache-body.ts`, `mime.ts`, `preview-cache.ts`
 - `src/pipeline/`: top-level orchestration — `render-lyric-video.ts`, `preview-session.ts`, `worker-frames.ts`, `parallelism.ts`, `frame-queue.ts`, `ordered-frame-queue.ts`, `progress.ts`, `static-detection.ts`
 - `src/audio-analysis.ts`: audio spectrum extraction (uses shared `ffmpeg/run-command.ts`)
-- `src/live-dom.ts`: live DOM scene mounting/update for Chromium render path. **Known coupling: hardcodes `runtimeRegistry` for four built-in component IDs (`background-image`, `background-color`, `lyrics-by-line`, `equalizer`).** New built-in component requires editing this file too. Decoupling intentionally deferred — needs contract change to `SceneBrowserRuntimeDefinition` + design pass for serialized browser-side runtime scripts.
+- `src/live-dom.ts`: live DOM scene mounting/update for Chromium render path.
 - `tests/*`: render smoke, benchmark, preview-session, parallel-rendering, audio-analysis coverage
 
 ## Data And Render Flow
@@ -172,7 +172,7 @@ Match new code to owning layer:
 
 ### Within `packages/scene-registry`
 
-- **New built-in scene component:** folder `src/components/<name>/` mirroring `equalizer/` or `lyrics-by-line/` — split into `types.ts`, `options-schema.ts`, `browser-state.ts`, `react/component.tsx`, `component.ts` (assembly), `index.ts`. Register in `src/components/index.ts`. **Also add `runtimeRegistry` entry in `packages/renderer/src/live-dom.ts`** — known coupling.
+- **New built-in scene component:** folder `src/components/<name>/` mirroring `equalizer/` or `lyrics-by-line/` — split into `types.ts`, `options-schema.ts`, `browser-state.ts`, `react/component.tsx`, `component.ts` (assembly), `index.ts`. Register in `src/components/index.ts`. **Also add import + registration in `packages/renderer/src/browser/browser-entry.tsx`** so the browser bundle includes the component.
 - **Shared color/math helpers:** `src/shared/color.ts` or `src/shared/math.ts`. No duplicating `withAlpha`, `clamp01`, etc.
 - **New built-in scene:** copy `src/scenes/single-image-lyrics/index.ts` structure, register in `src/index.ts`'s `builtInScenes`.
 
@@ -185,12 +185,12 @@ Match new code to owning layer:
 - **New frame state helper:** `src/scene-prep/`, `src/react-ssr/`, or `src/assets/` by concern.
 - **Profiling / measurement:** use `src/profiling.ts` helpers.
 - **Subprocess output capture:** use `createBoundedOutputBuffer` from `src/ffmpeg/bounded-output-buffer.ts`.
-- **Do not modify `src/live-dom.ts` lightly.** Runs inside Chromium, hard to test. New built-in component: only add `runtimeRegistry` entry — no surrounding refactors.
+- **Do not modify `src/live-dom.ts` lightly.** Runs inside Chromium, hard to test.
 
 ## Extension Points
 
 - New built-in scene: copy `single-image-lyrics` structure, register in `packages/scene-registry/src/index.ts`, add to Electron bootstrap scene list.
-- New scene component: folder under `packages/scene-registry/src/components/<name>/`, export from `src/components/index.ts`, **add `runtimeRegistry` entry to `packages/renderer/src/live-dom.ts`** for live DOM renderer.
+- New scene component: folder under `packages/scene-registry/src/components/<name>/`, export from `src/components/index.ts`, **add import + registration in `packages/renderer/src/browser/browser-entry.tsx`** for browser bundle.
 - New option type: add in `packages/core/src/types/scene-options.ts`, validate in `packages/core/src/scenes/option-validation.ts`, surface via schema-driven scene editor UI.
 - Render behavior changes: keep render-job contract stable unless UI + tests updated together.
 
