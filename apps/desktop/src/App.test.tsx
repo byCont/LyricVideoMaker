@@ -47,7 +47,11 @@ describe("App", () => {
         imageSwapStartedAtMs: null,
         result: createPreviewResponse()
       },
+      isPlaying: false,
       updatePreviewTime: vi.fn(),
+      togglePlayback: vi.fn(),
+      stepForward: vi.fn(),
+      stepBackward: vi.fn(),
       noteImagePainted: vi.fn()
     });
 

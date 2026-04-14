@@ -9,7 +9,7 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
+    "build": "npm run build -w packages/plugin-base && npm run build -w packages/core -w packages/scene-registry -w packages/renderer && npm run build -w apps/desktop",
     "benchmark:renderer": "npm run build && node packages/renderer/tests/render-benchmark.mjs",
     "dev": "npm run dev --workspace @lyric-video-maker/desktop",
     "setup:runtime": "node scripts/install-subtitle-sidecar.mjs && node scripts/install-chromium.mjs",
