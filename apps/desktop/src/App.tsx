@@ -91,6 +91,23 @@ export function App() {
   const loadedSelectedScene = selectedScene;
 
   async function handlePickPath(kind: FilePickKind, instanceId?: string, optionId?: string) {
+    if (kind === "image-list" && instanceId && optionId) {
+      const paths = await lyricVideoApp.pickPaths(kind);
+      if (!paths || paths.length === 0) {
+        return;
+      }
+      setError("");
+      composer.updateComponent(instanceId, (current) => {
+        const existing = Array.isArray(current.options[optionId])
+          ? (current.options[optionId] as string[])
+          : [];
+        const existingSet = new Set(existing);
+        const merged = [...existing, ...paths.filter((p) => !existingSet.has(p))];
+        return { ...current, options: { ...current.options, [optionId]: merged } };
+      });
+      return;
+    }
+
     const outputExtension = composer.composer.render.encoding === "webm" ? "webm" : "mp4";
     const suggestedName =
       kind === "output" && composer.composer.audioPath
@@ -245,7 +262,11 @@ export function App() {
               options: { ...current.options, [optionId]: value }
             }))
           }
-          onPickFile={(optionId, kind) => void handlePickPath(kind, selectedComponent.id, optionId)}
+          onPickFile={(optionId, kind) => {
+            handlePickPath(kind, selectedComponent.id, optionId).catch((err) =>
+              setError(err instanceof Error ? err.message : String(err))
+            );
+          }}
         />
       );
     }

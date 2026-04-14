@@ -36,6 +36,61 @@ export async function preloadSceneAssets(
     );
 
     for (const field of flatFields) {
+      if (field.type === "image-list") {
+        const pathArray = instance.options[field.id];
+        if (!Array.isArray(pathArray)) {
+          continue;
+        }
+        for (let i = 0; i < pathArray.length; i++) {
+          const itemPath = pathArray[i];
+          if (typeof itemPath !== "string" || !itemPath) {
+            continue;
+          }
+
+          let loadPath = itemPath;
+          if (isPluginAssetUri(itemPath)) {
+            if (!resolvePluginAsset) {
+              logger.warn(
+                `Skipping plugin asset "${itemPath}" for "${instance.id}/${field.id}[${i}]": no resolver available.`
+              );
+              continue;
+            }
+            const resolved = resolvePluginAsset(itemPath);
+            if (!resolved) {
+              logger.warn(
+                `Skipping plugin asset "${itemPath}" for "${instance.id}/${field.id}[${i}]": could not resolve.`
+              );
+              continue;
+            }
+            loadPath = resolved;
+          }
+
+          const syntheticOptionId = `${field.id}[${i}]`;
+          const cachedBody = await loadCachedAssetBody(
+            loadPath,
+            video,
+            signal,
+            logger,
+            assetCache,
+            "image"
+          );
+          const asset = {
+            instanceId: instance.id,
+            optionId: syntheticOptionId,
+            path: itemPath,
+            url: `${ASSET_URL_PREFIX}${encodeURIComponent(instance.id)}-${encodeURIComponent(syntheticOptionId)}${getExtensionSuffix(loadPath)}`,
+            contentType: cachedBody.contentType,
+            body: cachedBody.body
+          } satisfies PreloadedAsset;
+
+          assets.set(getAssetKey(instance.id, syntheticOptionId), asset);
+          logger.info(
+            `Preloaded image-list asset "${instance.id}/${syntheticOptionId}" from ${itemPath}${cachedBody.normalized ? " (normalized)" : ""}`
+          );
+        }
+        continue;
+      }
+
       if (field.type !== "image" && (field.type !== "video" || !options.includeVideoAssets)) {
         continue;
       }

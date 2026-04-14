@@ -85,6 +85,13 @@ function validateField(
       throw new Error(`"${field.label}" is required.`);
     }
 
+    if (field.type === "image-list") {
+      if (field.required) {
+        throw new Error(`"${field.label}" requires at least one image.`);
+      }
+      return [];
+    }
+
     return getFieldDefault(field, defaultValue);
   }
 
@@ -128,6 +135,37 @@ function validateField(
     case "image":
     case "video": {
       return validateFileField(field, rawValue, context);
+    }
+    case "image-list": {
+      if (!Array.isArray(rawValue)) {
+        if (field.required) {
+          throw new Error(`"${field.label}" requires at least one image.`);
+        }
+        return [];
+      }
+      const paths = rawValue.filter(
+        (v): v is string => typeof v === "string" && v.trim() !== ""
+      );
+      if (field.required && paths.length === 0) {
+        throw new Error(`"${field.label}" requires at least one image.`);
+      }
+      for (const p of paths) {
+        if (isPluginAssetUri(p)) {
+          const parsed = parsePluginAssetUri(p);
+          if (!parsed) {
+            throw new Error(`"${field.label}" has a malformed plugin asset reference.`);
+          }
+          if (
+            context.isPluginAssetAccessible &&
+            !context.isPluginAssetAccessible(parsed.pluginId, parsed.relativePath)
+          ) {
+            throw new Error(`"${field.label}" contains a plugin asset that is not readable.`);
+          }
+        } else if (context.isFileAccessible && !context.isFileAccessible(p)) {
+          throw new Error(`"${field.label}" contains a path that is not readable: ${p}`);
+        }
+      }
+      return paths;
     }
     case "select": {
       const stringValue = String(rawValue);

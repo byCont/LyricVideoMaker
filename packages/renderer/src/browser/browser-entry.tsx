@@ -25,6 +25,7 @@ import { shapeComponent } from "~scene-registry/components/shape/component";
 import { staticTextComponent } from "~scene-registry/components/static-text/component";
 import { equalizerComponent } from "~scene-registry/components/equalizer/component";
 import { lyricsByLineComponent } from "~scene-registry/components/lyrics-by-line/component";
+import { slideshowComponent } from "~scene-registry/components/slideshow/component";
 
 // Video uses a separate react-component file to avoid pulling in prepare→probe→child_process
 import { VideoRenderComponent } from "~scene-registry/components/video/react-component";
@@ -49,6 +50,7 @@ register("static-text", staticTextComponent.Component);
 register("equalizer", equalizerComponent.Component);
 register("lyrics-by-line", lyricsByLineComponent.Component);
 register("video", VideoRenderComponent);
+register("slideshow", slideshowComponent.Component);
 
 // Plugin host factory — used by activatePluginInBrowser to provide
 // the host object that external plugins receive in activate(host).

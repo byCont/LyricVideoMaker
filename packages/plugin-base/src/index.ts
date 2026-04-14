@@ -74,6 +74,10 @@ export type SceneOptionField =
       required?: boolean;
     } & SceneOptionFieldBase)
   | ({
+      type: "image-list";
+      required?: boolean;
+    } & SceneOptionFieldBase)
+  | ({
       type: "select";
       defaultValue?: string;
       options: { label: string; value: string }[];

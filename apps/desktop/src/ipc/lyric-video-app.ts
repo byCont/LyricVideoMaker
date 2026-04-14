@@ -10,6 +10,7 @@ export const lyricVideoApp: ElectronApi = {
   getBootstrapData: () => window.lyricVideoApp.getBootstrapData(),
   pickPath: (kind, suggestedName, outputEncoding) =>
     window.lyricVideoApp.pickPath(kind, suggestedName, outputEncoding),
+  pickPaths: (kind) => window.lyricVideoApp.pickPaths(kind),
   startRender: (request) => window.lyricVideoApp.startRender(request),
   renderPreviewFrame: (request) => window.lyricVideoApp.renderPreviewFrame(request),
   startSubtitleGeneration: (request) => window.lyricVideoApp.startSubtitleGeneration(request),

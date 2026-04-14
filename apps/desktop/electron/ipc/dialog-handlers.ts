@@ -34,6 +34,25 @@ export function registerDialogHandlers({ getMainWindow }: IpcDeps) {
       return result.canceled ? null : result.filePaths[0] ?? null;
     }
   );
+
+  ipcMain.handle(
+    "dialog:pick-paths",
+    async (_event, args: { kind: FilePickKind }) => {
+      const mainWindow = getMainWindow();
+      if (!mainWindow) {
+        return null;
+      }
+
+      const filterKind = args.kind === "image-list" ? "image" : args.kind;
+      const filters = getFileFilters(filterKind);
+      const result = await dialog.showOpenDialog(mainWindow, {
+        properties: ["openFile", "multiSelections"],
+        filters
+      });
+
+      return result.canceled ? null : result.filePaths;
+    }
+  );
 }
 
 function getOutputFileFilter(encoding: RenderEncoding) {

@@ -18,7 +18,7 @@ export function ComponentDetailsEditor({
   fonts: string[];
   onOptionChange: (optionId: string, value: unknown) => void;
   /** Generalized file-pick callback: identifier + kind (T-014). */
-  onPickFile: (optionId: string, kind: "image" | "video") => void;
+  onPickFile: (optionId: string, kind: "image" | "video" | "image-list") => void;
 }) {
   const topLevelOptions = component.options.filter((option) => !isSceneOptionCategory(option));
   const categorizedOptions = component.options.filter(isSceneOptionCategory);

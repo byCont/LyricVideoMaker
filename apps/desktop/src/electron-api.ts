@@ -42,7 +42,7 @@ export interface PaneLayoutPreferences {
   inspectorHeight: number;
 }
 
-export type FilePickKind = "audio" | "subtitle" | "lyrics-text" | "image" | "video" | "output";
+export type FilePickKind = "audio" | "subtitle" | "lyrics-text" | "image" | "video" | "image-list" | "output";
 
 export type SubtitleGenerationMode = "transcribe" | "align";
 
@@ -102,6 +102,7 @@ export interface ElectronApi {
     suggestedName?: string,
     outputEncoding?: RenderEncoding
   ): Promise<string | null>;
+  pickPaths(kind: FilePickKind): Promise<string[] | null>;
   startRender(request: StartRenderRequest): Promise<RenderHistoryEntry>;
   renderPreviewFrame(request: RenderPreviewRequest): Promise<RenderPreviewResponse>;
   startSubtitleGeneration(request: StartSubtitleGenerationRequest): Promise<SubtitleGenerationResult>;

@@ -5,6 +5,7 @@ const api: ElectronApi = {
   getBootstrapData: () => ipcRenderer.invoke("app:get-bootstrap-data"),
   pickPath: (kind, suggestedName, outputEncoding) =>
     ipcRenderer.invoke("dialog:pick-path", { kind, suggestedName, outputEncoding }),
+  pickPaths: (kind) => ipcRenderer.invoke("dialog:pick-paths", { kind }),
   startRender: (request) => ipcRenderer.invoke("render:start", request),
   renderPreviewFrame: (request) => ipcRenderer.invoke("preview:render-frame", request),
   startSubtitleGeneration: (request) => ipcRenderer.invoke("subtitle:start-generation", request),

@@ -185,7 +185,7 @@ export function OptionField({
    * switch below. Replaces the previous image-specific pick callback so
    * image and video fields go through the same path (T-014).
    */
-  onPickFile: (kind: "image" | "video") => void;
+  onPickFile: (kind: "image" | "video" | "image-list") => void;
 }) {
   const inputId = `${inputPrefix}-${field.id}`;
 
@@ -311,6 +311,51 @@ export function OptionField({
           </div>
         </div>
       );
+    case "image-list": {
+      const paths = Array.isArray(value) ? (value as string[]) : [];
+      return (
+        <div className="option-row option-row-multiline">
+          <div className="option-label">
+            <FieldLabel label={field.label} />
+          </div>
+          <div className="option-input image-list-input">
+            <div className="image-list-count">
+              {paths.length === 0 ? "No images" : `${paths.length} image${paths.length === 1 ? "" : "s"}`}
+            </div>
+            {paths.length > 0 && (
+              <ul className="image-list-items">
+                {paths.map((p, i) => {
+                  const fileName = p.split(/[\\/]/).pop() ?? p;
+                  return (
+                    <li key={`${p}-${i}`} className="image-list-item">
+                      <span className="image-list-item-name" title={p}>{fileName}</span>
+                      <button
+                        type="button"
+                        className="image-list-item-remove"
+                        title="Remove"
+                        onClick={() => onChange(paths.filter((_, idx) => idx !== i))}
+                      >
+                        &times;
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            <div className="image-list-actions">
+              <button type="button" className="secondary" onClick={() => onPickFile("image-list")}>
+                Add images
+              </button>
+              {paths.length > 0 && (
+                <button type="button" className="secondary" onClick={() => onChange([])}>
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
     case "select":
       return (
         <div className="option-row">

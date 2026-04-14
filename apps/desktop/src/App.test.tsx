@@ -65,6 +65,7 @@ describe("App", () => {
             return "image.png";
         }
       }),
+      pickPaths: vi.fn().mockResolvedValue(["image1.png", "image2.png"]),
       startRender: vi.fn().mockResolvedValue({
         id: "job-1",
         sceneId: "scene-1",

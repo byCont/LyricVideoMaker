@@ -22,6 +22,7 @@ describe("useFramePreview", () => {
     window.lyricVideoApp = {
       getBootstrapData: vi.fn(),
       pickPath: vi.fn(),
+      pickPaths: vi.fn(),
       startRender: vi.fn(),
       startSubtitleGeneration: vi.fn(),
       cancelSubtitleGeneration: vi.fn(),

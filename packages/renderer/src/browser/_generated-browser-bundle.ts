@@ -7562,7 +7562,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
   });
 
   // src/browser/browser-entry.tsx
-  var import_react11 = __toESM(require_react(), 1);
+  var import_react12 = __toESM(require_react(), 1);
 
   // src/browser/react-shell.tsx
   var import_react = __toESM(require_react(), 1);
@@ -8672,6 +8672,12 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
       if ((field.type === "image" || field.type === "video") && field.required) {
         throw new Error(\`"\${field.label}" is required.\`);
       }
+      if (field.type === "image-list") {
+        if (field.required) {
+          throw new Error(\`"\${field.label}" requires at least one image.\`);
+        }
+        return [];
+      }
       return getFieldDefault(field, defaultValue);
     }
     switch (field.type) {
@@ -8712,6 +8718,34 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
       case "image":
       case "video": {
         return validateFileField(field, rawValue, context);
+      }
+      case "image-list": {
+        if (!Array.isArray(rawValue)) {
+          if (field.required) {
+            throw new Error(\`"\${field.label}" requires at least one image.\`);
+          }
+          return [];
+        }
+        const paths = rawValue.filter(
+          (v) => typeof v === "string" && v.trim() !== ""
+        );
+        if (field.required && paths.length === 0) {
+          throw new Error(\`"\${field.label}" requires at least one image.\`);
+        }
+        for (const p of paths) {
+          if (isPluginAssetUri(p)) {
+            const parsed = parsePluginAssetUri(p);
+            if (!parsed) {
+              throw new Error(\`"\${field.label}" has a malformed plugin asset reference.\`);
+            }
+            if (context.isPluginAssetAccessible && !context.isPluginAssetAccessible(parsed.pluginId, parsed.relativePath)) {
+              throw new Error(\`"\${field.label}" contains a plugin asset that is not readable.\`);
+            }
+          } else if (context.isFileAccessible && !context.isFileAccessible(p)) {
+            throw new Error(\`"\${field.label}" contains a path that is not readable: \${p}\`);
+          }
+        }
+        return paths;
       }
       case "select": {
         const stringValue = String(rawValue);
@@ -13336,8 +13370,694 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
     Component: LyricsByLineRenderComponent
   };
 
-  // ../scene-registry/src/components/video/react-component.tsx
+  // ../scene-registry/src/components/slideshow/component.tsx
   var import_react10 = __toESM(require_react2(), 1);
+
+  // ../scene-registry/src/components/slideshow/options.ts
+  var DEFAULT_SLIDESHOW_OPTIONS = {
+    ...DEFAULT_TRANSFORM_OPTIONS,
+    ...DEFAULT_TIMING_OPTIONS,
+    images: [],
+    timingMode: "fixed-duration",
+    slideDuration: 5e3,
+    transitionDuration: 1e3,
+    initialDelay: 0,
+    slideOrder: "sequential",
+    repeatMode: "loop",
+    randomSeed: 0,
+    transitionType: "crossfade",
+    transitionEasing: "ease-in-out",
+    kenBurnsEnabled: false,
+    kenBurnsScale: 10,
+    kenBurnsRandomize: true,
+    fitMode: "cover",
+    opacity: 100,
+    cornerRadius: 0,
+    borderEnabled: false,
+    borderColor: "#ffffff",
+    borderThickness: 2,
+    tintEnabled: false,
+    tintColor: "#4da3ff",
+    tintStrength: 50,
+    shadowEnabled: false,
+    shadowColor: "#000000",
+    shadowBlur: 16,
+    shadowOffsetX: 0,
+    shadowOffsetY: 8,
+    glowEnabled: false,
+    glowColor: "#ffffff",
+    glowStrength: 40,
+    grayscale: 0,
+    blur: 0,
+    brightness: 100,
+    contrast: 100,
+    saturation: 100
+  };
+  var sourceCategory2 = {
+    type: "category",
+    id: "slideshow-source",
+    label: "Source",
+    defaultExpanded: true,
+    options: [
+      { type: "image-list", id: "images", label: "Images", required: true }
+    ]
+  };
+  var slideTimingCategory = {
+    type: "category",
+    id: "slideshow-slide-timing",
+    label: "Slide Timing",
+    defaultExpanded: true,
+    options: [
+      {
+        type: "select",
+        id: "timingMode",
+        label: "Timing Mode",
+        defaultValue: "fixed-duration",
+        options: [
+          { label: "Fixed Duration", value: "fixed-duration" },
+          { label: "Align to Lyrics", value: "align-to-lyrics" }
+        ]
+      },
+      { type: "number", id: "slideDuration", label: "Slide Duration (ms)", defaultValue: 5e3, min: 500, max: 6e4, step: 100 },
+      { type: "number", id: "transitionDuration", label: "Transition Duration (ms)", defaultValue: 1e3, min: 0, max: 1e4, step: 100 },
+      { type: "number", id: "initialDelay", label: "Initial Delay (ms)", defaultValue: 0, min: 0, max: 3e4, step: 100 }
+    ]
+  };
+  var behaviorCategory = {
+    type: "category",
+    id: "slideshow-behavior",
+    label: "Behavior",
+    defaultExpanded: false,
+    options: [
+      {
+        type: "select",
+        id: "slideOrder",
+        label: "Slide Order",
+        defaultValue: "sequential",
+        options: [
+          { label: "Sequential", value: "sequential" },
+          { label: "Shuffle", value: "shuffle" },
+          { label: "Random", value: "random" }
+        ]
+      },
+      {
+        type: "select",
+        id: "repeatMode",
+        label: "Repeat Mode",
+        defaultValue: "loop",
+        options: [
+          { label: "Loop", value: "loop" },
+          { label: "Single Pass", value: "single-pass" },
+          { label: "Hold Last", value: "hold-last" }
+        ]
+      },
+      { type: "number", id: "randomSeed", label: "Random Seed (0 = random)", defaultValue: 0, min: 0, max: 999999, step: 1 }
+    ]
+  };
+  var transitionCategory = {
+    type: "category",
+    id: "slideshow-transition",
+    label: "Transition",
+    defaultExpanded: false,
+    options: [
+      {
+        type: "select",
+        id: "transitionType",
+        label: "Transition Type",
+        defaultValue: "crossfade",
+        options: [
+          { label: "None", value: "none" },
+          { label: "Crossfade", value: "crossfade" },
+          { label: "Slide Left", value: "slide-left" },
+          { label: "Slide Right", value: "slide-right" },
+          { label: "Slide Up", value: "slide-up" },
+          { label: "Slide Down", value: "slide-down" },
+          { label: "Zoom In", value: "zoom-in" },
+          { label: "Zoom Out", value: "zoom-out" },
+          { label: "Dissolve", value: "dissolve" },
+          { label: "Wipe Left", value: "wipe-left" },
+          { label: "Wipe Right", value: "wipe-right" }
+        ]
+      },
+      {
+        type: "select",
+        id: "transitionEasing",
+        label: "Transition Easing",
+        defaultValue: "ease-in-out",
+        options: [
+          { label: "Linear", value: "linear" },
+          { label: "Ease In", value: "ease-in" },
+          { label: "Ease Out", value: "ease-out" },
+          { label: "Ease In-Out", value: "ease-in-out" }
+        ]
+      }
+    ]
+  };
+  var kenBurnsCategory = {
+    type: "category",
+    id: "slideshow-ken-burns",
+    label: "Ken Burns Effect",
+    defaultExpanded: false,
+    options: [
+      { type: "boolean", id: "kenBurnsEnabled", label: "Enabled", defaultValue: false },
+      { type: "number", id: "kenBurnsScale", label: "Scale (%)", defaultValue: 10, min: 1, max: 50, step: 1 },
+      { type: "boolean", id: "kenBurnsRandomize", label: "Randomize Direction", defaultValue: true }
+    ]
+  };
+  var fitCategory2 = {
+    type: "category",
+    id: "slideshow-fit",
+    label: "Fit",
+    defaultExpanded: false,
+    options: [
+      {
+        type: "select",
+        id: "fitMode",
+        label: "Fit Mode",
+        defaultValue: "cover",
+        options: [
+          { label: "Contain", value: "contain" },
+          { label: "Cover", value: "cover" },
+          { label: "Fill", value: "fill" },
+          { label: "None", value: "none" }
+        ]
+      }
+    ]
+  };
+  var appearanceCategory2 = {
+    type: "category",
+    id: "slideshow-appearance",
+    label: "Appearance",
+    defaultExpanded: false,
+    options: [
+      { type: "number", id: "opacity", label: "Opacity", defaultValue: 100, min: 0, max: 100, step: 1 },
+      { type: "number", id: "cornerRadius", label: "Corner Radius", defaultValue: 0, min: 0, max: 200, step: 1 }
+    ]
+  };
+  var effectsCategory4 = {
+    type: "category",
+    id: "slideshow-effects",
+    label: "Effects",
+    defaultExpanded: false,
+    options: [
+      { type: "boolean", id: "borderEnabled", label: "Border Enabled", defaultValue: false },
+      { type: "color", id: "borderColor", label: "Border Color", defaultValue: "#ffffff" },
+      { type: "number", id: "borderThickness", label: "Border Thickness", defaultValue: 2, min: 0, max: 30, step: 1 },
+      { type: "boolean", id: "tintEnabled", label: "Tint Enabled", defaultValue: false },
+      { type: "color", id: "tintColor", label: "Tint Color", defaultValue: "#4da3ff" },
+      { type: "number", id: "tintStrength", label: "Tint Strength", defaultValue: 50, min: 0, max: 100, step: 1 },
+      { type: "boolean", id: "shadowEnabled", label: "Shadow Enabled", defaultValue: false },
+      { type: "color", id: "shadowColor", label: "Shadow Color", defaultValue: "#000000" },
+      { type: "number", id: "shadowBlur", label: "Shadow Blur", defaultValue: 16, min: 0, max: 200, step: 1 },
+      { type: "number", id: "shadowOffsetX", label: "Shadow Offset X", defaultValue: 0, min: -200, max: 200, step: 1 },
+      { type: "number", id: "shadowOffsetY", label: "Shadow Offset Y", defaultValue: 8, min: -200, max: 200, step: 1 },
+      { type: "boolean", id: "glowEnabled", label: "Glow Enabled", defaultValue: false },
+      { type: "color", id: "glowColor", label: "Glow Color", defaultValue: "#ffffff" },
+      { type: "number", id: "glowStrength", label: "Glow Strength", defaultValue: 40, min: 0, max: 200, step: 1 },
+      { type: "number", id: "grayscale", label: "Grayscale", defaultValue: 0, min: 0, max: 100, step: 1 },
+      { type: "number", id: "blur", label: "Blur", defaultValue: 0, min: 0, max: 100, step: 1 },
+      { type: "number", id: "brightness", label: "Brightness", defaultValue: 100, min: 0, max: 300, step: 1 },
+      { type: "number", id: "contrast", label: "Contrast", defaultValue: 100, min: 0, max: 300, step: 1 },
+      { type: "number", id: "saturation", label: "Saturation", defaultValue: 100, min: 0, max: 300, step: 1 }
+    ]
+  };
+  var slideshowOptionsSchema = [
+    sourceCategory2,
+    slideTimingCategory,
+    behaviorCategory,
+    transitionCategory,
+    kenBurnsCategory,
+    transformCategory,
+    fitCategory2,
+    appearanceCategory2,
+    effectsCategory4,
+    timingCategory
+  ];
+
+  // ../scene-registry/src/components/slideshow/order.ts
+  function createSeededRng(seed) {
+    let state = seed === 0 ? Date.now() : seed;
+    return () => {
+      state |= 0;
+      state = state + 1831565813 | 0;
+      let t = Math.imul(state ^ state >>> 15, 1 | state);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  function shuffleArray(array, rng) {
+    const result = [...array];
+    for (let i = result.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [result[i], result[j]] = [result[j], result[i]];
+    }
+    return result;
+  }
+  function computeEffectiveOrder(imageCount, order, seed) {
+    const identity = Array.from({ length: imageCount }, (_, i) => i);
+    if (order === "sequential" || order === "random") {
+      return identity;
+    }
+    const rng = createSeededRng(seed);
+    return shuffleArray(identity, rng);
+  }
+
+  // ../scene-registry/src/components/slideshow/timing.ts
+  var MAX_SLIDES = 1e4;
+  function buildSlideSchedule(options, cues, videoDurationMs) {
+    const imageCount = options.images.length;
+    if (imageCount === 0) {
+      return { schedule: [], effectiveOrder: [] };
+    }
+    const effectiveOrder = computeEffectiveOrder(imageCount, options.slideOrder, options.randomSeed);
+    const rng = options.slideOrder === "random" ? createSeededRng(options.randomSeed) : null;
+    if (options.timingMode === "align-to-lyrics") {
+      return {
+        schedule: buildLyricsSchedule(options, effectiveOrder, cues, videoDurationMs, imageCount, rng),
+        effectiveOrder
+      };
+    }
+    return {
+      schedule: buildFixedDurationSchedule(options, effectiveOrder, videoDurationMs, imageCount, rng),
+      effectiveOrder
+    };
+  }
+  function buildFixedDurationSchedule(options, effectiveOrder, videoDurationMs, imageCount, rng) {
+    const { slideDuration, transitionDuration, initialDelay, repeatMode } = options;
+    const stride = Math.max(slideDuration - transitionDuration, 1);
+    const schedule = [];
+    let slideIndex = 0;
+    let timeMs = initialDelay;
+    while (timeMs < videoDurationMs && slideIndex < MAX_SLIDES) {
+      if (repeatMode === "single-pass" && slideIndex >= imageCount) {
+        break;
+      }
+      let imageIndex;
+      if (rng) {
+        imageIndex = Math.floor(rng() * imageCount);
+      } else if (repeatMode === "hold-last" && slideIndex >= imageCount) {
+        imageIndex = effectiveOrder[imageCount - 1];
+      } else {
+        imageIndex = effectiveOrder[slideIndex % imageCount];
+      }
+      const entryStartMs = timeMs;
+      const entryEndMs = Math.min(timeMs + slideDuration, videoDurationMs);
+      const holdStartMs = slideIndex > 0 ? Math.min(entryStartMs + transitionDuration, entryEndMs) : entryStartMs;
+      const holdEndMs = Math.max(entryEndMs - transitionDuration, holdStartMs);
+      schedule.push({
+        slideIndex,
+        imageIndex,
+        startMs: entryStartMs,
+        endMs: entryEndMs,
+        holdStartMs,
+        holdEndMs
+      });
+      timeMs += stride;
+      slideIndex++;
+    }
+    return schedule;
+  }
+  function buildLyricsSchedule(options, effectiveOrder, cues, videoDurationMs, imageCount, rng) {
+    const { transitionDuration, repeatMode } = options;
+    const halfTransition = transitionDuration / 2;
+    const schedule = [];
+    if (cues.length === 0) {
+      schedule.push({
+        slideIndex: 0,
+        imageIndex: effectiveOrder[0],
+        startMs: 0,
+        endMs: videoDurationMs,
+        holdStartMs: 0,
+        holdEndMs: videoDurationMs
+      });
+      return schedule;
+    }
+    for (let i = 0; i < cues.length && i < MAX_SLIDES; i++) {
+      if (repeatMode === "single-pass" && i >= imageCount) {
+        break;
+      }
+      let imageIndex;
+      if (rng) {
+        imageIndex = Math.floor(rng() * imageCount);
+      } else if (repeatMode === "hold-last" && i >= imageCount) {
+        imageIndex = effectiveOrder[imageCount - 1];
+      } else {
+        imageIndex = effectiveOrder[i % imageCount];
+      }
+      const cueStartMs = cues[i].startMs;
+      const cueEndMs = i < cues.length - 1 ? cues[i + 1].startMs : videoDurationMs;
+      const startMs = i > 0 ? Math.max(cueStartMs - halfTransition, 0) : 0;
+      const endMs = i < cues.length - 1 ? Math.min(cueEndMs + halfTransition, videoDurationMs) : videoDurationMs;
+      const holdStartMs = i > 0 ? Math.min(cueStartMs + halfTransition, endMs) : startMs;
+      const holdEndMs = i < cues.length - 1 ? Math.max(cueEndMs - halfTransition, holdStartMs) : endMs;
+      schedule.push({
+        slideIndex: i,
+        imageIndex,
+        startMs,
+        endMs,
+        holdStartMs,
+        holdEndMs
+      });
+    }
+    return schedule;
+  }
+
+  // ../scene-registry/src/components/slideshow/validation.ts
+  function validateSlideshowOptions(options) {
+    if (options.timingMode === "fixed-duration") {
+      if (options.transitionDuration >= options.slideDuration) {
+        throw new Error('"Transition Duration" must be less than "Slide Duration".');
+      }
+      if (options.slideDuration < 500) {
+        throw new Error('"Slide Duration" must be at least 500ms.');
+      }
+    }
+    if (options.transitionDuration < 0) {
+      throw new Error('"Transition Duration" must be non-negative.');
+    }
+  }
+
+  // ../scene-registry/src/components/slideshow/prepare.ts
+  function getSlideshowPrepareCacheKey(ctx) {
+    return JSON.stringify({
+      images: ctx.options.images,
+      timingMode: ctx.options.timingMode,
+      slideDuration: ctx.options.slideDuration,
+      transitionDuration: ctx.options.transitionDuration,
+      initialDelay: ctx.options.initialDelay,
+      slideOrder: ctx.options.slideOrder,
+      repeatMode: ctx.options.repeatMode,
+      randomSeed: ctx.options.randomSeed,
+      videoDurationMs: ctx.video.durationMs
+    });
+  }
+  async function prepareSlideshowComponent(ctx) {
+    validateSlideshowOptions(ctx.options);
+    const { schedule, effectiveOrder } = buildSlideSchedule(
+      ctx.options,
+      ctx.lyrics.cues,
+      ctx.video.durationMs
+    );
+    const data = {
+      slideSchedule: schedule,
+      effectiveOrder,
+      totalSlides: schedule.length
+    };
+    return data;
+  }
+
+  // ../scene-registry/src/components/slideshow/transitions.ts
+  function applyEasing2(t, easing) {
+    switch (easing) {
+      case "ease-in":
+        return t * t;
+      case "ease-out":
+        return 1 - (1 - t) * (1 - t);
+      case "ease-in-out":
+        return t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
+      case "linear":
+      default:
+        return t;
+    }
+  }
+  function computeTransitionStyle(type, rawProgress, easing) {
+    const p = applyEasing2(Math.max(0, Math.min(1, rawProgress)), easing);
+    switch (type) {
+      case "none":
+        return p < 0.5 ? { outgoing: { opacity: 1, transform: "" }, incoming: { opacity: 0, transform: "" } } : { outgoing: { opacity: 0, transform: "" }, incoming: { opacity: 1, transform: "" } };
+      case "crossfade":
+        return {
+          outgoing: { opacity: 1 - p, transform: "" },
+          incoming: { opacity: p, transform: "" }
+        };
+      case "slide-left":
+        return {
+          outgoing: { opacity: 1, transform: \`translateX(\${-p * 100}%)\` },
+          incoming: { opacity: 1, transform: \`translateX(\${(1 - p) * 100}%)\` }
+        };
+      case "slide-right":
+        return {
+          outgoing: { opacity: 1, transform: \`translateX(\${p * 100}%)\` },
+          incoming: { opacity: 1, transform: \`translateX(\${-(1 - p) * 100}%)\` }
+        };
+      case "slide-up":
+        return {
+          outgoing: { opacity: 1, transform: \`translateY(\${-p * 100}%)\` },
+          incoming: { opacity: 1, transform: \`translateY(\${(1 - p) * 100}%)\` }
+        };
+      case "slide-down":
+        return {
+          outgoing: { opacity: 1, transform: \`translateY(\${p * 100}%)\` },
+          incoming: { opacity: 1, transform: \`translateY(\${-(1 - p) * 100}%)\` }
+        };
+      case "zoom-in":
+        return {
+          outgoing: { opacity: 1 - p, transform: \`scale(\${1 + p * 0.5})\` },
+          incoming: { opacity: p, transform: \`scale(\${0.5 + p * 0.5})\` }
+        };
+      case "zoom-out":
+        return {
+          outgoing: { opacity: 1 - p, transform: \`scale(\${1 - p * 0.5})\` },
+          incoming: { opacity: p, transform: \`scale(\${1.5 - p * 0.5})\` }
+        };
+      case "dissolve":
+        return {
+          outgoing: { opacity: 1 - p, transform: "" },
+          incoming: { opacity: p * p, transform: "" }
+        };
+      case "wipe-left":
+        return {
+          outgoing: { opacity: 1, transform: "", clipPath: \`inset(0 \${p * 100}% 0 0)\` },
+          incoming: { opacity: 1, transform: "", clipPath: \`inset(0 0 0 \${(1 - p) * 100}%)\` }
+        };
+      case "wipe-right":
+        return {
+          outgoing: { opacity: 1, transform: "", clipPath: \`inset(0 0 0 \${p * 100}%)\` },
+          incoming: { opacity: 1, transform: "", clipPath: \`inset(0 \${(1 - p) * 100}% 0 0)\` }
+        };
+      default:
+        return {
+          outgoing: { opacity: 1 - p, transform: "" },
+          incoming: { opacity: p, transform: "" }
+        };
+    }
+  }
+
+  // ../scene-registry/src/components/slideshow/runtime.ts
+  function findActiveSlides(timeMs, schedule) {
+    const active = [];
+    for (const entry of schedule) {
+      if (timeMs >= entry.startMs && timeMs < entry.endMs) {
+        active.push(entry);
+        if (active.length >= 2) break;
+      }
+    }
+    return active;
+  }
+  function computeSlideshowFrameState(timeMs, schedule, options) {
+    if (schedule.length === 0) {
+      return { currentSlide: null, nextSlide: null, isTransitioning: false, transitionProgress: 0 };
+    }
+    const active = findActiveSlides(timeMs, schedule);
+    if (active.length === 0) {
+      return { currentSlide: null, nextSlide: null, isTransitioning: false, transitionProgress: 0 };
+    }
+    if (active.length === 1) {
+      const entry = active[0];
+      const kenBurns = computeKenBurnsTransform(timeMs, entry, options);
+      return {
+        currentSlide: { imageIndex: entry.imageIndex, opacity: 1, transform: kenBurns },
+        nextSlide: null,
+        isTransitioning: false,
+        transitionProgress: 0
+      };
+    }
+    const current = active[0];
+    const next = active[1];
+    const overlapStart = next.startMs;
+    const overlapEnd = current.endMs;
+    const overlapDuration = overlapEnd - overlapStart;
+    const rawProgress = overlapDuration > 0 ? (timeMs - overlapStart) / overlapDuration : 1;
+    const transitionProgress = Math.max(0, Math.min(1, rawProgress));
+    const style = computeTransitionStyle(
+      options.transitionType,
+      transitionProgress,
+      options.transitionEasing
+    );
+    const currentKenBurns = computeKenBurnsTransform(timeMs, current, options);
+    const nextKenBurns = computeKenBurnsTransform(timeMs, next, options);
+    const currentTransform = [currentKenBurns, style.outgoing.transform].filter(Boolean).join(" ");
+    const nextTransform = [nextKenBurns, style.incoming.transform].filter(Boolean).join(" ");
+    return {
+      currentSlide: {
+        imageIndex: current.imageIndex,
+        opacity: style.outgoing.opacity,
+        transform: currentTransform
+      },
+      nextSlide: {
+        imageIndex: next.imageIndex,
+        opacity: style.incoming.opacity,
+        transform: nextTransform
+      },
+      isTransitioning: true,
+      transitionProgress
+    };
+  }
+  function computeKenBurnsTransform(timeMs, entry, options) {
+    if (!options.kenBurnsEnabled || options.kenBurnsScale <= 0) {
+      return "";
+    }
+    const scaleFactor = options.kenBurnsScale / 100;
+    const rng = options.kenBurnsRandomize ? createSeededRng((options.randomSeed || 42) + entry.slideIndex * 7919) : createSeededRng(42);
+    const startScale = 1 + rng() * scaleFactor;
+    const endScale = 1 + rng() * scaleFactor;
+    const startX = (rng() - 0.5) * scaleFactor * 20;
+    const startY = (rng() - 0.5) * scaleFactor * 20;
+    const endX = (rng() - 0.5) * scaleFactor * 20;
+    const endY = (rng() - 0.5) * scaleFactor * 20;
+    const duration = entry.endMs - entry.startMs;
+    const progress = duration > 0 ? Math.max(0, Math.min(1, (timeMs - entry.startMs) / duration)) : 0;
+    const scale = startScale + (endScale - startScale) * progress;
+    const x = startX + (endX - startX) * progress;
+    const y = startY + (endY - startY) * progress;
+    return \`scale(\${scale.toFixed(4)}) translate(\${x.toFixed(2)}px, \${y.toFixed(2)}px)\`;
+  }
+  function buildSlideshowContainerStyle(options, video, timeMs) {
+    const transformStyle = computeTransformStyle(options, {
+      width: video.width,
+      height: video.height
+    });
+    const containerStyle = {};
+    for (const [key, value] of Object.entries(transformStyle)) {
+      if (value !== void 0 && value !== null) {
+        containerStyle[key] = String(value);
+      }
+    }
+    containerStyle.borderRadius = \`\${options.cornerRadius}px\`;
+    containerStyle.overflow = "hidden";
+    containerStyle.opacity = String(options.opacity / 100 * computeTimingOpacity(timeMs, options));
+    if (options.borderEnabled && options.borderThickness > 0) {
+      containerStyle.border = \`\${options.borderThickness}px solid \${options.borderColor}\`;
+      containerStyle.boxSizing = "border-box";
+    }
+    const shadowFilter = buildShadowGlow2(options);
+    if (shadowFilter !== "none") {
+      containerStyle.filter = shadowFilter;
+    }
+    return containerStyle;
+  }
+  function buildImageFilter2(options) {
+    const parts = [];
+    if (options.grayscale > 0) parts.push(\`grayscale(\${options.grayscale / 100})\`);
+    if (options.blur > 0) parts.push(\`blur(\${options.blur}px)\`);
+    if (options.brightness !== 100) parts.push(\`brightness(\${options.brightness / 100})\`);
+    if (options.contrast !== 100) parts.push(\`contrast(\${options.contrast / 100})\`);
+    if (options.saturation !== 100) parts.push(\`saturate(\${options.saturation / 100})\`);
+    return parts.join(" ");
+  }
+  function buildShadowGlow2(options) {
+    const parts = [];
+    if (options.shadowEnabled) {
+      parts.push(
+        \`drop-shadow(\${options.shadowOffsetX}px \${options.shadowOffsetY}px \${options.shadowBlur}px \${options.shadowColor})\`
+      );
+    }
+    if (options.glowEnabled) {
+      parts.push(\`drop-shadow(0 0 \${options.glowStrength}px \${options.glowColor})\`);
+    }
+    return parts.join(" ") || "none";
+  }
+  function buildTintOverlay(options) {
+    if (!options.tintEnabled) return "";
+    return \`<div style="position:absolute;inset:0;background:\${withAlpha(options.tintColor, options.tintStrength / 100)};mix-blend-mode:multiply;pointer-events:none;"></div>\`;
+  }
+  function mapFitMode2(mode) {
+    switch (mode) {
+      case "contain":
+        return "contain";
+      case "cover":
+        return "cover";
+      case "fill":
+        return "fill";
+      case "none":
+        return "none";
+      default:
+        return "cover";
+    }
+  }
+  function buildSlideImgStyle(options, slideOpacity, slideTransform, clipPath) {
+    const filter = buildImageFilter2(options);
+    let style = \`position:absolute;inset:0;width:100%;height:100%;object-fit:\${mapFitMode2(options.fitMode)};opacity:\${slideOpacity};\`;
+    if (slideTransform) {
+      style += \`transform:\${slideTransform};\`;
+    }
+    if (filter) {
+      style += \`filter:\${filter};\`;
+    }
+    if (clipPath) {
+      style += \`clip-path:\${clipPath};\`;
+    }
+    return style;
+  }
+  function escapeAttr4(value) {
+    return value.replace(/"/g, "&quot;");
+  }
+  function buildSlideshowInnerHtml(frameState, options, resolveImageUrl) {
+    const parts = [];
+    if (frameState.currentSlide) {
+      const url = resolveImageUrl(frameState.currentSlide.imageIndex);
+      if (url) {
+        const style = buildSlideImgStyle(options, frameState.currentSlide.opacity, frameState.currentSlide.transform);
+        parts.push(\`<img src="\${escapeAttr4(url)}" alt="" style="\${style}" />\`);
+      }
+    }
+    if (frameState.nextSlide) {
+      const url = resolveImageUrl(frameState.nextSlide.imageIndex);
+      if (url) {
+        const style = buildSlideImgStyle(options, frameState.nextSlide.opacity, frameState.nextSlide.transform);
+        parts.push(\`<img src="\${escapeAttr4(url)}" alt="" style="\${style}" />\`);
+      }
+    }
+    parts.push(buildTintOverlay(options));
+    return parts.join("");
+  }
+
+  // ../scene-registry/src/components/slideshow/component.tsx
+  var slideshowComponent = {
+    id: "slideshow",
+    name: "Slideshow",
+    description: "Animated slideshow with transitions, timing modes, Ken Burns effect, and multiple images.",
+    staticWhenMarkupUnchanged: false,
+    options: slideshowOptionsSchema,
+    defaultOptions: DEFAULT_SLIDESHOW_OPTIONS,
+    getPrepareCacheKey: getSlideshowPrepareCacheKey,
+    prepare: prepareSlideshowComponent,
+    Component: ({ instance, options, video, timeMs, assets, prepared }) => {
+      const preparedData = prepared;
+      const schedule = preparedData.slideSchedule ?? [];
+      if (schedule.length === 0 || options.images.length === 0) {
+        return null;
+      }
+      const containerStyle = buildSlideshowContainerStyle(options, video, timeMs);
+      const frameState = computeSlideshowFrameState(timeMs, schedule, options);
+      if (!frameState.currentSlide && !frameState.nextSlide) {
+        return null;
+      }
+      const resolveImageUrl = (imageIndex) => assets.getUrl(instance.id, \`images[\${imageIndex}]\`);
+      const html = buildSlideshowInnerHtml(frameState, options, resolveImageUrl);
+      return /* @__PURE__ */ import_react10.default.createElement(
+        "div",
+        {
+          style: containerStyle,
+          "data-slideshow-component": "",
+          dangerouslySetInnerHTML: { __html: html }
+        }
+      );
+    }
+  };
+
+  // ../scene-registry/src/components/video/react-component.tsx
+  var import_react11 = __toESM(require_react2(), 1);
 
   // ../scene-registry/src/components/video/runtime.ts
   function buildVideoInitialState(options, video, _resolvedUrl, frameExtraction) {
@@ -13357,7 +14077,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
       containerStyle.border = \`\${options.borderThickness}px solid \${options.borderColor}\`;
       containerStyle.boxSizing = "border-box";
     }
-    const shadowFilter = buildShadowGlow2(options);
+    const shadowFilter = buildShadowGlow3(options);
     if (shadowFilter !== "none") {
       containerStyle.filter = shadowFilter;
     }
@@ -13386,7 +14106,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
     if (options.saturation !== 100) parts.push(\`saturate(\${options.saturation / 100})\`);
     return parts.join(" ");
   }
-  function buildShadowGlow2(options) {
+  function buildShadowGlow3(options) {
     const parts = [];
     if (options.shadowEnabled) {
       parts.push(
@@ -13413,7 +14133,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
     if (!initial.sourceUrl) {
       return null;
     }
-    return /* @__PURE__ */ import_react10.default.createElement(
+    return /* @__PURE__ */ import_react11.default.createElement(
       "div",
       {
         style: initial.containerStyle,
@@ -13448,9 +14168,10 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
   register("equalizer", equalizerComponent.Component);
   register("lyrics-by-line", lyricsByLineComponent.Component);
   register("video", VideoRenderComponent);
+  register("slideshow", slideshowComponent.Component);
   window.__getPluginHost = function() {
     return {
-      React: import_react11.default,
+      React: import_react12.default,
       core: {},
       transform: {
         computeTransformStyle,
