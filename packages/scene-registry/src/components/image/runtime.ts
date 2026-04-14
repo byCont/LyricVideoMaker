@@ -13,10 +13,11 @@ export interface ImageInitialState {
 /**
  * Build the Image component's browser initial state (R5).
  *
- * The outer positioned box honors the shared Transform helper plus
- * corner radius (clipping), optional border, stacked shadow + glow.
- * The inner image element applies fit mode and filter values. When a
- * tint is enabled a multiply-blend overlay renders on top of the image.
+ * The outer positioned box honors the shared Transform helper for
+ * positioning and opacity only. All visual effects (border, corner
+ * radius, shadow, glow, CSS filters) are applied directly to the inner
+ * image element. When a tint is enabled a multiply-blend overlay renders
+ * on top of the image.
  *
  * When no source URL is resolvable the helper returns null inner markup
  * — the component renders nothing rather than crashing or showing a
@@ -39,18 +40,7 @@ export function buildImageInitialState(
     }
   }
 
-  containerStyle.borderRadius = `${options.cornerRadius}px`;
-  containerStyle.overflow = "hidden";
   containerStyle.opacity = String((options.opacity / 100) * computeTimingOpacity(timeMs, options));
-  if (options.borderEnabled && options.borderThickness > 0) {
-    containerStyle.border = `${options.borderThickness}px solid ${options.borderColor}`;
-    containerStyle.boxSizing = "border-box";
-  }
-
-  const shadowFilter = buildShadowGlow(options);
-  if (shadowFilter !== "none") {
-    containerStyle.filter = shadowFilter;
-  }
 
   const html = resolvedUrl ? buildInnerMarkup(options, resolvedUrl) : "";
   const initialOpacity = (options.opacity / 100) * computeTimingOpacity(timeMs, options);
@@ -65,10 +55,17 @@ export function buildImageInitialState(
 
 function buildInnerMarkup(options: ImageComponentOptions, url: string): string {
   const cssFitMode = mapFitMode(options.fitMode);
-  const filter = buildImageFilter(options);
-  const img = `<img src="${escapeAttr(url)}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:${cssFitMode};${filter ? `filter:${filter};` : ""}" />`;
+  const filter = buildCombinedFilter(options);
+  let imgStyle = `position:absolute;inset:0;width:100%;height:100%;object-fit:${cssFitMode};border-radius:${options.cornerRadius}px;`;
+  if (options.borderEnabled && options.borderThickness > 0) {
+    imgStyle += `border:${options.borderThickness}px solid ${options.borderColor};box-sizing:border-box;`;
+  }
+  if (filter) {
+    imgStyle += `filter:${filter};`;
+  }
+  const img = `<img src="${escapeAttr(url)}" alt="" style="${imgStyle}" />`;
   const tint = options.tintEnabled
-    ? `<div style="position:absolute;inset:0;background:${withAlpha(options.tintColor, options.tintStrength / 100)};mix-blend-mode:multiply;"></div>`
+    ? `<div style="position:absolute;inset:0;border-radius:${options.cornerRadius}px;background:${withAlpha(options.tintColor, options.tintStrength / 100)};mix-blend-mode:multiply;"></div>`
     : "";
   return `${img}${tint}`;
 }
@@ -88,18 +85,13 @@ function mapFitMode(mode: ImageComponentOptions["fitMode"]): string {
   }
 }
 
-function buildImageFilter(options: ImageComponentOptions): string {
+function buildCombinedFilter(options: ImageComponentOptions): string {
   const parts: string[] = [];
   if (options.grayscale > 0) parts.push(`grayscale(${options.grayscale / 100})`);
   if (options.blur > 0) parts.push(`blur(${options.blur}px)`);
   if (options.brightness !== 100) parts.push(`brightness(${options.brightness / 100})`);
   if (options.contrast !== 100) parts.push(`contrast(${options.contrast / 100})`);
   if (options.saturation !== 100) parts.push(`saturate(${options.saturation / 100})`);
-  return parts.join(" ");
-}
-
-function buildShadowGlow(options: ImageComponentOptions): string {
-  const parts: string[] = [];
   if (options.shadowEnabled) {
     parts.push(
       `drop-shadow(${options.shadowOffsetX}px ${options.shadowOffsetY}px ${options.shadowBlur}px ${options.shadowColor})`
@@ -108,7 +100,7 @@ function buildShadowGlow(options: ImageComponentOptions): string {
   if (options.glowEnabled) {
     parts.push(`drop-shadow(0 0 ${options.glowStrength}px ${options.glowColor})`);
   }
-  return parts.join(" ") || "none";
+  return parts.join(" ");
 }
 
 function escapeAttr(value: string): string {

@@ -332,21 +332,23 @@ type SceneOptionField =
   | { type: "color";   id: string; label: string; defaultValue?: string }
   | { type: "font";    id: string; label: string; defaultValue?: string }
   | { type: "image";   id: string; label: string; required?: boolean }
+  | { type: "image-list"; id: string; label: string; required?: boolean }
   | { type: "video";   id: string; label: string; required?: boolean }
   | { type: "select";  id: string; label: string; defaultValue?: string;
       options: { label: string; value: string }[] };
 ```
 
-| Type      | Editor Control     | Value Type | Notes                                     |
-|-----------|--------------------|------------|-------------------------------------------|
-| `boolean` | Checkbox           | `boolean`  |                                           |
-| `number`  | Slider / spinner   | `number`   | Use `min`, `max`, `step` for constraints. |
-| `text`    | Text input         | `string`   | Set `multiline: true` for textarea.       |
-| `color`   | Color picker       | `string`   | Hex string (e.g. `"#ff0000"`).            |
-| `font`    | Google Font picker | `string`   | Font family name from Google Fonts.       |
-| `image`   | File picker        | `string`   | Path to image file. Use `required: true`. |
-| `video`   | File picker        | `string`   | Path to video file. Use `required: true`. |
-| `select`  | Dropdown           | `string`   | Value must match one in `options` array.  |
+| Type         | Editor Control     | Value Type   | Notes                                      |
+|--------------|--------------------|--------------|--------------------------------------------|
+| `boolean`    | Checkbox           | `boolean`    |                                            |
+| `number`     | Slider / spinner   | `number`     | Use `min`, `max`, `step` for constraints.  |
+| `text`       | Text input         | `string`     | Set `multiline: true` for textarea.        |
+| `color`      | Color picker       | `string`     | Hex string (e.g. `"#ff0000"`).             |
+| `font`       | Google Font picker | `string`     | Font family name from Google Fonts.        |
+| `image`      | File picker        | `string`     | Path to image file. Use `required: true`.  |
+| `image-list` | Multi-file picker  | `string[]`   | Array of image paths. Use `required: true`.|
+| `video`      | File picker        | `string`     | Path to video file. Use `required: true`.  |
+| `select`     | Dropdown           | `string`     | Value must match one in `options` array.   |
 
 ### Option Categories
 
@@ -649,7 +651,7 @@ Scene components render back-to-front (first in array = bottom layer).
 
 Scenes can reference built-in component IDs (`background-color`,
 `lyrics-by-line`, `equalizer`, `shape`, `static-text`,
-`image`, `video`) in addition to your plugin's own components.
+`image`, `video`, `slideshow`) in addition to your plugin's own components.
 
 Example:
 

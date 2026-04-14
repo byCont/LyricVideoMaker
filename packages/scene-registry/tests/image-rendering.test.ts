@@ -27,10 +27,9 @@ describe("Image rendering — fit modes (T-038)", () => {
     }
   );
 
-  it("corner radius is visibly applied and clips the image (overflow:hidden + border-radius)", () => {
+  it("corner radius is applied to the inner image element", () => {
     const state = buildImageInitialState(opts({ cornerRadius: 32 }), video, 0, "/asset/pic.png");
-    expect(state.containerStyle.borderRadius).toBe("32px");
-    expect(state.containerStyle.overflow).toBe("hidden");
+    expect(state.html).toContain("border-radius:32px");
   });
 });
 
@@ -63,10 +62,10 @@ describe("Image rendering — border + shadow + glow + tint (T-039)", () => {
       0,
       "/asset/pic.png"
     );
-    expect(withBorder.containerStyle.border).toBe("4px solid #ff0000");
+    expect(withBorder.html).toContain("border:4px solid #ff0000");
 
     const noBorder = buildImageInitialState(opts({ borderEnabled: false }), video, 0, "/asset/pic.png");
-    expect(noBorder.containerStyle.border).toBeUndefined();
+    expect(noBorder.html).not.toContain("border:");
   });
 
   it("tint overlay appears only when enabled", () => {
@@ -90,8 +89,7 @@ describe("Image rendering — border + shadow + glow + tint (T-039)", () => {
       0,
       "/asset/pic.png"
     );
-    expect(state.containerStyle.filter).toBeDefined();
-    const count = (state.containerStyle.filter!.match(/drop-shadow/g) || []).length;
+    const count = (state.html.match(/drop-shadow/g) || []).length;
     expect(count).toBe(2);
   });
 });

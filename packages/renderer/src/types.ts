@@ -19,7 +19,6 @@ export interface PreloadedAsset {
 export interface CachedAssetBody {
   body: Buffer;
   contentType: string;
-  normalized: boolean;
 }
 
 export type PreviewAssetCache = Map<string, Promise<CachedAssetBody>>;

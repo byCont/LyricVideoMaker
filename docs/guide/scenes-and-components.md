@@ -27,26 +27,23 @@ Each component has its own set of configurable options. Click a component in the
 
 ## Built-in Components
 
-### Background Image
-
-Covers the entire frame with a single image for the full duration of the video.
-
-**Options:**
-| Option | Description |
-|--------|-------------|
-| Background Image | Pick an image file (PNG, JPG, WebP) |
-
 ### Background Color
 
-Adds a gradient color wash over the full frame. Useful for darkening a background image so lyrics are more readable.
+Fills the frame with a solid color or gradient. Useful for darkening a background image so lyrics are more readable.
 
 **Options:**
 | Option | Default | Description |
 |--------|---------|-------------|
-| Color Top | `#09090f` | Top edge color |
-| Color Top Opacity | 60% | Top color transparency |
-| Color Bottom | `#09090f` | Bottom edge color |
-| Color Bottom Opacity | 60% | Bottom color transparency |
+| Mode | Gradient | Solid or Gradient fill |
+| Color | `#09090f` | Fill color (solid mode) |
+| Opacity | 60% | Fill transparency (solid mode) |
+| Direction | Top to Bottom | Gradient angle (8 directions) |
+| Start Color | `#09090f` | Gradient start color |
+| Start Opacity | 60% | Gradient start transparency |
+| End Color | `#09090f` | Gradient end color |
+| End Opacity | 60% | Gradient end transparency |
+
+Available gradient directions: Top to Bottom, Bottom to Top, Left to Right, Right to Left, and all four diagonal combinations.
 
 ### Lyrics by Line
 
@@ -242,6 +239,50 @@ An embedded video clip layer. Use it for animated backgrounds, overlays, or pict
 | Corner Radius | 0 | Corner rounding |
 
 **Appearance** and **Effects** are similar to the Image component — opacity, tint, filters, border, shadow, and glow.
+
+### Slideshow
+
+An animated slideshow that cycles through multiple images with transitions, timing modes, and an optional Ken Burns (zoom/pan) effect.
+
+**Source:**
+| Option | Description |
+|--------|-------------|
+| Images | Pick multiple image files (PNG, JPG, WebP) |
+
+**Slide Timing:**
+| Option | Default | Description |
+|--------|---------|-------------|
+| Timing Mode | Fixed Duration | Fixed Duration or Align to Lyrics |
+| Slide Duration | 5000ms | Time per slide (500–60000ms) |
+| Transition Duration | 1000ms | Transition length (0–10000ms) |
+| Initial Delay | 0ms | Delay before first slide (0–30000ms) |
+
+**Behavior:**
+| Option | Default | Description |
+|--------|---------|-------------|
+| Slide Order | Sequential | Sequential, Shuffle, or Random |
+| Repeat Mode | Loop | Loop, Single Pass, or Hold Last |
+| Random Seed | 0 | Seed for shuffle/random (0 = random) |
+
+**Transition:**
+| Option | Default | Description |
+|--------|---------|-------------|
+| Transition Type | Crossfade | None, Crossfade, Slide (4 dirs), Zoom In/Out, Dissolve, Wipe Left/Right |
+| Transition Easing | Ease In-Out | Linear, Ease In, Ease Out, Ease In-Out |
+
+**Ken Burns Effect:**
+| Option | Default | Description |
+|--------|---------|-------------|
+| Enabled | Off | Toggle slow zoom/pan animation |
+| Scale | 10% | Zoom amount (1–50%) |
+| Randomize Direction | On | Random pan direction per slide |
+
+**Fit:**
+| Option | Default | Description |
+|--------|---------|-------------|
+| Fit Mode | Cover | Contain, Cover, Fill, or None |
+
+**Appearance** and **Effects** are similar to the Image component — opacity, corner radius, border, tint, shadow, glow, and image filters (grayscale, blur, brightness, contrast, saturation).
 
 ## Common Options: Transform & Timing
 

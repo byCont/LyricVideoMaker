@@ -3,7 +3,7 @@ import type { SceneComponentDefinition } from "@lyric-video-maker/core";
 import { DEFAULT_SLIDESHOW_OPTIONS, slideshowOptionsSchema } from "./options";
 import { getSlideshowPrepareCacheKey, prepareSlideshowComponent } from "./prepare";
 import {
-  buildSlideshowContainerStyle,
+  buildSlideshowStyles,
   buildSlideshowInnerHtml,
   computeSlideshowFrameState
 } from "./runtime";
@@ -26,7 +26,7 @@ export const slideshowComponent: SceneComponentDefinition<SlideshowComponentOpti
       return null;
     }
 
-    const containerStyle = buildSlideshowContainerStyle(options, video, timeMs);
+    const { transformStyle, visualStyle } = buildSlideshowStyles(options, video, timeMs);
     const frameState = computeSlideshowFrameState(timeMs, schedule, options);
 
     if (!frameState.currentSlide && !frameState.nextSlide) {
@@ -40,10 +40,14 @@ export const slideshowComponent: SceneComponentDefinition<SlideshowComponentOpti
 
     return (
       <div
-        style={containerStyle as React.CSSProperties}
+        style={transformStyle as React.CSSProperties}
         data-slideshow-component=""
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
+      >
+        <div
+          style={visualStyle as React.CSSProperties}
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+      </div>
     );
   }
 };

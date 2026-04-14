@@ -32,9 +32,8 @@ afterAll(async () => {
 });
 
 describe("createCachedAssetBody with kind", () => {
-  it("video kind reads bytes directly without image normalization", async () => {
+  it("video kind reads bytes directly with MIME type detection", async () => {
     const body = await createCachedAssetBody(videoPath, video, undefined, silentLogger, "video");
-    expect(body.normalized).toBe(false);
     expect(body.body.equals(fakeVideoBytes)).toBe(true);
     expect(body.contentType).toBe("video/mp4");
   });
@@ -49,15 +48,10 @@ describe("createCachedAssetBody with kind", () => {
     expect(webm.contentType).toBe("video/webm");
   });
 
-  it("image kind default still falls back to reading bytes when normalization fails", async () => {
+  it("image kind reads bytes directly with MIME type detection", async () => {
     const body = await createCachedAssetBody(imagePath, video, undefined, silentLogger);
-    // On systems without ffmpeg in PATH the normalizer warns and returns null;
-    // the fallback reads bytes with getMimeType content-type.
-    expect(body.body.length).toBeGreaterThan(0);
-    // We don't assert normalized here because it depends on ffmpeg availability;
-    // instead we verify image behavior is NOT forced to the video branch:
-    // contentType is either image/png (normalized) or image/png (from mime.ts default for .png).
-    expect(body.contentType.startsWith("image/")).toBe(true);
+    expect(body.body.equals(fakeImageBytes)).toBe(true);
+    expect(body.contentType).toBe("image/png");
   });
 });
 

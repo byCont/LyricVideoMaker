@@ -167,10 +167,9 @@ describe("Video rendering — inner element + effects (T-054)", () => {
       "/asset/clip.mp4",
       extraction
     );
-    expect(state.containerStyle.borderRadius).toBe("16px");
-    expect(state.containerStyle.border).toBe("4px solid #ffffff");
-    const filter = state.containerStyle.filter || "";
-    const shadowCount = (filter.match(/drop-shadow/g) || []).length;
+    expect(state.html).toContain("border-radius:16px");
+    expect(state.html).toContain("border:4px solid #ffffff");
+    const shadowCount = (state.html.match(/drop-shadow/g) || []).length;
     expect(shadowCount).toBe(2);
   });
 

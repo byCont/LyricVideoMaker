@@ -132,37 +132,47 @@ function computeKenBurnsTransform(
   return `scale(${scale.toFixed(4)}) translate(${x.toFixed(2)}px, ${y.toFixed(2)}px)`;
 }
 
-export function buildSlideshowContainerStyle(
+export interface SlideshowStyles {
+  transformStyle: Record<string, string>;
+  visualStyle: Record<string, string>;
+}
+
+export function buildSlideshowStyles(
   options: SlideshowComponentOptions,
   video: VideoSettings,
   timeMs: number
-): Record<string, string> {
-  const transformStyle = computeTransformStyle(options, {
+): SlideshowStyles {
+  const computed = computeTransformStyle(options, {
     width: video.width,
     height: video.height
   });
-  const containerStyle: Record<string, string> = {};
-  for (const [key, value] of Object.entries(transformStyle)) {
+  const transformStyle: Record<string, string> = {};
+  for (const [key, value] of Object.entries(computed)) {
     if (value !== undefined && value !== null) {
-      containerStyle[key] = String(value);
+      transformStyle[key] = String(value);
     }
   }
+  transformStyle.opacity = String((options.opacity / 100) * computeTimingOpacity(timeMs, options));
 
-  containerStyle.borderRadius = `${options.cornerRadius}px`;
-  containerStyle.overflow = "hidden";
-  containerStyle.opacity = String((options.opacity / 100) * computeTimingOpacity(timeMs, options));
+  const visualStyle: Record<string, string> = {
+    position: "relative",
+    width: "100%",
+    height: "100%",
+    overflow: "hidden",
+    borderRadius: `${options.cornerRadius}px`
+  };
 
   if (options.borderEnabled && options.borderThickness > 0) {
-    containerStyle.border = `${options.borderThickness}px solid ${options.borderColor}`;
-    containerStyle.boxSizing = "border-box";
+    visualStyle.border = `${options.borderThickness}px solid ${options.borderColor}`;
+    visualStyle.boxSizing = "border-box";
   }
 
   const shadowFilter = buildShadowGlow(options);
   if (shadowFilter !== "none") {
-    containerStyle.filter = shadowFilter;
+    visualStyle.filter = shadowFilter;
   }
 
-  return containerStyle;
+  return { transformStyle, visualStyle };
 }
 
 export function buildImageFilter(options: SlideshowComponentOptions): string {

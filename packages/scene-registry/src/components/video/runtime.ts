@@ -19,7 +19,8 @@ export interface VideoFrameExtractionMetadata {
 
 /**
  * Build Video component browser-side initial state. Runtime uses extracted
- * JPEG frame files, not HTMLVideoElement seeking.
+ * JPEG frame files, not HTMLVideoElement seeking. The container handles
+ * positioning only; all visual effects are applied to the inner image element.
  */
 export function buildVideoInitialState(
   options: VideoComponentOptions,
@@ -37,16 +38,6 @@ export function buildVideoInitialState(
       containerStyle[key] = String(value);
     }
   }
-  containerStyle.borderRadius = `${options.cornerRadius}px`;
-  containerStyle.overflow = "hidden";
-  if (options.borderEnabled && options.borderThickness > 0) {
-    containerStyle.border = `${options.borderThickness}px solid ${options.borderColor}`;
-    containerStyle.boxSizing = "border-box";
-  }
-  const shadowFilter = buildShadowGlow(options);
-  if (shadowFilter !== "none") {
-    containerStyle.filter = shadowFilter;
-  }
 
   const html = frameExtraction ? buildImageSequenceMarkup(options) : "";
   const initialOpacity = (options.opacity / 100) * computeTimingOpacity(0, options);
@@ -61,26 +52,28 @@ export function buildVideoInitialState(
 
 function buildImageSequenceMarkup(options: VideoComponentOptions): string {
   const fitMode = options.fitMode;
-  const filter = buildVideoFilter(options);
-  const image = `<img data-video-frame="" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:${fitMode};${filter ? `filter:${filter};` : ""}" />`;
+  const filter = buildCombinedFilter(options);
+  let imgStyle = `position:absolute;inset:0;width:100%;height:100%;object-fit:${fitMode};border-radius:${options.cornerRadius}px;`;
+  if (options.borderEnabled && options.borderThickness > 0) {
+    imgStyle += `border:${options.borderThickness}px solid ${options.borderColor};box-sizing:border-box;`;
+  }
+  if (filter) {
+    imgStyle += `filter:${filter};`;
+  }
+  const image = `<img data-video-frame="" alt="" style="${imgStyle}" />`;
   const tint = options.tintEnabled
-    ? `<div style="position:absolute;inset:0;background:${withAlpha(options.tintColor, options.tintStrength / 100)};mix-blend-mode:multiply;"></div>`
+    ? `<div style="position:absolute;inset:0;border-radius:${options.cornerRadius}px;background:${withAlpha(options.tintColor, options.tintStrength / 100)};mix-blend-mode:multiply;"></div>`
     : "";
   return `${image}${tint}`;
 }
 
-function buildVideoFilter(options: VideoComponentOptions): string {
+function buildCombinedFilter(options: VideoComponentOptions): string {
   const parts: string[] = [];
   if (options.grayscale > 0) parts.push(`grayscale(${options.grayscale / 100})`);
   if (options.blur > 0) parts.push(`blur(${options.blur}px)`);
   if (options.brightness !== 100) parts.push(`brightness(${options.brightness / 100})`);
   if (options.contrast !== 100) parts.push(`contrast(${options.contrast / 100})`);
   if (options.saturation !== 100) parts.push(`saturate(${options.saturation / 100})`);
-  return parts.join(" ");
-}
-
-function buildShadowGlow(options: VideoComponentOptions): string {
-  const parts: string[] = [];
   if (options.shadowEnabled) {
     parts.push(
       `drop-shadow(${options.shadowOffsetX}px ${options.shadowOffsetY}px ${options.shadowBlur}px ${options.shadowColor})`
@@ -89,5 +82,5 @@ function buildShadowGlow(options: VideoComponentOptions): string {
   if (options.glowEnabled) {
     parts.push(`drop-shadow(0 0 ${options.glowStrength}px ${options.glowColor})`);
   }
-  return parts.join(" ") || "none";
+  return parts.join(" ");
 }

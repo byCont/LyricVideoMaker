@@ -8275,17 +8275,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
         containerStyle[key] = String(value);
       }
     }
-    containerStyle.borderRadius = \`\${options.cornerRadius}px\`;
-    containerStyle.overflow = "hidden";
     containerStyle.opacity = String(options.opacity / 100 * computeTimingOpacity(timeMs, options));
-    if (options.borderEnabled && options.borderThickness > 0) {
-      containerStyle.border = \`\${options.borderThickness}px solid \${options.borderColor}\`;
-      containerStyle.boxSizing = "border-box";
-    }
-    const shadowFilter = buildShadowGlow(options);
-    if (shadowFilter !== "none") {
-      containerStyle.filter = shadowFilter;
-    }
     const html = resolvedUrl ? buildInnerMarkup(options, resolvedUrl) : "";
     const initialOpacity = options.opacity / 100 * computeTimingOpacity(timeMs, options);
     return {
@@ -8297,9 +8287,16 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
   }
   function buildInnerMarkup(options, url) {
     const cssFitMode = mapFitMode(options.fitMode);
-    const filter = buildImageFilter(options);
-    const img = \`<img src="\${escapeAttr(url)}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:\${cssFitMode};\${filter ? \`filter:\${filter};\` : ""}" />\`;
-    const tint = options.tintEnabled ? \`<div style="position:absolute;inset:0;background:\${withAlpha(options.tintColor, options.tintStrength / 100)};mix-blend-mode:multiply;"></div>\` : "";
+    const filter = buildCombinedFilter(options);
+    let imgStyle = \`position:absolute;inset:0;width:100%;height:100%;object-fit:\${cssFitMode};border-radius:\${options.cornerRadius}px;\`;
+    if (options.borderEnabled && options.borderThickness > 0) {
+      imgStyle += \`border:\${options.borderThickness}px solid \${options.borderColor};box-sizing:border-box;\`;
+    }
+    if (filter) {
+      imgStyle += \`filter:\${filter};\`;
+    }
+    const img = \`<img src="\${escapeAttr(url)}" alt="" style="\${imgStyle}" />\`;
+    const tint = options.tintEnabled ? \`<div style="position:absolute;inset:0;border-radius:\${options.cornerRadius}px;background:\${withAlpha(options.tintColor, options.tintStrength / 100)};mix-blend-mode:multiply;"></div>\` : "";
     return \`\${img}\${tint}\`;
   }
   function mapFitMode(mode) {
@@ -8316,17 +8313,13 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
         return "contain";
     }
   }
-  function buildImageFilter(options) {
+  function buildCombinedFilter(options) {
     const parts = [];
     if (options.grayscale > 0) parts.push(\`grayscale(\${options.grayscale / 100})\`);
     if (options.blur > 0) parts.push(\`blur(\${options.blur}px)\`);
     if (options.brightness !== 100) parts.push(\`brightness(\${options.brightness / 100})\`);
     if (options.contrast !== 100) parts.push(\`contrast(\${options.contrast / 100})\`);
     if (options.saturation !== 100) parts.push(\`saturate(\${options.saturation / 100})\`);
-    return parts.join(" ");
-  }
-  function buildShadowGlow(options) {
-    const parts = [];
     if (options.shadowEnabled) {
       parts.push(
         \`drop-shadow(\${options.shadowOffsetX}px \${options.shadowOffsetY}px \${options.shadowBlur}px \${options.shadowColor})\`
@@ -8335,7 +8328,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
     if (options.glowEnabled) {
       parts.push(\`drop-shadow(0 0 \${options.glowStrength}px \${options.glowColor})\`);
     }
-    return parts.join(" ") || "none";
+    return parts.join(" ");
   }
   function escapeAttr(value) {
     return value.replace(/"/g, "&quot;");
@@ -13922,31 +13915,36 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
     const y = startY + (endY - startY) * progress;
     return \`scale(\${scale.toFixed(4)}) translate(\${x.toFixed(2)}px, \${y.toFixed(2)}px)\`;
   }
-  function buildSlideshowContainerStyle(options, video, timeMs) {
-    const transformStyle = computeTransformStyle(options, {
+  function buildSlideshowStyles(options, video, timeMs) {
+    const computed = computeTransformStyle(options, {
       width: video.width,
       height: video.height
     });
-    const containerStyle = {};
-    for (const [key, value] of Object.entries(transformStyle)) {
+    const transformStyle = {};
+    for (const [key, value] of Object.entries(computed)) {
       if (value !== void 0 && value !== null) {
-        containerStyle[key] = String(value);
+        transformStyle[key] = String(value);
       }
     }
-    containerStyle.borderRadius = \`\${options.cornerRadius}px\`;
-    containerStyle.overflow = "hidden";
-    containerStyle.opacity = String(options.opacity / 100 * computeTimingOpacity(timeMs, options));
+    transformStyle.opacity = String(options.opacity / 100 * computeTimingOpacity(timeMs, options));
+    const visualStyle = {
+      position: "relative",
+      width: "100%",
+      height: "100%",
+      overflow: "hidden",
+      borderRadius: \`\${options.cornerRadius}px\`
+    };
     if (options.borderEnabled && options.borderThickness > 0) {
-      containerStyle.border = \`\${options.borderThickness}px solid \${options.borderColor}\`;
-      containerStyle.boxSizing = "border-box";
+      visualStyle.border = \`\${options.borderThickness}px solid \${options.borderColor}\`;
+      visualStyle.boxSizing = "border-box";
     }
-    const shadowFilter = buildShadowGlow2(options);
+    const shadowFilter = buildShadowGlow(options);
     if (shadowFilter !== "none") {
-      containerStyle.filter = shadowFilter;
+      visualStyle.filter = shadowFilter;
     }
-    return containerStyle;
+    return { transformStyle, visualStyle };
   }
-  function buildImageFilter2(options) {
+  function buildImageFilter(options) {
     const parts = [];
     if (options.grayscale > 0) parts.push(\`grayscale(\${options.grayscale / 100})\`);
     if (options.blur > 0) parts.push(\`blur(\${options.blur}px)\`);
@@ -13955,7 +13953,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
     if (options.saturation !== 100) parts.push(\`saturate(\${options.saturation / 100})\`);
     return parts.join(" ");
   }
-  function buildShadowGlow2(options) {
+  function buildShadowGlow(options) {
     const parts = [];
     if (options.shadowEnabled) {
       parts.push(
@@ -13986,7 +13984,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
     }
   }
   function buildSlideImgStyle(options, slideOpacity, slideTransform, clipPath) {
-    const filter = buildImageFilter2(options);
+    const filter = buildImageFilter(options);
     let style = \`position:absolute;inset:0;width:100%;height:100%;object-fit:\${mapFitMode2(options.fitMode)};opacity:\${slideOpacity};\`;
     if (slideTransform) {
       style += \`transform:\${slideTransform};\`;
@@ -14038,7 +14036,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
       if (schedule.length === 0 || options.images.length === 0) {
         return null;
       }
-      const containerStyle = buildSlideshowContainerStyle(options, video, timeMs);
+      const { transformStyle, visualStyle } = buildSlideshowStyles(options, video, timeMs);
       const frameState = computeSlideshowFrameState(timeMs, schedule, options);
       if (!frameState.currentSlide && !frameState.nextSlide) {
         return null;
@@ -14048,10 +14046,16 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
       return /* @__PURE__ */ import_react10.default.createElement(
         "div",
         {
-          style: containerStyle,
-          "data-slideshow-component": "",
-          dangerouslySetInnerHTML: { __html: html }
-        }
+          style: transformStyle,
+          "data-slideshow-component": ""
+        },
+        /* @__PURE__ */ import_react10.default.createElement(
+          "div",
+          {
+            style: visualStyle,
+            dangerouslySetInnerHTML: { __html: html }
+          }
+        )
       );
     }
   };
@@ -14071,16 +14075,6 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
         containerStyle[key] = String(value);
       }
     }
-    containerStyle.borderRadius = \`\${options.cornerRadius}px\`;
-    containerStyle.overflow = "hidden";
-    if (options.borderEnabled && options.borderThickness > 0) {
-      containerStyle.border = \`\${options.borderThickness}px solid \${options.borderColor}\`;
-      containerStyle.boxSizing = "border-box";
-    }
-    const shadowFilter = buildShadowGlow3(options);
-    if (shadowFilter !== "none") {
-      containerStyle.filter = shadowFilter;
-    }
     const html = frameExtraction ? buildImageSequenceMarkup(options) : "";
     const initialOpacity = options.opacity / 100 * computeTimingOpacity(0, options);
     return {
@@ -14092,22 +14086,25 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
   }
   function buildImageSequenceMarkup(options) {
     const fitMode = options.fitMode;
-    const filter = buildVideoFilter(options);
-    const image = \`<img data-video-frame="" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:\${fitMode};\${filter ? \`filter:\${filter};\` : ""}" />\`;
-    const tint = options.tintEnabled ? \`<div style="position:absolute;inset:0;background:\${withAlpha(options.tintColor, options.tintStrength / 100)};mix-blend-mode:multiply;"></div>\` : "";
+    const filter = buildCombinedFilter2(options);
+    let imgStyle = \`position:absolute;inset:0;width:100%;height:100%;object-fit:\${fitMode};border-radius:\${options.cornerRadius}px;\`;
+    if (options.borderEnabled && options.borderThickness > 0) {
+      imgStyle += \`border:\${options.borderThickness}px solid \${options.borderColor};box-sizing:border-box;\`;
+    }
+    if (filter) {
+      imgStyle += \`filter:\${filter};\`;
+    }
+    const image = \`<img data-video-frame="" alt="" style="\${imgStyle}" />\`;
+    const tint = options.tintEnabled ? \`<div style="position:absolute;inset:0;border-radius:\${options.cornerRadius}px;background:\${withAlpha(options.tintColor, options.tintStrength / 100)};mix-blend-mode:multiply;"></div>\` : "";
     return \`\${image}\${tint}\`;
   }
-  function buildVideoFilter(options) {
+  function buildCombinedFilter2(options) {
     const parts = [];
     if (options.grayscale > 0) parts.push(\`grayscale(\${options.grayscale / 100})\`);
     if (options.blur > 0) parts.push(\`blur(\${options.blur}px)\`);
     if (options.brightness !== 100) parts.push(\`brightness(\${options.brightness / 100})\`);
     if (options.contrast !== 100) parts.push(\`contrast(\${options.contrast / 100})\`);
     if (options.saturation !== 100) parts.push(\`saturate(\${options.saturation / 100})\`);
-    return parts.join(" ");
-  }
-  function buildShadowGlow3(options) {
-    const parts = [];
     if (options.shadowEnabled) {
       parts.push(
         \`drop-shadow(\${options.shadowOffsetX}px \${options.shadowOffsetY}px \${options.shadowBlur}px \${options.shadowColor})\`
@@ -14116,7 +14113,66 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
     if (options.glowEnabled) {
       parts.push(\`drop-shadow(0 0 \${options.glowStrength}px \${options.glowColor})\`);
     }
-    return parts.join(" ") || "none";
+    return parts.join(" ");
+  }
+
+  // ../scene-registry/src/components/video/playback.ts
+  function computeVideoPlaybackState(inputs) {
+    const { options, durationMs, timeMs } = inputs;
+    const elapsedSinceStart = Math.max(0, timeMs - options.startTime);
+    const offsetSeconds = options.videoStartOffsetMs / 1e3;
+    const durationSeconds = durationMs / 1e3;
+    const advanced = elapsedSinceStart / 1e3 * options.playbackSpeed + offsetSeconds;
+    switch (options.playbackMode) {
+      case "sync-with-song": {
+        return {
+          targetTimeSeconds: clamp(advanced, 0, Math.max(0, durationSeconds)),
+          hidden: false
+        };
+      }
+      case "loop": {
+        const span = durationSeconds - offsetSeconds;
+        if (span <= 0) {
+          return { targetTimeSeconds: offsetSeconds, hidden: false };
+        }
+        const wrapped = elapsedSinceStart / 1e3 * options.playbackSpeed % span;
+        return {
+          targetTimeSeconds: offsetSeconds + (wrapped < 0 ? wrapped + span : wrapped),
+          hidden: false
+        };
+      }
+      case "play-once-clamp": {
+        if (advanced >= durationSeconds) {
+          return { targetTimeSeconds: Math.max(0, durationSeconds - 1 / 60), hidden: false };
+        }
+        return { targetTimeSeconds: clamp(advanced, 0, durationSeconds), hidden: false };
+      }
+      case "play-once-hide": {
+        if (advanced >= durationSeconds) {
+          return { targetTimeSeconds: 0, hidden: true };
+        }
+        return { targetTimeSeconds: clamp(advanced, 0, durationSeconds), hidden: false };
+      }
+      default: {
+        return { targetTimeSeconds: 0, hidden: false };
+      }
+    }
+  }
+  function mapVideoPlaybackTimeToFrameNumber({
+    targetTimeSeconds,
+    fps,
+    frameCount
+  }) {
+    const rawFrame = Math.floor(Math.max(0, targetTimeSeconds) * fps) + 1;
+    return Math.max(1, Math.min(frameCount, rawFrame));
+  }
+  function formatVideoFrameName(frameNumber) {
+    return \`frame-\${String(frameNumber).padStart(8, "0")}.jpg\`;
+  }
+  function clamp(value, lo, hi) {
+    if (value <= lo) return lo;
+    if (value >= hi) return hi;
+    return value;
   }
 
   // ../scene-registry/src/components/video/react-component.tsx
@@ -14125,22 +14181,97 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
     instance,
     options,
     video,
+    timeMs,
     assets,
     prepared
   }) {
     const url = assets.getUrl(instance.id, "source");
-    const initial = buildVideoInitialState(options, video, url, getVideoFrameExtraction(prepared));
-    if (!initial.sourceUrl) {
+    const frameExtraction = getVideoFrameExtraction(prepared);
+    const initial = buildVideoInitialState(options, video, url, frameExtraction);
+    if (!initial.sourceUrl || !frameExtraction) {
       return null;
+    }
+    const durationMs = typeof prepared.durationMs === "number" ? prepared.durationMs : 0;
+    const playback = computeVideoPlaybackState({
+      options: {
+        playbackMode: options.playbackMode,
+        videoStartOffsetMs: options.videoStartOffsetMs,
+        playbackSpeed: options.playbackSpeed,
+        startTime: options.startTime
+      },
+      durationMs,
+      timeMs
+    });
+    if (playback.hidden) {
+      return null;
+    }
+    const frameNum = mapVideoPlaybackTimeToFrameNumber({
+      targetTimeSeconds: playback.targetTimeSeconds,
+      fps: frameExtraction.outputFps,
+      frameCount: frameExtraction.frameCount
+    });
+    const frameSrc = \`\${frameExtraction.urlPrefix}\${formatVideoFrameName(frameNum)}\`;
+    const filter = buildCombinedFilter3(options);
+    const imgStyle = {
+      position: "absolute",
+      inset: "0",
+      width: "100%",
+      height: "100%",
+      objectFit: options.fitMode,
+      borderRadius: \`\${options.cornerRadius}px\`
+    };
+    if (options.borderEnabled && options.borderThickness > 0) {
+      imgStyle.border = \`\${options.borderThickness}px solid \${options.borderColor}\`;
+      imgStyle.boxSizing = "border-box";
+    }
+    if (filter) {
+      imgStyle.filter = filter;
     }
     return /* @__PURE__ */ import_react11.default.createElement(
       "div",
       {
         style: initial.containerStyle,
-        "data-video-component": "",
-        dangerouslySetInnerHTML: { __html: initial.html }
-      }
+        "data-video-component": ""
+      },
+      /* @__PURE__ */ import_react11.default.createElement(
+        "img",
+        {
+          "data-video-frame": "",
+          alt: "",
+          src: frameSrc,
+          style: imgStyle
+        }
+      ),
+      options.tintEnabled && /* @__PURE__ */ import_react11.default.createElement(
+        "div",
+        {
+          style: {
+            position: "absolute",
+            inset: "0",
+            borderRadius: \`\${options.cornerRadius}px\`,
+            background: withAlpha(options.tintColor, options.tintStrength / 100),
+            mixBlendMode: "multiply"
+          }
+        }
+      )
     );
+  }
+  function buildCombinedFilter3(options) {
+    const parts = [];
+    if (options.grayscale > 0) parts.push(\`grayscale(\${options.grayscale / 100})\`);
+    if (options.blur > 0) parts.push(\`blur(\${options.blur}px)\`);
+    if (options.brightness !== 100) parts.push(\`brightness(\${options.brightness / 100})\`);
+    if (options.contrast !== 100) parts.push(\`contrast(\${options.contrast / 100})\`);
+    if (options.saturation !== 100) parts.push(\`saturate(\${options.saturation / 100})\`);
+    if (options.shadowEnabled) {
+      parts.push(
+        \`drop-shadow(\${options.shadowOffsetX}px \${options.shadowOffsetY}px \${options.shadowBlur}px \${options.shadowColor})\`
+      );
+    }
+    if (options.glowEnabled) {
+      parts.push(\`drop-shadow(0 0 \${options.glowStrength}px \${options.glowColor})\`);
+    }
+    return parts.join(" ");
   }
   function getVideoFrameExtraction(prepared) {
     const metadata = prepared[VIDEO_FRAME_EXTRACTION_PREPARED_KEY];

@@ -11,6 +11,10 @@ Plugins extend Lyric Video Maker with new components and scene presets built by 
 
 The app downloads (or reads) the plugin, validates it, and loads its components and scenes. Once installed, the plugin's components appear in the **Add component** dropdown and its scenes appear in the **Scene preset** selector.
 
+## Updating a Plugin
+
+In the Plugins section of the Scene Editor, each installed plugin shows an **Update** button. Click it to re-download the latest version from the plugin's source. The app validates the new version before replacing the old one — if validation fails, the previous version is preserved.
+
 ## Removing a Plugin
 
 In the Plugins section of the Scene Editor, each installed plugin shows a **Remove** button. Click it to uninstall the plugin and remove its components and scenes from the app.

@@ -9,7 +9,7 @@ Built with Electron, React, headless Chromium, and ffmpeg.
 - Import MP3 audio with SRT or generated subtitles
 - Built-in subtitle alignment via Whisper (bundled sidecar)
 - Scene editor with live preview
-- Built-in scene components: backgrounds, lyrics display, equalizer, shapes, static text, images, video overlays
+- Built-in scene components: backgrounds, lyrics display, equalizer, shapes, static text, images, video overlays, slideshows
 - Shared transform system (position, size, rotation, anchor) and timing system (visibility, fades, easing)
 - Plugin system for third-party scene components and presets
 - Renders H.264/AAC MP4 via headless Chromium frame capture + ffmpeg mux

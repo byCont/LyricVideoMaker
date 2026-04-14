@@ -1,15 +1,13 @@
 import { readFile } from "node:fs/promises";
 import type { RenderJob } from "@lyric-video-maker/core";
-import { getFfmpegCommand } from "../constants";
-import { runBinaryCommand } from "../ffmpeg/run-command";
 import type { CachedAssetBody, PreviewAssetCache, RenderLogger } from "../types";
 import { getMimeType } from "./mime";
 
 /**
- * Asset kinds the cache understands. The cache-key format is stable across
- * kinds so the same path-plus-dimensions key is reused whether the asset is
- * an image (which goes through ffmpeg normalization) or a video (which is
- * read from disk as-is and served with its detected MIME type).
+ * Asset kinds the cache understands. Both images and videos are read directly
+ * from disk and served with their detected MIME type. The cache-key format
+ * includes dimensions for historical reasons but asset bodies are not
+ * dimension-dependent.
  */
 export type CachedAssetKind = "image" | "video";
 
@@ -41,68 +39,13 @@ export async function loadCachedAssetBody(
 
 export async function createCachedAssetBody(
   path: string,
-  video: RenderJob["video"],
-  signal: AbortSignal | undefined,
-  logger: RenderLogger,
-  kind: CachedAssetKind = "image"
+  _video: RenderJob["video"],
+  _signal: AbortSignal | undefined,
+  _logger: RenderLogger,
+  _kind: CachedAssetKind = "image"
 ): Promise<CachedAssetBody> {
-  if (kind === "video") {
-    // Video bodies are served straight from disk without normalization for
-    // explicit legacy/test callers. Built-in video rendering uses extracted
-    // JPEG frame files instead.
-    return {
-      body: await readFile(path),
-      contentType: getMimeType(path),
-      normalized: false
-    };
-  }
-
-  const normalizedBody = await normalizeImageAsset(path, video, signal, logger);
-  if (normalizedBody) {
-    return {
-      body: normalizedBody,
-      contentType: "image/png",
-      normalized: true
-    };
-  }
-
   return {
     body: await readFile(path),
-    contentType: getMimeType(path),
-    normalized: false
+    contentType: getMimeType(path)
   };
-}
-
-export async function normalizeImageAsset(
-  path: string,
-  video: RenderJob["video"],
-  signal: AbortSignal | undefined,
-  logger: RenderLogger
-): Promise<Buffer | null> {
-  try {
-    return await runBinaryCommand(
-      getFfmpegCommand(),
-      [
-        "-v",
-        "error",
-        "-i",
-        path,
-        "-vf",
-        `scale='min(${video.width},iw)':'min(${video.height},ih)':force_original_aspect_ratio=decrease`,
-        "-frames:v",
-        "1",
-        "-f",
-        "image2pipe",
-        "-vcodec",
-        "png",
-        "-"
-      ],
-      signal
-    );
-  } catch (error) {
-    logger.warn(
-      `Image normalization failed for ${path}; falling back to original asset. ${error instanceof Error ? error.message : String(error)}`
-    );
-    return null;
-  }
 }

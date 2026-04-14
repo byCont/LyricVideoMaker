@@ -52,7 +52,7 @@ Once audio and subtitles are loaded, the **Frame Preview** panel comes alive. Us
 
 ### 5. Customize the look
 
-The default scene ("Single Image Lyrics") includes a background image, an optional color wash, and lyrics. Click any component in the **Scene Builder** panel to customize it — change colors, fonts, sizes, and positioning in the options panel below.
+The default scene ("Single Image Lyrics") includes an image layer for the background, an optional color wash, and lyrics. Click any component in the **Scene Builder** panel to customize it — change colors, fonts, sizes, and positioning in the options panel below.
 
 See [Scenes & Components](/guide/scenes-and-components) for a full guide on customizing your video.
 

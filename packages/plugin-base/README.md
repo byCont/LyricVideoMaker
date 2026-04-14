@@ -81,7 +81,7 @@ npx tsup src/plugin.ts --format cjs --out-dir dist --out-extension .cjs
 
 ## Documentation
 
-Full plugin authoring guide: [PLUGINS.md](https://github.com/mrkmg/LyricVideoMaker/blob/main/PLUGINS.md)
+Full plugin authoring guide: [Plugin Development](https://mrkmg.github.io/LyricVideoMaker/guide/plugin-development)
 
 Docs site: [mrkmg.github.io/LyricVideoMaker](https://mrkmg.github.io/LyricVideoMaker/)
 

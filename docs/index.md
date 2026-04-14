@@ -21,7 +21,7 @@ features:
   - title: Audio-Reactive Visuals
     details: Built-in equalizer and spectrum components react to your music in real time with configurable frequency bands, colors, and effects.
   - title: Scenes & Components
-    details: Build your video from layered components — backgrounds, lyrics, shapes, images, videos, and equalizers — then save your layout as a reusable scene.
+    details: Build your video from layered components — backgrounds, lyrics, shapes, images, videos, slideshows, and equalizers — then save your layout as a reusable scene.
   - title: Pixel-Perfect Rendering
     details: Headless Chromium renders every frame at full resolution. Export to MP4 (H.264/H.265) or WebM (VP9) via FFmpeg.
   - title: Extensible with Plugins

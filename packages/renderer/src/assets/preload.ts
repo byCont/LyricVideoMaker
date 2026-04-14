@@ -85,7 +85,7 @@ export async function preloadSceneAssets(
 
           assets.set(getAssetKey(instance.id, syntheticOptionId), asset);
           logger.info(
-            `Preloaded image-list asset "${instance.id}/${syntheticOptionId}" from ${itemPath}${cachedBody.normalized ? " (normalized)" : ""}`
+            `Preloaded image-list asset "${instance.id}/${syntheticOptionId}" from ${itemPath}`
           );
         }
         continue;
@@ -137,7 +137,7 @@ export async function preloadSceneAssets(
 
       assets.set(getAssetKey(instance.id, field.id), asset);
       logger.info(
-        `Preloaded ${field.type} asset "${instance.id}/${field.id}" from ${optionValue}${cachedBody.normalized ? " (normalized)" : ""}`
+        `Preloaded ${field.type} asset "${instance.id}/${field.id}" from ${optionValue}`
       );
     }
   }
