@@ -33,6 +33,7 @@ describe("useFramePreview", () => {
       listPlugins: vi.fn(),
       importPlugin: vi.fn(),
       removePlugin: vi.fn(),
+      updatePlugin: vi.fn(),
       savePaneLayout: vi.fn(),
       setupFfmpeg: vi.fn().mockResolvedValue({ available: true }),
       disposePreview: vi.fn().mockResolvedValue(undefined),

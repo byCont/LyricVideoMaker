@@ -99,6 +99,7 @@ describe("App", () => {
       listPlugins: vi.fn().mockResolvedValue([]),
       importPlugin: vi.fn().mockResolvedValue(createBootstrapData()),
       removePlugin: vi.fn().mockResolvedValue(createBootstrapData()),
+      updatePlugin: vi.fn().mockResolvedValue(createBootstrapData()),
       savePaneLayout: vi.fn().mockResolvedValue(undefined),
       setupFfmpeg: vi.fn().mockResolvedValue({ available: true }),
       disposePreview: vi.fn().mockResolvedValue(undefined),
