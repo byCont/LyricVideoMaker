@@ -1,14 +1,6 @@
 import type { SceneOptionCategory } from "@lyric-video-maker/core";
-import {
-  DEFAULT_TIMING_OPTIONS,
-  DEFAULT_TRANSFORM_OPTIONS,
-  timingCategory,
-  transformCategory,
-  type TimingOptions,
-  type TransformOptions
-} from "../../shared";
 
-/** Four supported playback modes (cavekit-video-component R2). */
+/** Four supported playback modes. */
 export type VideoPlaybackMode =
   | "sync-with-song"
   | "loop"
@@ -24,8 +16,9 @@ export const VIDEO_PLAYBACK_MODE_VALUES: readonly VideoPlaybackMode[] = [
 
 export type VideoFitMode = "contain" | "cover" | "fill";
 
-/** Video component options (cavekit-video-component R2). */
-export interface VideoComponentOptions extends TransformOptions, TimingOptions {
+/** Video component options. Position, fade, and flat opacity live on the
+ * modifier stack now — not on the component. */
+export interface VideoComponentOptions {
   // Source
   source: string;
   muted: boolean;
@@ -40,7 +33,6 @@ export interface VideoComponentOptions extends TransformOptions, TimingOptions {
   cornerRadius: number;
 
   // Appearance
-  opacity: number;
   tintEnabled: boolean;
   tintColor: string;
   tintStrength: number;
@@ -65,16 +57,13 @@ export interface VideoComponentOptions extends TransformOptions, TimingOptions {
 }
 
 export const DEFAULT_VIDEO_OPTIONS: VideoComponentOptions = {
-  ...DEFAULT_TRANSFORM_OPTIONS,
-  ...DEFAULT_TIMING_OPTIONS,
   source: "",
-  muted: true, // R4: muted defaults to true
+  muted: true,
   playbackMode: "sync-with-song",
   videoStartOffsetMs: 0,
   playbackSpeed: 1,
   fitMode: "contain",
   cornerRadius: 0,
-  opacity: 100,
   tintEnabled: false,
   tintColor: "#4da3ff",
   tintStrength: 50,
@@ -157,7 +146,6 @@ const appearanceCategory: SceneOptionCategory = {
   label: "Appearance",
   defaultExpanded: false,
   options: [
-    { type: "number", id: "opacity", label: "Opacity", defaultValue: 100, min: 0, max: 100, step: 1 },
     { type: "boolean", id: "tintEnabled", label: "Tint Enabled", defaultValue: false },
     { type: "color", id: "tintColor", label: "Tint Color", defaultValue: "#4da3ff" },
     { type: "number", id: "tintStrength", label: "Tint Strength", defaultValue: 50, min: 0, max: 100, step: 1 },
@@ -190,16 +178,12 @@ const effectsCategory: SceneOptionCategory = {
 };
 
 /**
- * Video options schema (cavekit-video-component R3).
- *
- * Category order: Source → Playback → Transform → Fit → Appearance → Effects → Timing.
+ * Video options schema. Transform and Timing live on the Modifier stack.
  */
 export const videoOptionsSchema = [
   sourceCategory,
   playbackCategory,
-  transformCategory,
   fitCategory,
   appearanceCategory,
-  effectsCategory,
-  timingCategory
+  effectsCategory
 ];

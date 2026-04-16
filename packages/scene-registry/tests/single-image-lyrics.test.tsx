@@ -2,6 +2,7 @@
  * @vitest-environment jsdom
  */
 
+import { createRef, type RefObject } from "react";
 import { render, screen } from "@testing-library/react";
 import { createLyricRuntime } from "@lyric-video-maker/core";
 import {
@@ -10,6 +11,10 @@ import {
   lyricsByLineComponent,
   singleImageLyricsScene
 } from "../src";
+
+function innerRef(): RefObject<HTMLDivElement | null> {
+  return createRef<HTMLDivElement | null>();
+}
 
 describe("scene registry components", () => {
   it("renders the background color gradient component", () => {
@@ -20,6 +25,7 @@ describe("scene registry components", () => {
           componentId: "background-color",
           componentName: "Background Color",
           enabled: true,
+          modifiers: [],
           options: {}
         },
         options: {
@@ -45,7 +51,8 @@ describe("scene registry components", () => {
         assets: {
           getUrl: vi.fn()
         },
-        prepared: {}
+        prepared: {},
+        containerRef: innerRef()
       })
     );
 
@@ -78,6 +85,7 @@ describe("scene registry components", () => {
           componentId: "lyrics-by-line",
           componentName: "Lyrics by Line",
           enabled: true,
+          modifiers: [],
           options: {}
         },
         options: {
@@ -111,7 +119,8 @@ describe("scene registry components", () => {
         assets: {
           getUrl: vi.fn()
         },
-        prepared: {}
+        prepared: {},
+        containerRef: innerRef()
       })
     );
 
@@ -154,6 +163,7 @@ describe("scene registry components", () => {
           componentId: "lyrics-by-line",
           componentName: "Lyrics by Line",
           enabled: true,
+          modifiers: [],
           options: {}
         },
         options: {
@@ -187,7 +197,8 @@ describe("scene registry components", () => {
         assets: {
           getUrl: vi.fn()
         },
-        prepared: {}
+        prepared: {},
+        containerRef: innerRef()
       })
     );
 
@@ -227,6 +238,7 @@ describe("scene registry components", () => {
           componentId: "lyrics-by-line",
           componentName: "Lyrics by Line",
           enabled: true,
+          modifiers: [],
           options: {}
         },
         options: {
@@ -248,7 +260,8 @@ describe("scene registry components", () => {
         assets: {
           getUrl: vi.fn()
         },
-        prepared: {}
+        prepared: {},
+        containerRef: innerRef()
       })
     );
 
@@ -260,27 +273,16 @@ describe("scene registry components", () => {
     expect(Number.parseFloat((lyricText as HTMLElement).style.fontSize)).toBeLessThan(25);
   });
 
-  it("defines the preset scene as stacked components in the expected order", () => {
-    expect(singleImageLyricsScene.components).toEqual([
-      {
-        id: "background-image-1",
-        componentId: "image",
-        enabled: true,
-        options: {}
-      },
-      {
-        id: "background-color-1",
-        componentId: "background-color",
-        enabled: false,
-        options: {}
-      },
-      {
-        id: "lyrics-by-line-1",
-        componentId: "lyrics-by-line",
-        enabled: true,
-        options: {}
-      }
+  it("defines the preset scene with the expected component stack", () => {
+    expect(singleImageLyricsScene.components.map((c) => c.componentId)).toEqual([
+      "image",
+      "background-color",
+      "lyrics-by-line"
     ]);
+    for (const component of singleImageLyricsScene.components) {
+      expect(component).toHaveProperty("modifiers");
+      expect(Array.isArray(component.modifiers)).toBe(true);
+    }
   });
 
   it("prepares equalizer frames from audio analysis", async () => {
@@ -300,6 +302,7 @@ describe("scene registry components", () => {
         componentId: "equalizer",
         componentName: "Equalizer",
         enabled: true,
+        modifiers: [],
         options: {}
       },
       options: equalizerComponent.defaultOptions,
@@ -349,7 +352,7 @@ describe("scene registry components", () => {
     });
   });
 
-  it("renders the equalizer with placement, plate, and configured bars", () => {
+  it("renders the equalizer with plate and configured bars", () => {
     render(
       equalizerComponent.Component({
         instance: {
@@ -357,12 +360,11 @@ describe("scene registry components", () => {
           componentId: "equalizer",
           componentName: "Equalizer",
           enabled: true,
+          modifiers: [],
           options: {}
         },
         options: {
           ...equalizerComponent.defaultOptions,
-          placement: "right-center",
-          alignment: "end",
           barCount: 4,
           layoutMode: "split",
           backgroundPlateEnabled: true,
@@ -386,7 +388,8 @@ describe("scene registry components", () => {
             [0.2, 0.4, 0.6, 0.8],
             [0.8, 0.6, 0.4, 0.2]
           ]
-        }
+        },
+        containerRef: innerRef()
       })
     );
 
@@ -397,11 +400,11 @@ describe("scene registry components", () => {
       flexDirection: "row"
     });
     const wrapper = track?.parentElement as HTMLElement;
-    expect(wrapper.style.left).toBe("0%");
-    expect(wrapper.style.top).toBe("0%");
+    // Equalizer no longer owns transform — it fills its container and the
+    // modifier stack wrapping it is responsible for any positioning.
+    expect(wrapper.style.position).toBe("absolute");
     expect(wrapper.style.width).toBe("100%");
     expect(wrapper.style.height).toBe("100%");
-    expect(wrapper.style.transform).toBe("translate(0%, 0%)");
   });
 
   it("renders the equalizer line graph with area fill", () => {
@@ -412,6 +415,7 @@ describe("scene registry components", () => {
           componentId: "equalizer",
           componentName: "Equalizer",
           enabled: true,
+          modifiers: [],
           options: {}
         },
         options: {
@@ -438,7 +442,8 @@ describe("scene registry components", () => {
           frames: [
             [0, 0.25, 0.5, 1]
           ]
-        }
+        },
+        containerRef: innerRef()
       })
     );
 

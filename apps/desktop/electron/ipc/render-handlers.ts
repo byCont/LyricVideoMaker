@@ -1,7 +1,7 @@
 import { dirname, join } from "node:path";
 import { ipcMain } from "electron";
 import { createPluginAssetUri } from "@lyric-video-maker/core";
-import { builtInSceneComponents } from "@lyric-video-maker/scene-registry";
+import { builtInModifiers, builtInSceneComponents } from "@lyric-video-maker/scene-registry";
 import type { StartRenderRequest } from "../../src/electron-api";
 import { createPluginAssetResolver } from "../services/plugin-asset-resolver";
 import {
@@ -33,6 +33,7 @@ export function registerRenderHandlers({
     const cues = await getSubtitleCues(request.subtitlePath);
     const durationMs = await getAudioDuration(request.audioPath);
     const componentDefinitions = [...builtInSceneComponents, ...pluginCatalog.components()];
+    const modifierDefinitions = [...builtInModifiers, ...pluginCatalog.modifiers()];
     const pluginBundleSources = pluginCatalog.pluginBundleSources();
     const resolver = createPluginAssetResolver(() => {
       const dirs = pluginCatalog.getRepoDirs();
@@ -45,6 +46,7 @@ export function registerRenderHandlers({
     const job = buildRenderJob({
       request,
       componentDefinitions,
+      modifierDefinitions,
       cues,
       durationMs,
       isPluginAssetAccessible: (pluginId, relativePath) =>

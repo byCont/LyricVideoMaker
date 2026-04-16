@@ -1,20 +1,12 @@
 import type { SceneOptionCategory } from "@lyric-video-maker/core";
 import { DEFAULT_GOOGLE_FONT_FAMILY } from "@lyric-video-maker/core";
-import {
-  DEFAULT_TIMING_OPTIONS,
-  DEFAULT_TRANSFORM_OPTIONS,
-  timingCategory,
-  transformCategory,
-  type TimingOptions,
-  type TransformOptions
-} from "../../shared";
 
 export type TextCase = "as-typed" | "uppercase" | "lowercase" | "title-case";
 export type TextAlign = "left" | "center" | "right" | "justify";
 export type StaticTextColorMode = "solid" | "gradient";
 
-/** Static Text options contract (cavekit-static-text-component R2). */
-export interface StaticTextComponentOptions extends TransformOptions, TimingOptions {
+/** Static Text options contract. Position/fade live on modifiers now. */
+export interface StaticTextComponentOptions {
   // Content
   text: string;
   textCase: TextCase;
@@ -58,8 +50,6 @@ export interface StaticTextComponentOptions extends TransformOptions, TimingOpti
 }
 
 export const DEFAULT_STATIC_TEXT_OPTIONS: StaticTextComponentOptions = {
-  ...DEFAULT_TRANSFORM_OPTIONS,
-  ...DEFAULT_TIMING_OPTIONS,
   text: "Static Text",
   textCase: "as-typed",
   enableTokens: false,
@@ -197,17 +187,13 @@ const effectsCategory: SceneOptionCategory = {
 };
 
 /**
- * Static Text options schema (cavekit-static-text-component R3).
- *
- * Category order: Content → Typography → Color → Transform → Box → Effects → Timing.
- * Transform and Timing entries come from the shared helpers barrel.
+ * Static Text options schema. Transform and Timing are now added by the
+ * user via the Modifiers stack, not baked into the component schema.
  */
 export const staticTextOptionsSchema = [
   contentCategory,
   typographyCategory,
   colorCategory,
-  transformCategory,
   boxCategory,
-  effectsCategory,
-  timingCategory
+  effectsCategory
 ];

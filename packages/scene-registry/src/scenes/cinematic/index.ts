@@ -12,6 +12,7 @@ export const cinematicScene: SceneDefinition = {
       id: "video-1",
       componentId: "video",
       enabled: true,
+      modifiers: [],
       options: {
         fitMode: "cover"
       }
@@ -20,6 +21,7 @@ export const cinematicScene: SceneDefinition = {
       id: "background-color-1",
       componentId: "background-color",
       enabled: true,
+      modifiers: [],
       options: {
         mode: "gradient",
         direction: "0deg",
@@ -33,24 +35,34 @@ export const cinematicScene: SceneDefinition = {
       id: "static-text-1",
       componentId: "static-text",
       enabled: true,
+      modifiers: [
+        {
+          id: "static-text-1-timing",
+          modifierId: "timing",
+          enabled: true,
+          options: {
+            startTime: 0,
+            endTime: 8000,
+            fadeInDuration: 1500,
+            fadeOutDuration: 1500,
+            easing: "ease-in-out"
+          }
+        }
+      ],
       options: {
         text: "Song Title\nArtist Name",
         fontSize: 48,
         fontWeight: 300,
         color: "#ffffff",
         textAlign: "center",
-        lineHeight: 1.6,
-        startTime: 0,
-        endTime: 8000,
-        fadeInDuration: 1500,
-        fadeOutDuration: 1500,
-        easing: "ease-in-out"
+        lineHeight: 1.6
       }
     },
     {
       id: "lyrics-by-line-1",
       componentId: "lyrics-by-line",
       enabled: true,
+      modifiers: [],
       options: {
         lyricPosition: "bottom",
         lyricSize: 56,

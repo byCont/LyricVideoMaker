@@ -1,6 +1,5 @@
 import { DEFAULT_VIDEO_HEIGHT, DEFAULT_VIDEO_WIDTH } from "@lyric-video-maker/core";
 import { safeScale } from "../../shared/math";
-import { computeTransformStyle, type TransformOptions } from "../../shared";
 import { lyricBlockStyleCache, lyricScaledLayoutCache, setCachedValue } from "./caches";
 import {
   LYRIC_VERTICAL_INSET,
@@ -82,31 +81,19 @@ export function getScaledLyricLayout(
   return nextValue;
 }
 
-export function getLyricContainerStyle(
-  video: { width: number; height: number },
-  options: LyricsByLineOptions
-) {
-  return computeTransformStyle(getLyricTransformOptions(options), video);
+export function getLyricContainerStyle() {
+  return {
+    position: "absolute",
+    inset: 0,
+    width: "100%",
+    height: "100%"
+  } as const;
 }
 
 export function getLyricContainerPixelWidth(
-  video: { width: number; height: number },
-  options: Pick<LyricsByLineOptions, "width">
+  video: { width: number; height: number }
 ) {
-  return Math.max(1, (video.width * (options.width ?? 100)) / 100);
-}
-
-function getLyricTransformOptions(options: LyricsByLineOptions): TransformOptions {
-  return {
-    x: options.x ?? 0,
-    y: options.y ?? 0,
-    width: options.width ?? 100,
-    height: options.height ?? 100,
-    anchor: options.anchor ?? "top-left",
-    rotation: options.rotation ?? 0,
-    flipHorizontal: options.flipHorizontal ?? false,
-    flipVertical: options.flipVertical ?? false
-  };
+  return Math.max(1, video.width);
 }
 
 export function getLyricScale(video: { width: number; height: number }): LyricScale {

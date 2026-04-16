@@ -3,6 +3,7 @@ import type { BrowserWindow } from "electron";
 import {
   createRenderJob,
   type LyricCue,
+  type ModifierDefinition,
   type RenderHistoryEntry,
   type RenderProgressEvent,
   type SceneComponentDefinition
@@ -37,6 +38,7 @@ export function createAbortRegistry(): AbortRegistry {
 export interface BuildRenderJobOptions {
   request: StartRenderRequest;
   componentDefinitions: SceneComponentDefinition<Record<string, unknown>>[];
+  modifierDefinitions: ModifierDefinition<Record<string, unknown>>[];
   cues: LyricCue[];
   durationMs: number;
   isPluginAssetAccessible?: (pluginId: string, relativePath: string) => boolean;
@@ -45,6 +47,7 @@ export interface BuildRenderJobOptions {
 export function buildRenderJob({
   request,
   componentDefinitions,
+  modifierDefinitions,
   cues,
   durationMs,
   isPluginAssetAccessible
@@ -55,6 +58,7 @@ export function buildRenderJob({
     outputPath: request.outputPath,
     scene: request.scene,
     componentDefinitions,
+    modifierDefinitions,
     cues,
     durationMs,
     video: request.video,

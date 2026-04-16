@@ -11,18 +11,21 @@ export const singleImageLyricsScene: SceneDefinition = {
       id: "background-image-1",
       componentId: "image",
       enabled: true,
+      modifiers: [],
       options: {}
     },
     {
       id: "background-color-1",
       componentId: "background-color",
       enabled: false,
+      modifiers: [],
       options: {}
     },
     {
       id: "lyrics-by-line-1",
       componentId: "lyrics-by-line",
       enabled: true,
+      modifiers: [],
       options: {}
     }
   ]

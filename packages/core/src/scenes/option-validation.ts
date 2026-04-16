@@ -1,6 +1,7 @@
 import { validateGoogleFontFamilyName } from "../fonts";
 import { isPluginAssetUri, parsePluginAssetUri } from "../plugin-assets";
 import type {
+  ModifierDefinition,
   SceneComponentDefinition,
   SerializedSceneDefinition,
   ValidatedSceneComponentInstance
@@ -11,6 +12,7 @@ import type {
   SceneOptionField,
   SceneValidationContext
 } from "../types/scene-options";
+import { validateSceneModifiers, type SceneLoadWarning } from "./modifier-validation";
 
 export function validateSceneOptions<TOptions>(
   component: SceneComponentDefinition<TOptions>,
@@ -33,15 +35,22 @@ export function validateSceneOptions<TOptions>(
   return merged as TOptions;
 }
 
+export interface ValidateSceneComponentsResult {
+  components: ValidatedSceneComponentInstance[];
+  warnings: SceneLoadWarning[];
+}
+
 export function validateSceneComponents(
   scene: SerializedSceneDefinition,
   componentDefinitions: SceneComponentDefinition<Record<string, unknown>>[],
+  modifierDefinitions: ModifierDefinition<Record<string, unknown>>[],
   context: SceneValidationContext = {}
-): ValidatedSceneComponentInstance[] {
+): ValidateSceneComponentsResult {
   const componentLookup = new Map(componentDefinitions.map((component) => [component.id, component]));
   const seenInstanceIds = new Set<string>();
+  const warnings: SceneLoadWarning[] = [];
 
-  return scene.components.map((instance, index) => {
+  const components = scene.components.map((instance, index) => {
     if (!instance.id.trim()) {
       throw new Error(`Scene component at index ${index} is missing an instance id.`);
     }
@@ -56,14 +65,25 @@ export function validateSceneComponents(
       throw new Error(`Unknown scene component "${instance.componentId}".`);
     }
 
+    const modifierResult = validateSceneModifiers(
+      instance.id,
+      instance.modifiers,
+      modifierDefinitions,
+      context
+    );
+    warnings.push(...modifierResult.warnings);
+
     return {
       id: instance.id,
       componentId: instance.componentId,
       componentName: definition.name,
       enabled: instance.enabled !== false,
+      modifiers: modifierResult.modifiers,
       options: asRecord(validateSceneOptions(definition, instance.options, context))
     } satisfies ValidatedSceneComponentInstance;
   });
+
+  return { components, warnings };
 }
 
 export function getSceneOptionFields(options: SceneOptionEntry[]): SceneOptionField[] {

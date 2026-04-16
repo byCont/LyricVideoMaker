@@ -11,6 +11,7 @@ describe("component caching", () => {
         componentId: equalizerComponent.id,
         componentName: equalizerComponent.name,
         enabled: true,
+        modifiers: [],
         options: baseOptions
       },
       options: baseOptions,
@@ -38,6 +39,7 @@ describe("component caching", () => {
         componentId: equalizerComponent.id,
         componentName: equalizerComponent.name,
         enabled: true,
+        modifiers: [],
         options: cosmeticOptions
       },
       options: cosmeticOptions,

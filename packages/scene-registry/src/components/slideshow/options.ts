@@ -1,15 +1,7 @@
 import type { SceneOptionCategory } from "@lyric-video-maker/core";
-import {
-  DEFAULT_TIMING_OPTIONS,
-  DEFAULT_TRANSFORM_OPTIONS,
-  timingCategory,
-  transformCategory
-} from "../../shared";
 import type { SlideshowComponentOptions } from "./types";
 
 export const DEFAULT_SLIDESHOW_OPTIONS: SlideshowComponentOptions = {
-  ...DEFAULT_TRANSFORM_OPTIONS,
-  ...DEFAULT_TIMING_OPTIONS,
   images: [],
   timingMode: "fixed-duration",
   slideDuration: 5000,
@@ -24,7 +16,6 @@ export const DEFAULT_SLIDESHOW_OPTIONS: SlideshowComponentOptions = {
   kenBurnsScale: 10,
   kenBurnsRandomize: true,
   fitMode: "cover",
-  opacity: 100,
   cornerRadius: 0,
   borderEnabled: false,
   borderColor: "#ffffff",
@@ -190,7 +181,6 @@ const appearanceCategory: SceneOptionCategory = {
   label: "Appearance",
   defaultExpanded: false,
   options: [
-    { type: "number", id: "opacity", label: "Opacity", defaultValue: 100, min: 0, max: 100, step: 1 },
     { type: "number", id: "cornerRadius", label: "Corner Radius", defaultValue: 0, min: 0, max: 200, step: 1 }
   ]
 };
@@ -229,9 +219,7 @@ export const slideshowOptionsSchema = [
   behaviorCategory,
   transitionCategory,
   kenBurnsCategory,
-  transformCategory,
   fitCategory,
   appearanceCategory,
-  effectsCategory,
-  timingCategory
+  effectsCategory
 ];

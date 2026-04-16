@@ -1,17 +1,10 @@
 import type { SceneOptionCategory } from "@lyric-video-maker/core";
-import {
-  DEFAULT_TIMING_OPTIONS,
-  DEFAULT_TRANSFORM_OPTIONS,
-  timingCategory,
-  transformCategory,
-  type TimingOptions,
-  type TransformOptions
-} from "../../shared";
 
 export type ImageFitMode = "contain" | "cover" | "fill" | "none";
 
-/** Image component options (cavekit-image-component R2). */
-export interface ImageComponentOptions extends TransformOptions, TimingOptions {
+/** Image component options. Position, fade, and opacity are all handled by
+ * the Modifier stack now and are not part of the component's own options. */
+export interface ImageComponentOptions {
   // Source
   source: string;
 
@@ -20,7 +13,6 @@ export interface ImageComponentOptions extends TransformOptions, TimingOptions {
   preserveAspectRatio: boolean;
 
   // Appearance
-  opacity: number;
   cornerRadius: number;
 
   // Effects — border
@@ -51,12 +43,9 @@ export interface ImageComponentOptions extends TransformOptions, TimingOptions {
 }
 
 export const DEFAULT_IMAGE_OPTIONS: ImageComponentOptions = {
-  ...DEFAULT_TRANSFORM_OPTIONS,
-  ...DEFAULT_TIMING_OPTIONS,
   source: "",
   fitMode: "contain",
   preserveAspectRatio: true,
-  opacity: 100,
   cornerRadius: 0,
   borderEnabled: false,
   borderColor: "#ffffff",
@@ -115,7 +104,6 @@ const appearanceCategory: SceneOptionCategory = {
   label: "Appearance",
   defaultExpanded: false,
   options: [
-    { type: "number", id: "opacity", label: "Opacity", defaultValue: 100, min: 0, max: 100, step: 1 },
     { type: "number", id: "cornerRadius", label: "Corner Radius", defaultValue: 0, min: 0, max: 200, step: 1 }
   ]
 };
@@ -148,16 +136,4 @@ const effectsCategory: SceneOptionCategory = {
   ]
 };
 
-/**
- * Image options schema (cavekit-image-component R3).
- *
- * Category order: Source → Transform → Fit → Appearance → Effects → Timing.
- */
-export const imageOptionsSchema = [
-  sourceCategory,
-  transformCategory,
-  fitCategory,
-  appearanceCategory,
-  effectsCategory,
-  timingCategory
-];
+export const imageOptionsSchema = [sourceCategory, fitCategory, appearanceCategory, effectsCategory];

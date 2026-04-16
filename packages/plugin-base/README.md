@@ -1,6 +1,6 @@
 # @lyric-video-maker/plugin-base
 
-Plugin SDK for [Lyric Video Maker](https://github.com/mrkmg/LyricVideoMaker). Provides TypeScript types, transform utilities, and timing helpers for building external plugins.
+Plugin SDK for [Lyric Video Maker](https://github.com/mrkmg/LyricVideoMaker). Provides TypeScript types, modifier contracts, the `useContainerSize` hook, and transform/timing helpers for building external plugins.
 
 ## Install
 
@@ -23,49 +23,46 @@ import type {
   LyricVideoPluginActivation,
   LyricVideoPluginHost,
   SceneComponentDefinition,
-  TransformOptions,
-  TimingOptions,
 } from "@lyric-video-maker/plugin-base";
 
-interface MyOptions extends TransformOptions, TimingOptions, Record<string, unknown> {
+interface MyOptions extends Record<string, unknown> {
   textColor: string;
 }
 
 export function activate(host: LyricVideoPluginHost): LyricVideoPluginActivation {
   const { React } = host;
-  const {
-    transformCategory, timingCategory,
-    DEFAULT_TRANSFORM_OPTIONS, DEFAULT_TIMING_OPTIONS,
-    computeTransformStyle, computeTimingOpacity,
-  } = host.transform;
 
   const component: SceneComponentDefinition<MyOptions> = {
     id: "myplugin.hello",
     name: "Hello World",
     options: [
-      transformCategory,
-      timingCategory,
       { id: "textColor", label: "Text Color", type: "color", defaultValue: "#ffffff" },
     ],
     defaultOptions: {
-      ...DEFAULT_TRANSFORM_OPTIONS,
-      ...DEFAULT_TIMING_OPTIONS,
       textColor: "#ffffff",
     },
-    Component({ options, video, timeMs }) {
-      const style = {
-        ...computeTransformStyle(options, video),
-        opacity: computeTimingOpacity(timeMs, options),
-        color: options.textColor,
-        fontSize: 48,
-      };
-      return React.createElement("div", { style }, "Hello from my plugin!");
+    Component({ options, containerRef }) {
+      return React.createElement(
+        "div",
+        {
+          ref: containerRef,
+          style: {
+            width: "100%",
+            height: "100%",
+            color: options.textColor,
+            fontSize: 48,
+          },
+        },
+        "Hello from my plugin!"
+      );
     },
   };
 
   return { components: [component], scenes: [] };
 }
 ```
+
+Position, timing, opacity, and visibility are handled by the built-in modifier stack — users add modifiers to the component instance in the app. Plugins can also contribute their own modifier definitions.
 
 Bundle to CommonJS (e.g. with [tsup](https://tsup.egoist.dev)):
 
@@ -76,8 +73,10 @@ npx tsup src/plugin.ts --format cjs --out-dir dist --out-extension .cjs
 ## What's Included
 
 - **Types** -- `SceneComponentDefinition`, `SceneDefinition`, `LyricVideoPluginHost`, render props, option schema types, lyric runtime, video settings, and more.
-- **Transform system** -- `computeTransformStyle()`, `DEFAULT_TRANSFORM_OPTIONS`, `transformCategory` option group for positioning, rotation, and flipping.
-- **Timing system** -- `computeTimingOpacity()`, `DEFAULT_TIMING_OPTIONS`, `timingCategory` option group for visibility windows and fade effects.
+- **Modifier contract** -- `ModifierDefinition`, `ModifierInstance`, `ModifierApplyContext` for building custom modifiers that plug into the per-component modifier stack.
+- **`useContainerSize` hook** -- read the pixel size of the box a modifier stack has given your component.
+- **Transform / timing helpers** -- `computeTransformStyle()`, `computeTimingOpacity()`, and the matching option categories and defaults — the same pure helpers that power the built-in Transform and Timing modifiers, usable in custom modifiers.
+- **Plugin asset helpers** -- `createPluginAssetUri()`, `parsePluginAssetUri()` for bundling images and videos with your plugin.
 
 ## Documentation
 

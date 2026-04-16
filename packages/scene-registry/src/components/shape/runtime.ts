@@ -1,46 +1,33 @@
-import type { VideoSettings } from "@lyric-video-maker/core";
-import { computeTransformStyle, computeTimingOpacity } from "../../shared";
 import { withAlpha } from "../../shared/color";
 import type { ShapeComponentOptions } from "./options";
 
 export interface ShapeInitialState {
   html: string;
   containerStyle: Record<string, string>;
-  initialOpacity: number;
 }
 
 /**
  * Build the Shape component's browser-side initial state: a container
- * style honoring the shared Transform helper plus an inner HTML fragment
- * that renders the selected shape type with fill, stroke, and effect
- * styling. Used by both the React SSR Component path and the live-DOM
- * `static-fx-layer` runtime so both paths produce identical markup.
+ * that fills its given box plus an inner HTML fragment that renders the
+ * selected shape type with fill, stroke, and effect styling. Position,
+ * size, and fade are applied by the modifier stack wrapping this container.
  */
 export function buildShapeInitialState(
-  options: ShapeComponentOptions,
-  video: VideoSettings,
-  timeMs: number
+  options: ShapeComponentOptions
 ): ShapeInitialState {
-  const transformStyle = computeTransformStyle(options, {
-    width: video.width,
-    height: video.height
-  });
-
-  const containerStyle: Record<string, string> = {};
-  for (const [key, value] of Object.entries(transformStyle)) {
-    if (value !== undefined && value !== null) {
-      containerStyle[key] = String(value);
-    }
-  }
-  containerStyle.filter = buildEffectFilter(options);
+  const containerStyle: Record<string, string> = {
+    position: "absolute",
+    inset: "0",
+    width: "100%",
+    height: "100%",
+    filter: buildEffectFilter(options)
+  };
 
   const innerHtml = buildShapeInnerMarkup(options);
-  const initialOpacity = computeTimingOpacity(timeMs, options);
 
   return {
     html: innerHtml,
-    containerStyle,
-    initialOpacity
+    containerStyle
   };
 }
 

@@ -59,17 +59,15 @@ describe("Video options contract (T-050)", () => {
   });
 });
 
-describe("Video schema order (T-051)", () => {
-  it("category order is Source → Playback → Transform → Fit → Appearance → Effects → Timing", () => {
+describe("Video schema order", () => {
+  it("category order is Source → Playback → Fit → Appearance → Effects (transform/timing live on modifiers)", () => {
     const labels = videoOptionsSchema.filter(isSceneOptionCategory).map((c) => c.label);
     expect(labels).toEqual([
       "Source",
       "Playback",
-      "Transform",
       "Fit",
       "Appearance",
-      "Effects",
-      "Timing"
+      "Effects"
     ]);
   });
 });
@@ -200,7 +198,7 @@ describe("Video rendering — inner element + effects (T-054)", () => {
 
 describe("Video playback math (T-055, T-056)", () => {
   it("sync-with-song produces monotonically advancing position", () => {
-    const o = { playbackMode: "sync-with-song" as const, videoStartOffsetMs: 0, playbackSpeed: 1, startTime: 0 };
+    const o = { playbackMode: "sync-with-song" as const, videoStartOffsetMs: 0, playbackSpeed: 1 };
     const a = computeVideoPlaybackState({ options: o, durationMs: 10000, timeMs: 1000 });
     const b = computeVideoPlaybackState({ options: o, durationMs: 10000, timeMs: 2000 });
     expect(b.targetTimeSeconds).toBeGreaterThan(a.targetTimeSeconds);
@@ -209,7 +207,7 @@ describe("Video playback math (T-055, T-056)", () => {
 
   it("sync-with-song clamps to video duration", () => {
     const r = computeVideoPlaybackState({
-      options: { playbackMode: "sync-with-song", videoStartOffsetMs: 0, playbackSpeed: 1, startTime: 0 },
+      options: { playbackMode: "sync-with-song", videoStartOffsetMs: 0, playbackSpeed: 1 },
       durationMs: 5000,
       timeMs: 9999
     });
@@ -219,7 +217,7 @@ describe("Video playback math (T-055, T-056)", () => {
 
   it("loop mode wraps playback within video duration", () => {
     const r = computeVideoPlaybackState({
-      options: { playbackMode: "loop", videoStartOffsetMs: 0, playbackSpeed: 1, startTime: 0 },
+      options: { playbackMode: "loop", videoStartOffsetMs: 0, playbackSpeed: 1 },
       durationMs: 5000,
       timeMs: 12000 // 12s into a 5s clip = wrap to 2s
     });
@@ -229,7 +227,7 @@ describe("Video playback math (T-055, T-056)", () => {
 
   it("play-once-clamp holds last frame after computed end", () => {
     const r = computeVideoPlaybackState({
-      options: { playbackMode: "play-once-clamp", videoStartOffsetMs: 0, playbackSpeed: 1, startTime: 0 },
+      options: { playbackMode: "play-once-clamp", videoStartOffsetMs: 0, playbackSpeed: 1 },
       durationMs: 5000,
       timeMs: 9999
     });
@@ -239,7 +237,7 @@ describe("Video playback math (T-055, T-056)", () => {
 
   it("play-once-hide hides component after computed end", () => {
     const r = computeVideoPlaybackState({
-      options: { playbackMode: "play-once-hide", videoStartOffsetMs: 0, playbackSpeed: 1, startTime: 0 },
+      options: { playbackMode: "play-once-hide", videoStartOffsetMs: 0, playbackSpeed: 1 },
       durationMs: 5000,
       timeMs: 9999
     });
@@ -248,7 +246,7 @@ describe("Video playback math (T-055, T-056)", () => {
 
   it("playback speed scales advancement", () => {
     const r = computeVideoPlaybackState({
-      options: { playbackMode: "sync-with-song", videoStartOffsetMs: 0, playbackSpeed: 2, startTime: 0 },
+      options: { playbackMode: "sync-with-song", videoStartOffsetMs: 0, playbackSpeed: 2 },
       durationMs: 60000,
       timeMs: 1000
     });

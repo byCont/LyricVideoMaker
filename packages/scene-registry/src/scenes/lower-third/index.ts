@@ -1,4 +1,5 @@
 import type { SceneDefinition } from "@lyric-video-maker/core";
+import { DEFAULT_TRANSFORM_OPTIONS } from "@lyric-video-maker/plugin-base";
 
 export const lowerThirdScene: SceneDefinition = {
   id: "lower-third",
@@ -12,16 +13,27 @@ export const lowerThirdScene: SceneDefinition = {
       id: "background-image-1",
       componentId: "image",
       enabled: true,
+      modifiers: [],
       options: {}
     },
     {
       id: "bar-1",
       componentId: "shape",
       enabled: true,
+      modifiers: [
+        {
+          id: "bar-1-transform",
+          modifierId: "transform",
+          enabled: true,
+          options: {
+            ...DEFAULT_TRANSFORM_OPTIONS,
+            y: 78,
+            height: 22
+          }
+        }
+      ],
       options: {
         shapeType: "rectangle",
-        y: 78,
-        height: 22,
         fillColor: "#000000",
         fillOpacity: 75,
         strokeEnabled: false
@@ -31,9 +43,19 @@ export const lowerThirdScene: SceneDefinition = {
       id: "lyrics-by-line-1",
       componentId: "lyrics-by-line",
       enabled: true,
+      modifiers: [
+        {
+          id: "lyrics-by-line-1-transform",
+          modifierId: "transform",
+          enabled: true,
+          options: {
+            ...DEFAULT_TRANSFORM_OPTIONS,
+            y: 78,
+            height: 22
+          }
+        }
+      ],
       options: {
-        y: 78,
-        height: 22,
         lyricPosition: "middle",
         lyricSize: 52,
         horizontalPadding: 80
@@ -43,16 +65,26 @@ export const lowerThirdScene: SceneDefinition = {
       id: "static-text-1",
       componentId: "static-text",
       enabled: true,
+      modifiers: [
+        {
+          id: "static-text-1-transform",
+          modifierId: "transform",
+          enabled: true,
+          options: {
+            ...DEFAULT_TRANSFORM_OPTIONS,
+            x: 3,
+            y: 2,
+            width: 50,
+            height: 8
+          }
+        }
+      ],
       options: {
         text: "Artist Name",
-        y: 2,
-        height: 8,
         fontSize: 24,
         fontWeight: 400,
         color: "#ffffff",
-        textAlign: "left",
-        x: 3,
-        width: 50
+        textAlign: "left"
       }
     }
   ]

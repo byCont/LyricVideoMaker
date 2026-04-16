@@ -1,24 +1,38 @@
 import React from "react";
 import type {
   SceneComponentInstance,
+  SerializedModifierDefinition,
   SerializedSceneComponentDefinition
 } from "@lyric-video-maker/core";
 import { isSceneOptionCategory } from "@lyric-video-maker/core";
 import { InfoTip, OptionCategorySection, OptionField } from "../../components/ui/form-fields";
+import { ModifiersSection } from "./modifiers-section";
 
 export function ComponentDetailsEditor({
   component,
   instance,
   fonts,
+  modifierDefinitions,
   onOptionChange,
-  onPickFile
+  onPickFile,
+  onAddModifier,
+  onRemoveModifier,
+  onMoveModifier,
+  onToggleModifierEnabled,
+  onModifierOptionChange
 }: {
   component: SerializedSceneComponentDefinition;
   instance: SceneComponentInstance;
   fonts: string[];
+  modifierDefinitions: SerializedModifierDefinition[];
   onOptionChange: (optionId: string, value: unknown) => void;
-  /** Generalized file-pick callback: identifier + kind (T-014). */
+  /** Generalized file-pick callback: identifier + kind. */
   onPickFile: (optionId: string, kind: "image" | "video" | "image-list") => void;
+  onAddModifier: (modifier: SerializedModifierDefinition) => void;
+  onRemoveModifier: (modifierId: string) => void;
+  onMoveModifier: (modifierId: string, direction: -1 | 1) => void;
+  onToggleModifierEnabled: (modifierId: string) => void;
+  onModifierOptionChange: (modifierId: string, optionId: string, value: unknown) => void;
 }) {
   const topLevelOptions = component.options.filter((option) => !isSceneOptionCategory(option));
   const categorizedOptions = component.options.filter(isSceneOptionCategory);
@@ -27,6 +41,17 @@ export function ComponentDetailsEditor({
     <section className="panel inspector-panel">
 
       <div className="inspector-layout">
+        <ModifiersSection
+          instance={instance}
+          modifierDefinitions={modifierDefinitions}
+          fonts={fonts}
+          onAddModifier={onAddModifier}
+          onRemoveModifier={onRemoveModifier}
+          onMoveModifier={onMoveModifier}
+          onToggleModifierEnabled={onToggleModifierEnabled}
+          onModifierOptionChange={onModifierOptionChange}
+        />
+
         {topLevelOptions.length > 0 ? (
           <section className="inspector-section">
             <div className="inspector-section-header">

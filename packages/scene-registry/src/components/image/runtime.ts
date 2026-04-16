@@ -1,54 +1,38 @@
-import type { VideoSettings } from "@lyric-video-maker/core";
-import { computeTransformStyle, computeTimingOpacity } from "../../shared";
 import { withAlpha } from "../../shared/color";
 import type { ImageComponentOptions } from "./options";
 
 export interface ImageInitialState {
   html: string;
   containerStyle: Record<string, string>;
-  initialOpacity: number;
   sourceUrl: string | null;
 }
 
 /**
- * Build the Image component's browser initial state (R5).
+ * Build the Image component's inner markup. The outer modifier stack owns
+ * position, size, fade, and opacity — this component only draws into the
+ * container it is given. All visual effects (border, corner radius, shadow,
+ * glow, CSS filters) are applied directly to the inner <img>. When tint is
+ * enabled a multiply-blend overlay renders on top.
  *
- * The outer positioned box honors the shared Transform helper for
- * positioning and opacity only. All visual effects (border, corner
- * radius, shadow, glow, CSS filters) are applied directly to the inner
- * image element. When a tint is enabled a multiply-blend overlay renders
- * on top of the image.
- *
- * When no source URL is resolvable the helper returns null inner markup
- * — the component renders nothing rather than crashing or showing a
- * placeholder (R4).
+ * When no source URL resolves the helper returns empty inner markup so the
+ * component renders nothing rather than crashing.
  */
 export function buildImageInitialState(
   options: ImageComponentOptions,
-  video: VideoSettings,
-  timeMs: number,
   resolvedUrl: string | null
 ): ImageInitialState {
-  const transformStyle = computeTransformStyle(options, {
-    width: video.width,
-    height: video.height
-  });
-  const containerStyle: Record<string, string> = {};
-  for (const [key, value] of Object.entries(transformStyle)) {
-    if (value !== undefined && value !== null) {
-      containerStyle[key] = String(value);
-    }
-  }
-
-  containerStyle.opacity = String((options.opacity / 100) * computeTimingOpacity(timeMs, options));
+  const containerStyle: Record<string, string> = {
+    position: "absolute",
+    inset: "0",
+    width: "100%",
+    height: "100%"
+  };
 
   const html = resolvedUrl ? buildInnerMarkup(options, resolvedUrl) : "";
-  const initialOpacity = (options.opacity / 100) * computeTimingOpacity(timeMs, options);
 
   return {
     html,
     containerStyle,
-    initialOpacity,
     sourceUrl: resolvedUrl
   };
 }

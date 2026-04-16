@@ -1,4 +1,5 @@
 import { SCENE_FILE_VERSION } from "../constants";
+import type { ModifierInstance } from "@lyric-video-maker/plugin-base";
 import type {
   SceneComponentDefinition,
   SceneComponentInstance,
@@ -25,6 +26,10 @@ export function serializeSceneDefinition(scene: SceneDefinition): SerializedScen
     ...scene,
     components: scene.components.map((component) => ({
       ...component,
+      modifiers: (component.modifiers ?? []).map((modifier) => ({
+        ...modifier,
+        options: { ...modifier.options }
+      })),
       options: { ...component.options }
     }))
   };
@@ -87,8 +92,26 @@ function parseSceneComponentInstance(raw: unknown): SceneComponentInstance {
     id: String(candidate.id),
     componentId: String(candidate.componentId),
     enabled: candidate.enabled !== false,
+    modifiers: parseModifiers(candidate.modifiers),
     options: asRecord(candidate.options)
   };
+}
+
+function parseModifiers(raw: unknown): ModifierInstance[] {
+  if (!Array.isArray(raw)) return [];
+  const out: ModifierInstance[] = [];
+  for (const entry of raw) {
+    if (!entry || typeof entry !== "object") continue;
+    const candidate = entry as Partial<ModifierInstance>;
+    if (!candidate.id || !candidate.modifierId) continue;
+    out.push({
+      id: String(candidate.id),
+      modifierId: String(candidate.modifierId),
+      enabled: candidate.enabled !== false,
+      options: asRecord(candidate.options)
+    });
+  }
+  return out;
 }
 
 function asRecord(value: unknown): Record<string, unknown> {

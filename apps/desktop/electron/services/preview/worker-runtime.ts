@@ -14,7 +14,7 @@ import {
   createPreviewComputationCache,
   type FramePreviewSession
 } from "@lyric-video-maker/renderer";
-import { builtInSceneComponents } from "@lyric-video-maker/scene-registry";
+import { builtInModifiers, builtInSceneComponents } from "@lyric-video-maker/scene-registry";
 import type { RenderPreviewRequest, RenderPreviewResponse } from "../../../src/electron-api";
 import { createPluginAssetResolver } from "../plugin-asset-resolver";
 import { createLatestOnlyPreviewRenderQueue } from "./render-queue";
@@ -141,6 +141,7 @@ async function getOrCreatePreviewSession(request: RenderPreviewRequest) {
       ? await loadInstalledPlugins(userDataPath)
       : [];
     const pluginComponents = loadedPlugins.flatMap((plugin) => plugin.components);
+    const pluginModifiers = loadedPlugins.flatMap((plugin) => plugin.modifiers ?? []);
     const pluginBundleSources = loadedPlugins.map((plugin) => plugin.bundleSource);
     const pluginRepoDirs = new Map(
       loadedPlugins.map((plugin) => [plugin.summary.id, plugin.summary.repoDir])
@@ -151,12 +152,14 @@ async function getOrCreatePreviewSession(request: RenderPreviewRequest) {
     );
     const resolver = createPluginAssetResolver(() => pluginRepoDirs);
     const componentDefinitions = [...builtInSceneComponents, ...pluginComponents];
+    const modifierDefinitions = [...builtInModifiers, ...pluginModifiers];
     const job = createRenderJob({
     audioPath: request.audioPath,
     subtitlePath: request.subtitlePath,
     outputPath: join(tmpdir(), "lyric-video-preview.mp4"),
     scene: request.scene,
       componentDefinitions,
+      modifierDefinitions,
     cues,
     durationMs,
     video: getPreviewVideoSettings(request),

@@ -14,17 +14,17 @@ import {
 import { basename, isAbsolute, join, relative, resolve } from "node:path";
 import { promisify } from "node:util";
 import * as Core from "@lyric-video-maker/core";
-import type { SceneComponentDefinition, SceneDefinition } from "@lyric-video-maker/core";
-import {
-  computeTransformStyle,
-  computeTimingOpacity,
-  transformCategory,
-  timingCategory,
-  DEFAULT_TRANSFORM_OPTIONS,
-  DEFAULT_TIMING_OPTIONS
-} from "@lyric-video-maker/plugin-base";
+import type {
+  ModifierDefinition,
+  SceneComponentDefinition,
+  SceneDefinition
+} from "@lyric-video-maker/core";
 import React from "react";
-import { builtInSceneComponents, builtInScenes } from "@lyric-video-maker/scene-registry";
+import {
+  builtInModifiers,
+  builtInSceneComponents,
+  builtInScenes
+} from "@lyric-video-maker/scene-registry";
 
 const execFileAsync = promisify(execFile);
 const MANIFEST_FILE = "lyric-video-plugin.json";
@@ -44,6 +44,7 @@ export interface InstalledPluginSummary {
 export interface LoadedPlugin {
   summary: InstalledPluginSummary;
   components: SceneComponentDefinition<Record<string, unknown>>[];
+  modifiers: ModifierDefinition<Record<string, unknown>>[];
   scenes: SceneDefinition[];
   bundleSource: string;
 }
@@ -55,6 +56,7 @@ interface PluginManifest {
   version: string;
   entry: string;
   components: string[];
+  modifiers: string[];
   scenes: string[];
 }
 
@@ -79,18 +81,14 @@ interface PluginModule {
 interface PluginHost {
   React: typeof React;
   core: typeof Core;
-  transform: {
-    computeTransformStyle: typeof computeTransformStyle;
-    computeTimingOpacity: typeof computeTimingOpacity;
-    transformCategory: typeof transformCategory;
-    timingCategory: typeof timingCategory;
-    DEFAULT_TRANSFORM_OPTIONS: typeof DEFAULT_TRANSFORM_OPTIONS;
-    DEFAULT_TIMING_OPTIONS: typeof DEFAULT_TIMING_OPTIONS;
+  modifiers: {
+    register(definition: ModifierDefinition<Record<string, unknown>>): void;
   };
 }
 
 interface PluginActivationResult {
   components?: unknown;
+  modifiers?: unknown;
   scenes?: unknown;
 }
 
@@ -99,9 +97,22 @@ export async function loadInstalledPlugins(
   options: LoadInstalledPluginOptions = {}
 ): Promise<LoadedPlugin[]> {
   const summaries = await readInstalledPluginSummaries(userDataPath);
-  const plugins = await Promise.all(
+  const settled = await Promise.allSettled(
     summaries.map((summary) => loadPluginFromRepo(summary.url, summary.repoDir))
   );
+  const plugins: LoadedPlugin[] = [];
+  settled.forEach((result, index) => {
+    if (result.status === "fulfilled") {
+      plugins.push(result.value);
+    } else {
+      const summary = summaries[index];
+      console.warn(
+        `Plugin "${summary?.id ?? "(unknown)"}" failed to load and was skipped: ${
+          result.reason instanceof Error ? result.reason.message : String(result.reason)
+        }`
+      );
+    }
+  });
   validatePluginSet(plugins, { ...options, strict: false });
   return plugins;
 }
@@ -244,16 +255,14 @@ async function loadPluginFromRepo(url: string, repoDir: string): Promise<LoadedP
   const entryPath = resolveManifestPath(repoDir, manifest.entry, "entry");
   const bundleSource = await readFile(entryPath, "utf-8");
   const moduleExports = loadPluginModule(entryPath);
+  const registeredModifiers: ModifierDefinition<Record<string, unknown>>[] = [];
   const activation = moduleExports.activate?.({
     React,
     core: Core,
-    transform: {
-      computeTransformStyle,
-      computeTimingOpacity,
-      transformCategory,
-      timingCategory,
-      DEFAULT_TRANSFORM_OPTIONS,
-      DEFAULT_TIMING_OPTIONS
+    modifiers: {
+      register(definition) {
+        registeredModifiers.push(definition);
+      }
     }
   });
 
@@ -263,6 +272,8 @@ async function loadPluginFromRepo(url: string, repoDir: string): Promise<LoadedP
 
   const components = parseComponentDefinitions(manifest, activation.components);
   const scenes = parseSceneDefinitions(manifest, activation.scenes);
+  const modifiersFromActivation = parseModifierDefinitions(manifest, activation.modifiers);
+  const modifiers = [...registeredModifiers, ...modifiersFromActivation];
 
   return {
     summary: {
@@ -275,6 +286,7 @@ async function loadPluginFromRepo(url: string, repoDir: string): Promise<LoadedP
       sceneCount: scenes.length
     },
     components,
+    modifiers,
     scenes,
     bundleSource
   };
@@ -319,6 +331,7 @@ async function readPluginManifest(repoDir: string): Promise<PluginManifest> {
     version: String(manifest.version),
     entry: String(manifest.entry),
     components: manifest.components.map(String),
+    modifiers: Array.isArray(manifest.modifiers) ? manifest.modifiers.map(String) : [],
     scenes: manifest.scenes.map(String)
   };
 
@@ -362,6 +375,49 @@ function parseComponentDefinitions(
     `Plugin "${manifest.id}" component`
   );
   return components;
+}
+
+function parseModifierDefinitions(
+  manifest: PluginManifest,
+  rawModifiers: unknown
+): ModifierDefinition<Record<string, unknown>>[] {
+  if (rawModifiers === undefined) {
+    assertIdSetMatches(manifest.modifiers, [], `Plugin "${manifest.id}" modifier`);
+    return [];
+  }
+  if (!Array.isArray(rawModifiers)) {
+    throw new Error(`Plugin "${manifest.id}" modifiers must be an array.`);
+  }
+
+  const modifiers = rawModifiers.map((modifier) => {
+    const candidate = modifier as Partial<ModifierDefinition<Record<string, unknown>>>;
+    if (!candidate || typeof candidate !== "object") {
+      throw new Error(`Plugin "${manifest.id}" returned an invalid modifier.`);
+    }
+    if (!candidate.id || !candidate.name || typeof candidate.apply !== "function") {
+      throw new Error(
+        `Plugin "${manifest.id}" modifier is missing id, name, or apply().`
+      );
+    }
+    if (!Array.isArray(candidate.options)) {
+      throw new Error(
+        `Plugin "${manifest.id}" modifier "${candidate.id}" options must be an array.`
+      );
+    }
+    if (!isSerializable(candidate.defaultOptions ?? {})) {
+      throw new Error(
+        `Plugin "${manifest.id}" modifier "${candidate.id}" defaultOptions must be serializable.`
+      );
+    }
+    return candidate as ModifierDefinition<Record<string, unknown>>;
+  });
+
+  assertIdSetMatches(
+    manifest.modifiers,
+    modifiers.map((modifier) => modifier.id),
+    `Plugin "${manifest.id}" modifier`
+  );
+  return modifiers;
 }
 
 function parseSceneDefinitions(
@@ -412,7 +468,9 @@ function validatePluginSet(
     ...builtInScenes.map((scene) => scene.id),
     ...(options.existingSceneIds ?? [])
   ]);
+  const modifierIds = new Set(builtInModifiers.map((modifier) => modifier.id));
   const pluginComponentIds = new Set<string>();
+  const pluginModifierIds = new Set<string>();
 
   for (const plugin of plugins) {
     for (const component of plugin.components) {
@@ -421,6 +479,13 @@ function validatePluginSet(
       }
       componentIds.add(component.id);
       pluginComponentIds.add(component.id);
+    }
+    for (const modifier of plugin.modifiers) {
+      if (modifierIds.has(modifier.id) || pluginModifierIds.has(modifier.id)) {
+        throw new Error(`Plugin modifier id "${modifier.id}" conflicts with another modifier.`);
+      }
+      modifierIds.add(modifier.id);
+      pluginModifierIds.add(modifier.id);
     }
   }
 

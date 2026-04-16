@@ -1,5 +1,4 @@
 import type { SceneOptionEntry } from "@lyric-video-maker/core";
-import { transformCategory } from "../../shared";
 import type { EqualizerOptions } from "./types";
 
 export const equalizerOptionsSchema: SceneOptionEntry[] = [
@@ -21,7 +20,6 @@ export const equalizerOptionsSchema: SceneOptionEntry[] = [
       { type: "number", id: "innerPadding", label: "Inner Padding", defaultValue: 24, min: 0, max: 160, step: 1 }
     ]
   },
-  transformCategory,
   {
     type: "category",
     id: "graph",
@@ -178,14 +176,6 @@ export const equalizerOptionsSchema: SceneOptionEntry[] = [
 ];
 
 export const equalizerDefaultOptions: EqualizerOptions = {
-  x: 0,
-  y: 0,
-  width: 100,
-  height: 100,
-  anchor: "top-left",
-  rotation: 0,
-  flipHorizontal: false,
-  flipVertical: false,
   barOrientation: "horizontal",
   innerPadding: 24,
   lineBaseline: "bottom",

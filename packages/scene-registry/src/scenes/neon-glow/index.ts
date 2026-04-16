@@ -1,4 +1,5 @@
 import type { SceneDefinition } from "@lyric-video-maker/core";
+import { DEFAULT_TRANSFORM_OPTIONS } from "@lyric-video-maker/plugin-base";
 
 export const neonGlowScene: SceneDefinition = {
   id: "neon-glow",
@@ -12,6 +13,7 @@ export const neonGlowScene: SceneDefinition = {
       id: "background-color-1",
       componentId: "background-color",
       enabled: true,
+      modifiers: [],
       options: {
         mode: "solid",
         color: "#050510",
@@ -22,9 +24,19 @@ export const neonGlowScene: SceneDefinition = {
       id: "equalizer-1",
       componentId: "equalizer",
       enabled: true,
+      modifiers: [
+        {
+          id: "equalizer-1-transform",
+          modifierId: "transform",
+          enabled: true,
+          options: {
+            ...DEFAULT_TRANSFORM_OPTIONS,
+            y: 65,
+            height: 35
+          }
+        }
+      ],
       options: {
-        y: 65,
-        height: 35,
         graphMode: "line",
         lineStyle: "area",
         lineBaseline: "bottom",
@@ -40,6 +52,7 @@ export const neonGlowScene: SceneDefinition = {
       id: "lyrics-by-line-1",
       componentId: "lyrics-by-line",
       enabled: true,
+      modifiers: [],
       options: {
         lyricColor: "#00ffcc",
         lyricPosition: "middle",

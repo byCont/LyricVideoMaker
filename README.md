@@ -10,8 +10,8 @@ Built with Electron, React, headless Chromium, and ffmpeg.
 - Built-in subtitle alignment via Whisper (bundled sidecar)
 - Scene editor with live preview
 - Built-in scene components: backgrounds, lyrics display, equalizer, shapes, static text, images, video overlays, slideshows
-- Shared transform system (position, size, rotation, anchor) and timing system (visibility, fades, easing)
-- Plugin system for third-party scene components and presets
+- Stackable component modifiers for position, size, rotation, timing/fades, opacity, and visibility — composable per component instance
+- Plugin system for third-party scene components, scene presets, and custom modifiers
 - Renders H.264/AAC MP4 via headless Chromium frame capture + ffmpeg mux
 - 1920x1080 at 30fps default, configurable
 

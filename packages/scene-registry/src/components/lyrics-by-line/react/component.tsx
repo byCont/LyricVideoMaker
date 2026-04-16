@@ -35,8 +35,8 @@ export function LyricsByLineRenderComponent({
     scaledLayout.horizontalPadding,
     scaledLayout.verticalInset
   );
-  const containerStyle = getLyricContainerStyle(video, options);
-  const containerWidth = getLyricContainerPixelWidth(video, options);
+  const containerStyle = getLyricContainerStyle();
+  const containerWidth = getLyricContainerPixelWidth(video);
   const estimatedPaintPadding = getLyricPaintPadding(scaledLayout.lyricSize, {
     borderEnabled: options.borderEnabled,
     borderThickness: scaledLayout.borderThickness,

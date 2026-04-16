@@ -14,14 +14,13 @@ const VIDEO_FRAME_EXTRACTION_PREPARED_KEY = "__videoFrameExtraction";
 export function VideoRenderComponent({
   instance,
   options,
-  video,
   timeMs,
   assets,
   prepared
 }: SceneRenderProps<VideoComponentOptions>) {
   const url = assets.getUrl(instance.id, "source");
   const frameExtraction = getVideoFrameExtraction(prepared);
-  const initial = buildVideoInitialState(options, video, url, frameExtraction);
+  const initial = buildVideoInitialState(options, frameExtraction);
 
   if (!initial.sourceUrl || !frameExtraction) {
     return null;
@@ -36,8 +35,7 @@ export function VideoRenderComponent({
     options: {
       playbackMode: options.playbackMode,
       videoStartOffsetMs: options.videoStartOffsetMs,
-      playbackSpeed: options.playbackSpeed,
-      startTime: options.startTime
+      playbackSpeed: options.playbackSpeed
     },
     durationMs,
     timeMs

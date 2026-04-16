@@ -17,6 +17,7 @@ export function createRenderJob({
   outputPath,
   scene,
   componentDefinitions,
+  modifierDefinitions,
   cues,
   durationMs,
   createdAt = new Date(),
@@ -27,7 +28,12 @@ export function createRenderJob({
   const fps = video?.fps ?? DEFAULT_VIDEO_FPS;
   const width = video?.width ?? DEFAULT_VIDEO_WIDTH;
   const height = video?.height ?? DEFAULT_VIDEO_HEIGHT;
-  const validatedComponents = validateSceneComponents(scene, componentDefinitions, validationContext);
+  const { components: validatedComponents, warnings } = validateSceneComponents(
+    scene,
+    componentDefinitions,
+    modifierDefinitions,
+    validationContext
+  );
 
   return {
     id: `job-${createdAt.getTime()}`,
@@ -37,6 +43,7 @@ export function createRenderJob({
     sceneId: scene.id,
     sceneName: scene.name,
     components: validatedComponents,
+    loadWarnings: warnings.map((warning) => warning.message),
     lyrics: cues,
     createdAt: createdAt.toISOString(),
     video: {

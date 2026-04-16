@@ -27,9 +27,9 @@ export const imageComponent: SceneComponentDefinition<ImageComponentOptions> = {
   staticWhenMarkupUnchanged: true,
   options: imageOptionsSchema,
   defaultOptions: DEFAULT_IMAGE_OPTIONS,
-  Component: ({ instance, options, video, timeMs, assets }) => {
+  Component: ({ instance, options, assets }) => {
     const url = assets.getUrl(instance.id, "source");
-    const initial = buildImageInitialState(options, video, timeMs, url);
+    const initial = buildImageInitialState(options, url);
     if (!initial.sourceUrl) {
       return null;
     }

@@ -69,12 +69,9 @@ When you select a component in the Scene Builder, its options appear in the bott
 
 ![Lyrics component options](./images/lyrics-component-options.png)
 
-Most components share two common option categories:
+Above the component's own options, the **Modifiers** section controls how the component is positioned, timed, and displayed. Add stackable modifiers — Transform, Timing, Opacity, Visibility, and any provided by installed plugins — to place a component, fade it in/out, or dim it.
 
-- **Transform** — Position (x, y), size (width, height), anchor point, rotation, and flip.
-- **Timing** — When the component appears and disappears, with fade in/out controls.
-
-See [Scenes & Components](/guide/scenes-and-components) for details on each component's options.
+See [Scenes & Components](/guide/scenes-and-components) for details on each component's options and the full list of built-in modifiers.
 
 ## Scene Editor
 

@@ -1,4 +1,5 @@
 import type { SceneDefinition } from "@lyric-video-maker/core";
+import { DEFAULT_TRANSFORM_OPTIONS } from "@lyric-video-maker/plugin-base";
 
 export const photoMemoriesScene: SceneDefinition = {
   id: "photo-memories",
@@ -12,6 +13,7 @@ export const photoMemoriesScene: SceneDefinition = {
       id: "slideshow-1",
       componentId: "slideshow",
       enabled: true,
+      modifiers: [],
       options: {
         kenBurnsEnabled: true,
         kenBurnsScale: 15,
@@ -24,6 +26,7 @@ export const photoMemoriesScene: SceneDefinition = {
       id: "background-color-1",
       componentId: "background-color",
       enabled: true,
+      modifiers: [],
       options: {
         mode: "gradient",
         direction: "0deg",
@@ -37,10 +40,20 @@ export const photoMemoriesScene: SceneDefinition = {
       id: "static-text-1",
       componentId: "static-text",
       enabled: true,
+      modifiers: [
+        {
+          id: "static-text-1-transform",
+          modifierId: "transform",
+          enabled: true,
+          options: {
+            ...DEFAULT_TRANSFORM_OPTIONS,
+            y: 2,
+            height: 8
+          }
+        }
+      ],
       options: {
         text: "Song Title",
-        y: 2,
-        height: 8,
         fontSize: 28,
         fontWeight: 300,
         color: "#cccccc",
@@ -51,6 +64,7 @@ export const photoMemoriesScene: SceneDefinition = {
       id: "lyrics-by-line-1",
       componentId: "lyrics-by-line",
       enabled: true,
+      modifiers: [],
       options: {
         lyricPosition: "bottom",
         shadowEnabled: true,

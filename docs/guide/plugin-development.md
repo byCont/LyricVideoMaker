@@ -23,14 +23,9 @@ import type {
   LyricVideoPluginActivation,
   LyricVideoPluginHost,
   SceneComponentDefinition,
-  TransformOptions,
-  TimingOptions,
 } from "@lyric-video-maker/plugin-base";
 
-interface MyOptions
-  extends TransformOptions,
-    TimingOptions,
-    Record<string, unknown> {
+interface MyOptions extends Record<string, unknown> {
   textColor: string;
 }
 
@@ -38,21 +33,11 @@ export function activate(
   host: LyricVideoPluginHost
 ): LyricVideoPluginActivation {
   const { React } = host;
-  const {
-    transformCategory,
-    timingCategory,
-    DEFAULT_TRANSFORM_OPTIONS,
-    DEFAULT_TIMING_OPTIONS,
-    computeTransformStyle,
-    computeTimingOpacity,
-  } = host.transform;
 
   const component: SceneComponentDefinition<MyOptions> = {
     id: "myplugin.hello",
     name: "Hello World",
     options: [
-      transformCategory,
-      timingCategory,
       {
         id: "textColor",
         label: "Text Color",
@@ -61,25 +46,33 @@ export function activate(
       },
     ],
     defaultOptions: {
-      ...DEFAULT_TRANSFORM_OPTIONS,
-      ...DEFAULT_TIMING_OPTIONS,
       textColor: "#ffffff",
     },
-    Component({ options, video, timeMs }) {
-      const style = {
-        ...computeTransformStyle(options, video),
-        opacity: computeTimingOpacity(timeMs, options),
-        color: options.textColor,
-        fontSize: 48,
-        fontFamily: "sans-serif",
-      };
-      return React.createElement("div", { style }, "Hello from my plugin!");
+    Component({ options, containerRef }) {
+      return React.createElement(
+        "div",
+        {
+          ref: containerRef,
+          style: {
+            width: "100%",
+            height: "100%",
+            display: "grid",
+            placeItems: "center",
+            color: options.textColor,
+            fontSize: 48,
+            fontFamily: "sans-serif",
+          },
+        },
+        "Hello from my plugin!"
+      );
     },
   };
 
   return { components: [component], scenes: [] };
 }
 ```
+
+Users position, time, and fade this component by adding the built-in **Transform**, **Timing**, and **Opacity** modifiers in the Component Editor — the plugin itself only concerns itself with its own visuals.
 
 Create `lyric-video-plugin.json` at the project root:
 
@@ -227,5 +220,6 @@ Asset files should be committed to the repo alongside `dist/plugin.cjs`. Users c
 
 ## Next Steps
 
-- Read the full [Plugin API Reference](/guide/plugin-api) for details on all component interfaces, options schema, transform/timing systems, audio analysis, and more.
+- Read the full [Plugin API Reference](/guide/plugin-api) for details on all component interfaces, the options schema, the modifier system, audio analysis, and more.
+- The [Modifier System](/guide/plugin-api#modifier-system) section covers how to contribute your own modifiers (shakes, glitches, custom color grades, etc.) alongside the built-in Transform, Timing, Opacity, and Visibility modifiers.
 - Check out the [example plugin](https://github.com/mrkmg/LyricVideoMaker/tree/main/examples/external-plugin-basic) for a complete working reference.

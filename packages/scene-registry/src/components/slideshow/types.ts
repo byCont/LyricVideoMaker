@@ -1,4 +1,4 @@
-import type { TimingEasing, TimingOptions, TransformOptions } from "../../shared";
+import type { TimingEasing } from "../../shared";
 
 export type SlideshowTimingMode = "fixed-duration" | "align-to-lyrics";
 export type SlideshowOrder = "sequential" | "shuffle" | "random";
@@ -18,7 +18,7 @@ export type SlideshowTransition =
 
 export type ImageFitMode = "contain" | "cover" | "fill" | "none";
 
-export interface SlideshowComponentOptions extends TransformOptions, TimingOptions {
+export interface SlideshowComponentOptions {
   // Source
   images: string[];
 
@@ -46,7 +46,6 @@ export interface SlideshowComponentOptions extends TransformOptions, TimingOptio
   fitMode: ImageFitMode;
 
   // Appearance
-  opacity: number;
   cornerRadius: number;
 
   // Effects — border

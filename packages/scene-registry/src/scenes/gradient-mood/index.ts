@@ -11,6 +11,7 @@ export const gradientMoodScene: SceneDefinition = {
       id: "background-color-1",
       componentId: "background-color",
       enabled: true,
+      modifiers: [],
       options: {
         mode: "gradient",
         direction: "135deg",
@@ -24,6 +25,7 @@ export const gradientMoodScene: SceneDefinition = {
       id: "lyrics-by-line-1",
       componentId: "lyrics-by-line",
       enabled: true,
+      modifiers: [],
       options: {
         lyricPosition: "middle",
         shadowEnabled: true,

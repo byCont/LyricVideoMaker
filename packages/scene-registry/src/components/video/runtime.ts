@@ -1,12 +1,9 @@
-import type { VideoSettings } from "@lyric-video-maker/core";
-import { computeTransformStyle, computeTimingOpacity } from "../../shared";
 import { withAlpha } from "../../shared/color";
 import type { VideoComponentOptions } from "./options";
 
 export interface VideoInitialState {
   html: string;
   containerStyle: Record<string, string>;
-  initialOpacity: number;
   sourceUrl: string | null;
 }
 
@@ -19,33 +16,26 @@ export interface VideoFrameExtractionMetadata {
 
 /**
  * Build Video component browser-side initial state. Runtime uses extracted
- * JPEG frame files, not HTMLVideoElement seeking. The container handles
- * positioning only; all visual effects are applied to the inner image element.
+ * JPEG frame files, not HTMLVideoElement seeking. All visual effects are
+ * applied to the inner image element. Position/size/fade live on the
+ * modifier stack wrapping this container.
  */
 export function buildVideoInitialState(
   options: VideoComponentOptions,
-  video: VideoSettings,
-  _resolvedUrl: string | null,
   frameExtraction?: VideoFrameExtractionMetadata | null
 ): VideoInitialState {
-  const transformStyle = computeTransformStyle(options, {
-    width: video.width,
-    height: video.height
-  });
-  const containerStyle: Record<string, string> = {};
-  for (const [key, value] of Object.entries(transformStyle)) {
-    if (value !== undefined && value !== null) {
-      containerStyle[key] = String(value);
-    }
-  }
+  const containerStyle: Record<string, string> = {
+    position: "absolute",
+    inset: "0",
+    width: "100%",
+    height: "100%"
+  };
 
   const html = frameExtraction ? buildImageSequenceMarkup(options) : "";
-  const initialOpacity = (options.opacity / 100) * computeTimingOpacity(0, options);
 
   return {
     html,
     containerStyle,
-    initialOpacity,
     sourceUrl: frameExtraction ? frameExtraction.urlPrefix : null
   };
 }

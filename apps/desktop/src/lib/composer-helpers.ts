@@ -53,6 +53,7 @@ export function createSceneComponentInstance(
     id: createInstanceId(component.id),
     componentId: component.id,
     enabled: true,
+    modifiers: [],
     options: structuredClone(component.defaultOptions)
   };
 }

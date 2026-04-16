@@ -256,6 +256,7 @@ export function App() {
           component={selectedComponentDefinition}
           instance={selectedComponent}
           fonts={loadedBootstrap.fonts}
+          modifierDefinitions={loadedBootstrap.modifiers}
           onOptionChange={(optionId, value) =>
             composer.updateComponent(selectedComponent.id, (current) => ({
               ...current,
@@ -267,6 +268,19 @@ export function App() {
               setError(err instanceof Error ? err.message : String(err))
             );
           }}
+          onAddModifier={(modifier) => composer.addModifier(selectedComponent.id, modifier)}
+          onRemoveModifier={(modifierId) =>
+            composer.removeModifier(selectedComponent.id, modifierId)
+          }
+          onMoveModifier={(modifierId, direction) =>
+            composer.moveModifier(selectedComponent.id, modifierId, direction)
+          }
+          onToggleModifierEnabled={(modifierId) =>
+            composer.toggleModifierEnabled(selectedComponent.id, modifierId)
+          }
+          onModifierOptionChange={(modifierId, optionId, value) =>
+            composer.updateModifierOption(selectedComponent.id, modifierId, optionId, value)
+          }
         />
       );
     }

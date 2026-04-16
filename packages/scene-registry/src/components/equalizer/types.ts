@@ -1,5 +1,4 @@
 import type React from "react";
-import type { TransformOptions } from "../../shared";
 
 export type EqualizerBarOrientation = "horizontal" | "vertical";
 export type EqualizerLayoutMode = "single" | "mirrored" | "split";
@@ -17,7 +16,7 @@ export type EqualizerLineBaseline =
   | "center-horizontal"
   | "center-vertical";
 
-export interface EqualizerOptions extends TransformOptions {
+export interface EqualizerOptions {
   barOrientation: EqualizerBarOrientation;
   innerPadding: number;
   lineBaseline: EqualizerLineBaseline;

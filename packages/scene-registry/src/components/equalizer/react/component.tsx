@@ -11,12 +11,11 @@ export function EqualizerRenderComponent({
   instance,
   frame,
   options,
-  prepared,
-  video
+  prepared
 }: SceneRenderProps<EqualizerOptions>) {
   const preparedData = prepared as unknown as PreparedEqualizerData;
   const frameValues = buildRenderableBars(preparedData.frames?.[frame] ?? [], options);
-  const staticValues = getEqualizerStaticValues(instance.id, options, frameValues.length, video);
+  const staticValues = getEqualizerStaticValues(instance.id, options, frameValues.length);
   const colors = buildEqualizerColorPlan(frameValues, options);
 
   return (

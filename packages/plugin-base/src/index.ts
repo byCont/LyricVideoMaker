@@ -1,8 +1,11 @@
 import type React from "react";
-import type { CSSProperties } from "react";
-import type { TransformOptions } from "./transform";
-import type { TransformCanvas } from "./transform-runtime";
-import type { TimingOptions } from "./timing";
+import type { RefObject } from "react";
+import type {
+  ModifierDefinition,
+  ModifierInstance,
+  SerializedModifierDefinition,
+  ValidatedModifierInstance
+} from "./modifier";
 
 export interface LyricCue {
   index: number;
@@ -132,11 +135,14 @@ export interface SceneComponentInstance {
   id: string;
   componentId: string;
   enabled: boolean;
+  /** Ordered stack of modifiers wrapping this component. Outermost first. */
+  modifiers: ModifierInstance[];
   options: Record<string, unknown>;
 }
 
-export interface ValidatedSceneComponentInstance extends SceneComponentInstance {
+export interface ValidatedSceneComponentInstance extends Omit<SceneComponentInstance, "modifiers"> {
   componentName: string;
+  modifiers: ValidatedModifierInstance[];
 }
 
 export interface ScenePrepareContext<TOptions> {
@@ -168,6 +174,13 @@ export interface SceneRenderProps<TOptions> {
   lyrics: LyricRuntime;
   assets: Pick<SceneAssetAccessor, "getUrl">;
   prepared: PreparedSceneComponentData;
+  /**
+   * The innermost wrapper element the component renders into. Components
+   * that need to know their own pixel size (canvas allocation, text
+   * wrapping, audio-reactive layouts) attach `useContainerSize` to this
+   * ref. Modifiers wrap this element but never touch its own style.
+   */
+  containerRef: RefObject<HTMLDivElement | null>;
 }
 
 export interface SceneComponentDefinition<TOptions> {
@@ -201,6 +214,8 @@ export interface SerializedSceneComponentDefinition {
   defaultOptions: Record<string, unknown>;
 }
 
+export type { SerializedModifierDefinition } from "./modifier";
+
 export interface SerializedSceneDefinition {
   id: string;
   name: string;
@@ -229,24 +244,25 @@ export interface LyricVideoPluginCoreHost {
   ): TOptions;
 }
 
-export interface LyricVideoPluginTransformHost {
-  computeTransformStyle(options: TransformOptions, canvas: TransformCanvas): CSSProperties;
-  computeTimingOpacity(currentTimeMs: number, timing: TimingOptions): number;
-  transformCategory: SceneOptionCategory;
-  timingCategory: SceneOptionCategory;
-  DEFAULT_TRANSFORM_OPTIONS: TransformOptions;
-  DEFAULT_TIMING_OPTIONS: TimingOptions;
+/**
+ * Plugin sub-host for registering modifier definitions. Plugins call
+ * `host.modifiers.register(def)` during activate() to contribute modifiers
+ * to the render tree alongside the built-ins.
+ */
+export interface LyricVideoPluginModifierHost {
+  register(definition: ModifierDefinition<any>): void;
 }
 
 export interface LyricVideoPluginHost {
   React: typeof React;
   core: LyricVideoPluginCoreHost;
-  transform: LyricVideoPluginTransformHost;
+  modifiers: LyricVideoPluginModifierHost;
 }
 
 export interface LyricVideoPluginActivation {
   components: SceneComponentDefinition<any>[];
   scenes: SceneDefinition[];
+  modifiers?: ModifierDefinition<any>[];
 }
 
 export interface LyricVideoPluginModule {
@@ -274,6 +290,16 @@ export {
 } from "./timing";
 
 export { computeTimingOpacity } from "./timing-runtime";
+
+// Modifier system
+export type {
+  ModifierDefinition,
+  ModifierApplyContext,
+  ModifierInstance,
+  ValidatedModifierInstance
+} from "./modifier";
+
+export { useContainerSize, readContainerSize, type ContainerSize } from "./use-container-size";
 
 // Plugin asset utilities
 export {

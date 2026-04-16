@@ -4,7 +4,6 @@ import {
   type SceneOptionEntry,
   type SceneOptionField
 } from "@lyric-video-maker/core";
-import { DEFAULT_TIMING_OPTIONS, DEFAULT_TRANSFORM_OPTIONS } from "../src/shared";
 import {
   DEFAULT_SHAPE_OPTIONS,
   SHAPE_TYPE_VALUES,
@@ -30,25 +29,17 @@ function flat(schema: SceneOptionEntry[]): SceneOptionField[] {
   return schema.flatMap((e) => (e.type === "category" ? e.options : [e]));
 }
 
-describe("Shape options contract (T-018, T-019, T-020, T-024 defaults/ordering)", () => {
-  it("defaults spread shared Transform + Timing", () => {
-    for (const key of Object.keys(DEFAULT_TRANSFORM_OPTIONS) as Array<
-      keyof typeof DEFAULT_TRANSFORM_OPTIONS
-    >) {
-      expect(DEFAULT_SHAPE_OPTIONS[key]).toEqual(DEFAULT_TRANSFORM_OPTIONS[key]);
-    }
-    for (const key of Object.keys(DEFAULT_TIMING_OPTIONS) as Array<
-      keyof typeof DEFAULT_TIMING_OPTIONS
-    >) {
-      expect(DEFAULT_SHAPE_OPTIONS[key]).toEqual(DEFAULT_TIMING_OPTIONS[key]);
-    }
-  });
-
+describe("Shape options contract", () => {
   it("default shapeType produces a visible rectangle with solid fill", () => {
     expect(DEFAULT_SHAPE_OPTIONS.shapeType).toBe("rectangle");
     expect(DEFAULT_SHAPE_OPTIONS.fillEnabled).toBe(true);
     expect(DEFAULT_SHAPE_OPTIONS.fillMode).toBe("solid");
     expect(DEFAULT_SHAPE_OPTIONS.fillOpacity).toBeGreaterThan(0);
+  });
+
+  it("shape defaults expose no transform or timing fields", () => {
+    expect(DEFAULT_SHAPE_OPTIONS).not.toHaveProperty("x");
+    expect(DEFAULT_SHAPE_OPTIONS).not.toHaveProperty("startTime");
   });
 
   it("shapeType accepts exactly six values", () => {
@@ -70,30 +61,21 @@ describe("Shape options contract (T-018, T-019, T-020, T-024 defaults/ordering)"
     expect(sides.max).toBe(12);
   });
 
-  it("schema category order is Geometry → Transform → Fill → Stroke → Effects → Timing", () => {
+  it("schema category order is Geometry → Fill → Stroke → Effects (transform/timing live on modifiers)", () => {
     expect(categoryLabels(shapeOptionsSchema)).toEqual([
       "Geometry",
-      "Transform",
       "Fill",
       "Stroke",
-      "Effects",
-      "Timing"
+      "Effects"
     ]);
   });
 
-  it("Transform and Timing categories are literally the shared entries", () => {
-    const schemaTransform = shapeOptionsSchema.find(
-      (e) => e.type === "category" && e.id === "transform"
-    );
-    const schemaTiming = shapeOptionsSchema.find(
-      (e) => e.type === "category" && e.id === "timing"
-    );
-    expect(schemaTransform).toBeDefined();
-    expect(schemaTiming).toBeDefined();
-    expect((schemaTiming as { defaultExpanded?: boolean }).defaultExpanded).toBe(false);
+  it("schema no longer exposes transform or timing categories directly", () => {
+    expect(shapeOptionsSchema.find((e) => e.type === "category" && e.id === "transform")).toBeUndefined();
+    expect(shapeOptionsSchema.find((e) => e.type === "category" && e.id === "timing")).toBeUndefined();
   });
 
-  it("Shape options contain no image or video fields (T-024 / R7)", () => {
+  it("Shape options contain no image or video fields", () => {
     const assetFields = flat(shapeOptionsSchema).filter(
       (f) => f.type === "image" || f.type === "video"
     );
@@ -106,26 +88,24 @@ describe("Shape options contract (T-018, T-019, T-020, T-024 defaults/ordering)"
   });
 });
 
-describe("Static Text options contract (T-026, T-027, T-028)", () => {
-  it("defaults spread shared Transform + Timing and produce legible placeholder text", () => {
+describe("Static Text options contract", () => {
+  it("defaults produce legible placeholder text", () => {
     expect(DEFAULT_STATIC_TEXT_OPTIONS.text.length).toBeGreaterThan(0);
     expect(DEFAULT_STATIC_TEXT_OPTIONS.fontSize).toBeGreaterThanOrEqual(12);
-    for (const key of Object.keys(DEFAULT_TRANSFORM_OPTIONS) as Array<
-      keyof typeof DEFAULT_TRANSFORM_OPTIONS
-    >) {
-      expect(DEFAULT_STATIC_TEXT_OPTIONS[key]).toEqual(DEFAULT_TRANSFORM_OPTIONS[key]);
-    }
   });
 
-  it("schema category order matches the kit", () => {
+  it("static text defaults expose no transform or timing fields", () => {
+    expect(DEFAULT_STATIC_TEXT_OPTIONS).not.toHaveProperty("x");
+    expect(DEFAULT_STATIC_TEXT_OPTIONS).not.toHaveProperty("startTime");
+  });
+
+  it("schema category order matches the new modifier-first layout", () => {
     expect(categoryLabels(staticTextOptionsSchema)).toEqual([
       "Content",
       "Typography",
       "Color",
-      "Transform",
       "Box",
-      "Effects",
-      "Timing"
+      "Effects"
     ]);
   });
 
@@ -159,7 +139,7 @@ describe("Static Text options contract (T-026, T-027, T-028)", () => {
   });
 });
 
-describe("Image options contract (T-035, T-036, T-037)", () => {
+describe("Image options contract", () => {
   it("image source is required", () => {
     const source = flat(imageOptionsSchema).find((f) => f.id === "source");
     expect(source?.type).toBe("image");
@@ -170,22 +150,18 @@ describe("Image options contract (T-035, T-036, T-037)", () => {
     expect(DEFAULT_IMAGE_OPTIONS.source).toBe("");
   });
 
-  it("defaults spread shared Transform + Timing", () => {
-    for (const key of Object.keys(DEFAULT_TRANSFORM_OPTIONS) as Array<
-      keyof typeof DEFAULT_TRANSFORM_OPTIONS
-    >) {
-      expect(DEFAULT_IMAGE_OPTIONS[key]).toEqual(DEFAULT_TRANSFORM_OPTIONS[key]);
-    }
+  it("image defaults expose no transform, timing, or opacity fields", () => {
+    expect(DEFAULT_IMAGE_OPTIONS).not.toHaveProperty("x");
+    expect(DEFAULT_IMAGE_OPTIONS).not.toHaveProperty("startTime");
+    expect(DEFAULT_IMAGE_OPTIONS).not.toHaveProperty("opacity");
   });
 
-  it("schema category order is Source → Transform → Fit → Appearance → Effects → Timing", () => {
+  it("schema category order is Source → Fit → Appearance → Effects (transform/timing live on modifiers)", () => {
     expect(categoryLabels(imageOptionsSchema)).toEqual([
       "Source",
-      "Transform",
       "Fit",
       "Appearance",
-      "Effects",
-      "Timing"
+      "Effects"
     ]);
   });
 

@@ -2,6 +2,10 @@ import type { SerializedSceneDefinition } from "@lyric-video-maker/plugin-base";
 
 export type {
   BrowserLyricRuntime,
+  ContainerSize,
+  ModifierApplyContext,
+  ModifierDefinition,
+  ModifierInstance,
   PreparedSceneComponentData,
   PreparedSceneStackData,
   SceneAssetAccessor,
@@ -12,8 +16,10 @@ export type {
   ScenePrepareContext,
   SceneRenderProps,
   SceneSource,
+  SerializedModifierDefinition,
   SerializedSceneComponentDefinition,
   SerializedSceneDefinition,
+  ValidatedModifierInstance,
   ValidatedSceneComponentInstance
 } from "@lyric-video-maker/plugin-base";
 

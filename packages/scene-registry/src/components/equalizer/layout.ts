@@ -1,23 +1,18 @@
 import type React from "react";
 import { withAlpha } from "../../shared/color";
-import { computeTransformStyle, type TransformOptions } from "../../shared";
-import type {
-  EqualizerLayout,
-  EqualizerOptions
-} from "./types";
+import type { EqualizerLayout, EqualizerOptions } from "./types";
 
-export function getEqualizerLayout(
-  options: EqualizerOptions,
-  video: { width: number; height: number }
-): EqualizerLayout {
+export function getEqualizerLayout(options: EqualizerOptions): EqualizerLayout {
   const isHorizontal = options.barOrientation === "horizontal";
-  const transformStyle = computeTransformStyle(getEqualizerTransformOptions(options), video);
 
   return {
     isHorizontal,
     lineBaseline: options.lineBaseline,
     wrapperStyle: {
-      ...transformStyle,
+      position: "absolute",
+      inset: 0,
+      width: "100%",
+      height: "100%",
       padding: `${Math.max(0, options.innerPadding / 2)}px`,
       pointerEvents: "none"
     } satisfies React.CSSProperties,
@@ -38,18 +33,5 @@ export function getEqualizerLayout(
       justifyContent: "stretch",
       overflow: "hidden"
     } satisfies React.CSSProperties
-  };
-}
-
-function getEqualizerTransformOptions(options: EqualizerOptions): TransformOptions {
-  return {
-    x: options.x ?? 0,
-    y: options.y ?? 0,
-    width: options.width ?? 100,
-    height: options.height ?? 100,
-    anchor: options.anchor ?? "top-left",
-    rotation: options.rotation ?? 0,
-    flipHorizontal: options.flipHorizontal ?? false,
-    flipVertical: options.flipVertical ?? false
   };
 }

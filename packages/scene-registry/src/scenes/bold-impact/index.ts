@@ -11,6 +11,7 @@ export const boldImpactScene: SceneDefinition = {
       id: "background-color-1",
       componentId: "background-color",
       enabled: true,
+      modifiers: [],
       options: {
         mode: "solid",
         color: "#000000",
@@ -21,6 +22,7 @@ export const boldImpactScene: SceneDefinition = {
       id: "lyrics-by-line-1",
       componentId: "lyrics-by-line",
       enabled: true,
+      modifiers: [],
       options: {
         lyricSize: 108,
         lyricPosition: "middle",

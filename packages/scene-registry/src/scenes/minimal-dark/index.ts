@@ -11,6 +11,7 @@ export const minimalDarkScene: SceneDefinition = {
       id: "background-color-1",
       componentId: "background-color",
       enabled: true,
+      modifiers: [],
       options: {
         mode: "solid",
         color: "#0a0a0f",
@@ -21,7 +22,9 @@ export const minimalDarkScene: SceneDefinition = {
       id: "lyrics-by-line-1",
       componentId: "lyrics-by-line",
       enabled: true,
+      modifiers: [],
       options: {}
     }
   ]
 };
+

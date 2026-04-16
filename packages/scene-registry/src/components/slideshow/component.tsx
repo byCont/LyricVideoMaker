@@ -18,7 +18,7 @@ export const slideshowComponent: SceneComponentDefinition<SlideshowComponentOpti
   defaultOptions: DEFAULT_SLIDESHOW_OPTIONS,
   getPrepareCacheKey: getSlideshowPrepareCacheKey,
   prepare: prepareSlideshowComponent,
-  Component: ({ instance, options, video, timeMs, assets, prepared }) => {
+  Component: ({ instance, options, timeMs, assets, prepared }) => {
     const preparedData = prepared as unknown as PreparedSlideshowData;
     const schedule = preparedData.slideSchedule ?? ([] as SlideScheduleEntry[]);
 
@@ -26,7 +26,7 @@ export const slideshowComponent: SceneComponentDefinition<SlideshowComponentOpti
       return null;
     }
 
-    const { transformStyle, visualStyle } = buildSlideshowStyles(options, video, timeMs);
+    const { containerStyle, visualStyle } = buildSlideshowStyles(options);
     const frameState = computeSlideshowFrameState(timeMs, schedule, options);
 
     if (!frameState.currentSlide && !frameState.nextSlide) {
@@ -40,7 +40,7 @@ export const slideshowComponent: SceneComponentDefinition<SlideshowComponentOpti
 
     return (
       <div
-        style={transformStyle as React.CSSProperties}
+        style={containerStyle as React.CSSProperties}
         data-slideshow-component=""
       >
         <div

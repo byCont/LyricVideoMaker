@@ -1,4 +1,5 @@
 import type { SceneDefinition } from "@lyric-video-maker/core";
+import { DEFAULT_TRANSFORM_OPTIONS } from "@lyric-video-maker/plugin-base";
 
 export const concertStageScene: SceneDefinition = {
   id: "concert-stage",
@@ -12,6 +13,7 @@ export const concertStageScene: SceneDefinition = {
       id: "background-color-1",
       componentId: "background-color",
       enabled: true,
+      modifiers: [],
       options: {
         mode: "gradient",
         direction: "180deg",
@@ -25,9 +27,19 @@ export const concertStageScene: SceneDefinition = {
       id: "equalizer-1",
       componentId: "equalizer",
       enabled: true,
+      modifiers: [
+        {
+          id: "equalizer-1-transform",
+          modifierId: "transform",
+          enabled: true,
+          options: {
+            ...DEFAULT_TRANSFORM_OPTIONS,
+            y: 65,
+            height: 35
+          }
+        }
+      ],
       options: {
-        y: 65,
-        height: 35,
         layoutMode: "mirrored",
         barCount: 48,
         primaryColor: "#ff6b35",
@@ -41,12 +53,22 @@ export const concertStageScene: SceneDefinition = {
       id: "divider-1",
       componentId: "shape",
       enabled: true,
+      modifiers: [
+        {
+          id: "divider-1-transform",
+          modifierId: "transform",
+          enabled: true,
+          options: {
+            ...DEFAULT_TRANSFORM_OPTIONS,
+            x: 10,
+            y: 62,
+            width: 80,
+            height: 1
+          }
+        }
+      ],
       options: {
         shapeType: "line",
-        x: 10,
-        y: 62,
-        width: 80,
-        height: 1,
         fillEnabled: false,
         strokeEnabled: true,
         strokeColor: "#ffffff",
@@ -58,8 +80,18 @@ export const concertStageScene: SceneDefinition = {
       id: "lyrics-by-line-1",
       componentId: "lyrics-by-line",
       enabled: true,
+      modifiers: [
+        {
+          id: "lyrics-by-line-1-transform",
+          modifierId: "transform",
+          enabled: true,
+          options: {
+            ...DEFAULT_TRANSFORM_OPTIONS,
+            height: 60
+          }
+        }
+      ],
       options: {
-        height: 60,
         lyricPosition: "middle",
         lyricSize: 80,
         shadowEnabled: true,
@@ -71,10 +103,20 @@ export const concertStageScene: SceneDefinition = {
       id: "static-text-1",
       componentId: "static-text",
       enabled: true,
+      modifiers: [
+        {
+          id: "static-text-1-transform",
+          modifierId: "transform",
+          enabled: true,
+          options: {
+            ...DEFAULT_TRANSFORM_OPTIONS,
+            y: 2,
+            height: 8
+          }
+        }
+      ],
       options: {
         text: "ARTIST",
-        y: 2,
-        height: 8,
         fontSize: 22,
         fontWeight: 400,
         letterSpacing: 8,

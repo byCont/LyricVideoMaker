@@ -1,10 +1,12 @@
 import type { SceneComponentDefinition, SceneDefinition } from "@lyric-video-maker/core";
+import type { ModifierDefinition } from "@lyric-video-maker/plugin-base";
 import {
   backgroundColorComponent,
   builtInSceneComponents,
   equalizerComponent,
   lyricsByLineComponent
 } from "./components";
+import { builtInModifiers, getModifierDefinition } from "./modifiers";
 import { audioBarsScene } from "./scenes/audio-bars";
 import { boldImpactScene } from "./scenes/bold-impact";
 import { cinematicScene } from "./scenes/cinematic";
@@ -22,6 +24,8 @@ export {
   backgroundColorComponent,
   equalizerComponent,
   builtInSceneComponents,
+  builtInModifiers,
+  getModifierDefinition,
   lyricsByLineComponent,
   singleImageLyricsScene
 };

@@ -1,9 +1,14 @@
-import type { SceneComponentDefinition, SceneDefinition } from "@lyric-video-maker/core";
+import type {
+  ModifierDefinition,
+  SceneComponentDefinition,
+  SceneDefinition
+} from "@lyric-video-maker/core";
 import type { InstalledPluginSummary, LoadedPlugin } from "./plugin-library";
 
 export interface PluginCatalog {
   list(): InstalledPluginSummary[];
   components(): SceneComponentDefinition<Record<string, unknown>>[];
+  modifiers(): ModifierDefinition<Record<string, unknown>>[];
   scenes(): SceneDefinition[];
   pluginBundleSources(): string[];
   getRepoDirs(): Map<string, string>;
@@ -21,6 +26,9 @@ export function createPluginCatalog(): PluginCatalog {
     },
     components() {
       return plugins.flatMap((plugin) => plugin.components);
+    },
+    modifiers() {
+      return plugins.flatMap((plugin) => plugin.modifiers ?? []);
     },
     scenes() {
       return plugins.flatMap((plugin) => plugin.scenes);

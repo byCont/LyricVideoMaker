@@ -1,4 +1,4 @@
-import { createElement, type ReactElement } from "react";
+import { createElement, createRef, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type {
   PreparedSceneStackData,
@@ -42,7 +42,8 @@ export function buildCompositeFrameMarkup({
       video: job.video,
       lyrics,
       assets,
-      prepared: prepared[instance.id] ?? {}
+      prepared: prepared[instance.id] ?? {},
+      containerRef: createRef<HTMLDivElement | null>()
     });
 
     if (!renderedLayer) {

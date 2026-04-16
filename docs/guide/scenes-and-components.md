@@ -23,7 +23,9 @@ If the current scene has no components the new scene is loaded directly without 
 
 A component is a single visual layer in your video. Components stack on top of each other — the first component in the list draws at the back, the last draws in front.
 
-Each component has its own set of configurable options. Click a component in the Scene Builder to view and edit its options in the panel below.
+Each component has its own set of configurable options that control how it looks — colors, fonts, sizes, audio response, filters, and so on. Click a component in the Scene Builder to view and edit its options in the panel below.
+
+Position, timing, opacity, and visibility are not part of a component's own options. They are controlled by **modifiers** — a shared, stackable set of wrappers that can be added to any component. See [Modifiers](#modifiers) below.
 
 ## Built-in Components
 
@@ -210,10 +212,11 @@ A static or positioned image layer. Use it for logos, overlays, or decorative el
 **Appearance:**
 | Option | Default | Description |
 |--------|---------|-------------|
-| Opacity | 100% | Image transparency |
 | Corner Radius | 0 | Corner rounding |
 
 **Effects** include border, tint, shadow, glow, and image filters (grayscale, blur, brightness, contrast, saturation).
+
+To fade the image in/out or change its overall transparency, add the **Timing** or **Opacity** modifier (see [Modifiers](#modifiers)).
 
 ### Video
 
@@ -284,32 +287,74 @@ An animated slideshow that cycles through multiple images with transitions, timi
 
 **Appearance** and **Effects** are similar to the Image component — opacity, corner radius, border, tint, shadow, glow, and image filters (grayscale, blur, brightness, contrast, saturation).
 
-## Common Options: Transform & Timing
+## Modifiers
 
-Most components include two shared option categories:
+A **modifier** is a stackable wrapper that adjusts how a component is positioned, timed, or displayed — without touching the component's own options. Every component instance has its own ordered list of modifiers. The same component can appear twice in a scene with completely different modifier stacks.
 
-### Transform
+Each modifier in the list wraps the next one, with the component at the innermost layer. Reordering the stack changes how effects compose — a rotation applied outside a fade behaves differently than the reverse.
 
-Controls position, size, and rotation within the video frame.
+### Managing Modifiers
+
+In the Component Editor, the **Modifiers** section sits above the component's own options. For each component you can:
+
+- **Add** a modifier with the **+ Add modifier** button.
+- **Toggle** a modifier on/off with the `On` checkbox (keeps it in the stack but inactive).
+- **Reorder** with the ↑/↓ buttons — outermost first.
+- **Remove** with the × button.
+- **Expand** a row to edit its options.
+
+A component with no modifiers will fill the full frame and always be visible. Add a Transform modifier to place it, add a Timing modifier to schedule it, and so on.
+
+### Built-in Modifiers
+
+#### Transform
+
+Positions, sizes, rotates, and flips the wrapped component within the video frame.
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| X / Y | 0 | Position offset |
+| X / Y | 0 | Position offset (% of canvas) |
 | Width / Height | 100% | Size relative to frame |
 | Anchor | Top Left | Reference point for positioning |
 | Rotation | 0° | Rotation angle |
 | Flip | None | Horizontal or vertical flip |
 
-### Timing
+#### Timing
 
-Controls when a component appears and disappears.
+Schedules when a component is visible and fades it in/out around that window.
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| Start Time | 0ms | When to show the component |
-| End Time | — | When to hide (blank = entire video) |
+| Start Time | 0ms | When the component becomes visible |
+| End Time | — | When it hides (blank = to end of song) |
 | Fade In | 0ms | Fade-in duration |
 | Fade Out | 0ms | Fade-out duration |
+| Easing | Linear | Fade curve (Linear, Ease In, Ease Out, Ease In-Out) |
+
+#### Opacity
+
+A constant transparency multiplier, 0–100%. Stacks multiplicatively with other opacity-affecting modifiers.
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| Opacity | 100 | Percent opacity (0 = hidden, 100 = fully opaque) |
+
+#### Visibility
+
+A hard on/off toggle. Unlike Opacity or Timing, this removes the wrapped component from layout entirely when off — useful for soloing a layer during editing or authoring a preset with a component pre-configured but disabled.
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| Visible | On | Show or hide the component |
+
+### Tips
+
+- **Position anything** — add a Transform modifier.
+- **Fade in and out** — add a Timing modifier.
+- **Dim a layer globally** — add an Opacity modifier.
+- **Blink on/off over time** — combine Opacity with Timing, or stack multiple Timing modifiers with different windows.
+
+Plugins can contribute additional modifiers that appear in the **+ Add modifier** menu alongside the built-ins.
 
 ## Working with Components
 

@@ -26,9 +26,9 @@ export const staticTextComponent: SceneComponentDefinition<StaticTextComponentOp
   staticWhenMarkupUnchanged: true,
   options: staticTextOptionsSchema,
   defaultOptions: DEFAULT_STATIC_TEXT_OPTIONS,
-  Component: ({ options, video, timeMs, lyrics }) => {
+  Component: ({ options, lyrics }) => {
     const metadata = extractMetadata(lyrics);
-    const initial = buildStaticTextInitialState(options, video, timeMs, metadata);
+    const initial = buildStaticTextInitialState(options, metadata);
     return (
       <div
         style={initial.containerStyle as React.CSSProperties}

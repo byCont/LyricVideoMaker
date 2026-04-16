@@ -1,8 +1,10 @@
 import { useCallback, useState } from "react";
 import type {
+  ModifierInstance,
   RenderEncoding,
   RenderQuality,
   SceneComponentInstance,
+  SerializedModifierDefinition,
   SerializedSceneComponentDefinition,
   SerializedSceneDefinition
 } from "@lyric-video-maker/core";
@@ -51,6 +53,16 @@ export interface ComposerActions {
   moveComponent(instanceId: string, direction: -1 | 1): void;
   duplicateComponent(instanceId: string): void;
   removeComponent(instanceId: string): void;
+  addModifier(instanceId: string, modifier: SerializedModifierDefinition): void;
+  removeModifier(instanceId: string, modifierId: string): void;
+  moveModifier(instanceId: string, modifierId: string, direction: -1 | 1): void;
+  toggleModifierEnabled(instanceId: string, modifierId: string): void;
+  updateModifierOption(
+    instanceId: string,
+    modifierId: string,
+    optionId: string,
+    value: unknown
+  ): void;
 }
 
 /**
@@ -357,6 +369,84 @@ export function useComposer(
     [setSelection]
   );
 
+  const patchComponentModifiers = useCallback(
+    (
+      instanceId: string,
+      mapper: (modifiers: ModifierInstance[]) => ModifierInstance[]
+    ) => {
+      updateComponent(instanceId, (component) => ({
+        ...component,
+        modifiers: mapper(component.modifiers ?? [])
+      }));
+    },
+    [updateComponent]
+  );
+
+  const addModifier = useCallback(
+    (instanceId: string, modifier: SerializedModifierDefinition) => {
+      patchComponentModifiers(instanceId, (modifiers) => [
+        ...modifiers,
+        {
+          id: createInstanceId(`mod-${modifier.id}`),
+          modifierId: modifier.id,
+          enabled: true,
+          options: structuredClone(modifier.defaultOptions)
+        }
+      ]);
+    },
+    [patchComponentModifiers]
+  );
+
+  const removeModifier = useCallback(
+    (instanceId: string, modifierId: string) => {
+      patchComponentModifiers(instanceId, (modifiers) =>
+        modifiers.filter((modifier) => modifier.id !== modifierId)
+      );
+    },
+    [patchComponentModifiers]
+  );
+
+  const moveModifier = useCallback(
+    (instanceId: string, modifierId: string, direction: -1 | 1) => {
+      patchComponentModifiers(instanceId, (modifiers) => {
+        const index = modifiers.findIndex((modifier) => modifier.id === modifierId);
+        const nextIndex = index + direction;
+        if (index < 0 || nextIndex < 0 || nextIndex >= modifiers.length) {
+          return modifiers;
+        }
+        const next = [...modifiers];
+        const [item] = next.splice(index, 1);
+        next.splice(nextIndex, 0, item);
+        return next;
+      });
+    },
+    [patchComponentModifiers]
+  );
+
+  const toggleModifierEnabled = useCallback(
+    (instanceId: string, modifierId: string) => {
+      patchComponentModifiers(instanceId, (modifiers) =>
+        modifiers.map((modifier) =>
+          modifier.id === modifierId ? { ...modifier, enabled: !modifier.enabled } : modifier
+        )
+      );
+    },
+    [patchComponentModifiers]
+  );
+
+  const updateModifierOption = useCallback(
+    (instanceId: string, modifierId: string, optionId: string, value: unknown) => {
+      patchComponentModifiers(instanceId, (modifiers) =>
+        modifiers.map((modifier) =>
+          modifier.id === modifierId
+            ? { ...modifier, options: { ...modifier.options, [optionId]: value } }
+            : modifier
+        )
+      );
+    },
+    [patchComponentModifiers]
+  );
+
   return {
     composer,
     setComposer,
@@ -384,6 +474,11 @@ export function useComposer(
     updateComponent,
     moveComponent,
     duplicateComponent,
-    removeComponent
+    removeComponent,
+    addModifier,
+    removeModifier,
+    moveModifier,
+    toggleModifierEnabled,
+    updateModifierOption
   };
 }

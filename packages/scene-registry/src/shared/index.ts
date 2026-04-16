@@ -37,3 +37,14 @@ export {
 // too so consumers do not have to juggle two paths.
 export { clamp01, safeScale } from "./math";
 export { withAlpha } from "./color";
+
+// Modifier system
+export {
+  builtInModifiers,
+  getModifierDefinition,
+  opacityModifier,
+  timingModifier,
+  transformModifier,
+  visibilityModifier
+} from "../modifiers";
+

@@ -1,9 +1,9 @@
 # Plugin Authoring Guide
 
-Lyric Video Maker supports external plugins that add scene components and scene
-presets. Plugins are CommonJS modules loaded at runtime by the desktop app. They
-receive a host object with React, validation helpers, and shared transform/timing
-utilities, and return component definitions and scene definitions.
+Lyric Video Maker supports external plugins that add scene components, scene
+presets, and modifiers. Plugins are CommonJS modules loaded at runtime by the
+desktop app. They receive a host object with React and a modifier registry, and
+return component, scene, and modifier definitions.
 
 This guide covers everything needed to build, distribute, and maintain a plugin.
 
@@ -30,8 +30,9 @@ This guide covers everything needed to build, distribute, and maintain a plugin.
   - [Prepare Caching](#prepare-caching)
 - [Scene Definitions](#scene-definitions)
 - [Bundled Assets](#bundled-assets)
-- [Transform System](#transform-system)
-- [Timing System](#timing-system)
+- [Modifier System](#modifier-system)
+- [useContainerSize Hook](#usecontainersize-hook)
+- [Transform & Timing Helpers](#transform--timing-helpers)
 - [Building](#building)
 - [Distribution](#distribution)
 - [Plugin Lifecycle](#plugin-lifecycle)
@@ -54,51 +55,52 @@ Create `src/plugin.ts`:
 import type {
   LyricVideoPluginActivation,
   LyricVideoPluginHost,
-  SceneComponentDefinition,
-  TransformOptions,
-  TimingOptions
+  SceneComponentDefinition
 } from "@lyric-video-maker/plugin-base";
 
-interface MyOptions extends TransformOptions, TimingOptions, Record<string, unknown> {
+interface MyOptions extends Record<string, unknown> {
   textColor: string;
 }
 
 export function activate(host: LyricVideoPluginHost): LyricVideoPluginActivation {
   const { React } = host;
-  const {
-    transformCategory, timingCategory,
-    DEFAULT_TRANSFORM_OPTIONS, DEFAULT_TIMING_OPTIONS,
-    computeTransformStyle, computeTimingOpacity
-  } = host.transform;
 
   const component: SceneComponentDefinition<MyOptions> = {
     id: "myplugin.hello",
     name: "Hello World",
     options: [
-      transformCategory,
-      timingCategory,
       { id: "textColor", label: "Text Color", type: "color", defaultValue: "#ffffff" }
     ],
     defaultOptions: {
-      ...DEFAULT_TRANSFORM_OPTIONS,
-      ...DEFAULT_TIMING_OPTIONS,
       textColor: "#ffffff"
     },
-    Component({ options, video, timeMs }) {
-      const style = {
-        ...computeTransformStyle(options, video),
-        opacity: computeTimingOpacity(timeMs, options),
-        color: options.textColor,
-        fontSize: 48,
-        fontFamily: "sans-serif"
-      };
-      return React.createElement("div", { style }, "Hello from my plugin!");
+    Component({ options, containerRef }) {
+      return React.createElement(
+        "div",
+        {
+          ref: containerRef,
+          style: {
+            width: "100%",
+            height: "100%",
+            display: "grid",
+            placeItems: "center",
+            color: options.textColor,
+            fontSize: 48,
+            fontFamily: "sans-serif"
+          }
+        },
+        "Hello from my plugin!"
+      );
     }
   };
 
   return { components: [component], scenes: [] };
 }
 ```
+
+Users position, time, and fade this component by adding the built-in
+**Transform**, **Timing**, **Opacity**, and **Visibility** modifiers. Plugins
+can also ship their own modifiers — see [Modifier System](#modifier-system).
 
 Create `lyric-video-plugin.json`:
 
@@ -236,39 +238,30 @@ export function activate(host: LyricVideoPluginHost): LyricVideoPluginActivation
 
 ### LyricVideoPluginHost
 
-The host provides dependency injection so plugins don't bundle their own React or
-utility code.
+The host provides dependency injection so plugins don't bundle their own React.
 
 ```typescript
 interface LyricVideoPluginHost {
   /** Use this React instance for all createElement calls. */
   React: typeof React;
 
-  core: {
-    /** Validate raw option values against a component's schema. */
-    validateSceneOptions<TOptions>(
-      component: SceneComponentDefinition<TOptions>,
-      rawOptions: unknown,
-      context?: SceneValidationContext
-    ): TOptions;
-  };
+  /** Shared validation utilities usable from within activate(). */
+  core: LyricVideoPluginCoreHost;
 
-  transform: {
-    /** Compute absolute-position CSS from TransformOptions. */
-    computeTransformStyle(options: TransformOptions, canvas: TransformCanvas): CSSProperties;
-    /** Compute opacity (0-1) from TimingOptions at a given time. */
-    computeTimingOpacity(currentTimeMs: number, timing: TimingOptions): number;
-    /** Pre-built option category for transform fields. */
-    transformCategory: SceneOptionCategory;
-    /** Pre-built option category for timing fields. */
-    timingCategory: SceneOptionCategory;
-    /** Spread these into your defaultOptions. */
-    DEFAULT_TRANSFORM_OPTIONS: TransformOptions;
-    /** Spread these into your defaultOptions. */
-    DEFAULT_TIMING_OPTIONS: TimingOptions;
+  /** Sub-host for registering modifier definitions. */
+  modifiers: {
+    /** Register a ModifierDefinition. Appears in the + Add modifier menu. */
+    register(definition: ModifierDefinition<any>): void;
   };
 }
 ```
+
+Plugins that need transform/timing math helpers (`computeTransformStyle`,
+`computeTimingOpacity`, `transformCategory`, `timingCategory`,
+`DEFAULT_TRANSFORM_OPTIONS`, `DEFAULT_TIMING_OPTIONS`) import them directly
+from `@lyric-video-maker/plugin-base` — the same pure helpers that power the
+built-in Transform and Timing modifiers. See
+[Transform & Timing Helpers](#transform--timing-helpers).
 
 ### LyricVideoPluginActivation
 
@@ -276,8 +269,13 @@ interface LyricVideoPluginHost {
 interface LyricVideoPluginActivation {
   components: SceneComponentDefinition<any>[];
   scenes: SceneDefinition[];
+  /** Optional modifier definitions contributed by this plugin. */
+  modifiers?: ModifierDefinition<any>[];
 }
 ```
+
+Modifier definitions can also be registered imperatively through
+`host.modifiers.register(def)` inside `activate()` — both paths are equivalent.
 
 ---
 
@@ -381,17 +379,13 @@ const appearanceCategory: SceneOptionCategory = {
 
 ### Default Options
 
-`defaultOptions` must be a plain, JSON-serializable object containing a value for
-every field in the schema. When using the shared transform and timing systems,
-spread their defaults:
+`defaultOptions` must be a plain, JSON-serializable object containing a value
+for every field in the schema.
 
-```typescript
-const defaultOptions: MyOptions = {
-  ...DEFAULT_TRANSFORM_OPTIONS,
-  ...DEFAULT_TIMING_OPTIONS,
-  myCustomField: "value"
-};
-```
+Position, timing, opacity, and visibility live on the **Modifier** stack
+wrapping each component instance — not on the component's own options. A
+component's `defaultOptions` only needs to describe its own visual parameters
+(colors, fonts, effects, and so on).
 
 ### Custom Validation
 
@@ -431,7 +425,7 @@ render.
 
 ```typescript
 interface SceneRenderProps<TOptions> {
-  /** The component instance (id, componentId, enabled, options, componentName). */
+  /** The component instance (includes its modifier stack). */
   instance: ValidatedSceneComponentInstance;
   /** Validated and typed options. */
   options: TOptions;
@@ -447,8 +441,15 @@ interface SceneRenderProps<TOptions> {
   assets: { getUrl(instanceId: string, optionId: string): string | null };
   /** Data returned by prepare(), empty object if prepare not defined. */
   prepared: PreparedSceneComponentData;
+  /** Ref to the innermost wrapper the component renders into. */
+  containerRef: RefObject<HTMLDivElement | null>;
 }
 ```
+
+A component draws into the box its modifier stack gives it. When it needs its
+own pixel dimensions (canvas allocation, text wrapping, audio-reactive bar
+spans), it attaches `containerRef` to the element whose size it cares about
+and reads it with the [`useContainerSize`](#usecontainersize-hook) hook.
 
 #### VideoSettings
 
@@ -643,11 +644,16 @@ interface SceneComponentInstance {
   /** References a SceneComponentDefinition.id (yours or built-in). */
   componentId: string;
   enabled: boolean;
+  /** Ordered modifier stack wrapping this component. Outermost first. */
+  modifiers: ModifierInstance[];
   options: Record<string, unknown>;
 }
 ```
 
-Scene components render back-to-front (first in array = bottom layer).
+Scene components render back-to-front (first in array = bottom layer). Scene
+presets can pre-configure a modifier stack per component — for example, placing
+a built-in `image` component with a Transform modifier that crops it to the
+right third of the frame, plus a Timing modifier that fades it in at 2 seconds.
 
 Scenes can reference built-in component IDs (`background-color`,
 `lyrics-by-line`, `equalizer`, `shape`, `static-text`,
@@ -667,12 +673,25 @@ const myScene: SceneDefinition = {
       id: "bg",
       componentId: "background-color",  // Built-in
       enabled: true,
+      modifiers: [],
       options: { color1: "#1a1a2e", color2: "#16213e", angle: 135 }
     },
     {
       id: "overlay-1",
       componentId: "myplugin.hello",    // Your component
       enabled: true,
+      modifiers: [
+        {
+          id: "overlay-1-transform",
+          modifierId: "transform",      // Built-in modifier
+          enabled: true,
+          options: {
+            x: 50, y: 50, width: 60, height: 40,
+            anchor: "middle-center",
+            rotation: 0, flipHorizontal: false, flipVertical: false
+          }
+        }
+      ],
       options: { ...defaultOptions, textColor: "#00ff88" }
     }
   ]
@@ -725,6 +744,7 @@ const myScene: SceneDefinition = {
       id: "bg",
       componentId: "image",                   // Built-in component
       enabled: true,
+      modifiers: [],
       options: {
         source: createPluginAssetUri("myplugin.my-pack", "assets/default-background.jpg")
       }
@@ -733,6 +753,7 @@ const myScene: SceneDefinition = {
       id: "overlay-1",
       componentId: "image",                  // Built-in image component
       enabled: true,
+      modifiers: [],
       options: {
         source: createPluginAssetUri("myplugin.my-pack", "assets/overlay.png")
       }
@@ -765,10 +786,194 @@ manifest), and the second is the relative path within the plugin repository.
 
 ---
 
-## Transform System
+## Modifier System
 
-Most components need positioning on the canvas. Use the shared transform system
-instead of writing your own.
+Every component instance has an ordered stack of **modifiers** — wrappers that
+imperatively style nested `<div>` layers around the component every frame.
+Position, timing, opacity, and visibility all live on this stack, not on the
+component itself.
+
+Four built-in modifiers ship with the app:
+
+| ID           | Name       | What it controls                                       |
+|--------------|------------|--------------------------------------------------------|
+| `transform`  | Transform  | Position, size, anchor, rotation, flip                 |
+| `timing`     | Timing     | Start/end time, fade in/out, easing                    |
+| `opacity`    | Opacity    | Constant opacity multiplier                            |
+| `visibility` | Visibility | Hard on/off toggle via `display: none`                 |
+
+Plugins can contribute their own.
+
+### ModifierDefinition
+
+```typescript
+interface ModifierDefinition<TOptions> {
+  /** Unique namespaced ID. */
+  id: string;
+  /** Display name in the + Add modifier menu. */
+  name: string;
+  /** Short description shown on hover. */
+  description?: string;
+  /** Option schema for the modifier's option panel. */
+  options: SceneOptionEntry[];
+  /** Default values for all options. Must be JSON-serializable. */
+  defaultOptions: TOptions;
+  /** Custom validation. Receives raw deserialized options, returns typed. */
+  validate?: (raw: unknown) => TOptions;
+  /**
+   * Called every frame inside the browser shell. Mutate ctx.element.style
+   * imperatively — do not return a value and do not touch any other DOM.
+   */
+  apply: (ctx: ModifierApplyContext<TOptions>) => void;
+}
+
+interface ModifierApplyContext<TOptions> {
+  element: HTMLDivElement; // The modifier's own wrapper div
+  options: TOptions;
+  frame: number;
+  timeMs: number;
+  video: VideoSettings;
+  lyrics: BrowserLyricRuntime; // { current, next }
+}
+```
+
+Modifiers are called inside `useLayoutEffect` after each commit, keyed on the
+modifier's options, the current frame, and `timeMs`. Each modifier writes
+styles to its own wrapper element only; effects compose through CSS inheritance
+and DOM nesting.
+
+### ModifierInstance
+
+A modifier is attached to a component instance as an entry in its `modifiers`
+array:
+
+```typescript
+interface ModifierInstance {
+  id: string;          // Unique within this component instance
+  modifierId: string;  // References a ModifierDefinition.id
+  enabled: boolean;    // Disabled modifiers are skipped (but kept in the stack)
+  options: Record<string, unknown>;
+}
+```
+
+Order is outermost-first — `modifiers[0]` wraps `modifiers[1]` wraps the
+component. Reordering the stack changes how effects compose.
+
+### Contributing a Modifier
+
+Plugins can ship custom modifiers by returning them from `activate()` or
+registering them through `host.modifiers.register()`:
+
+```typescript
+import type {
+  LyricVideoPluginActivation,
+  LyricVideoPluginHost,
+  ModifierDefinition
+} from "@lyric-video-maker/plugin-base";
+
+interface ShakeOptions {
+  amplitude: number; // pixels
+  frequency: number; // Hz
+}
+
+const shakeModifier: ModifierDefinition<ShakeOptions> = {
+  id: "myplugin.shake",
+  name: "Shake",
+  description: "Jitters the component on every frame.",
+  options: [
+    { id: "amplitude", label: "Amplitude (px)", type: "number",
+      defaultValue: 4, min: 0, max: 50, step: 1 },
+    { id: "frequency", label: "Frequency (Hz)", type: "number",
+      defaultValue: 12, min: 0, max: 60, step: 1 }
+  ],
+  defaultOptions: { amplitude: 4, frequency: 12 },
+  apply: ({ element, options, timeMs }) => {
+    const t = (timeMs / 1000) * options.frequency * Math.PI * 2;
+    const dx = Math.sin(t) * options.amplitude;
+    const dy = Math.cos(t * 1.3) * options.amplitude;
+    element.style.transform = `translate(${dx}px, ${dy}px)`;
+  }
+};
+
+export function activate(host: LyricVideoPluginHost): LyricVideoPluginActivation {
+  return {
+    components: [],
+    scenes: [],
+    modifiers: [shakeModifier]
+  };
+}
+```
+
+### Modifier Rules
+
+- `apply()` must mutate only `ctx.element.style`. Do not read from or write to
+  any other DOM.
+- Modifier IDs must be unique across all installed plugins and built-ins.
+  Namespace yours: `myplugin.shake`.
+- `defaultOptions` must be JSON-serializable.
+- If your modifier writes a style property, write it unconditionally every
+  frame — the framework does not reset styles between calls.
+- `apply()` runs inside the browser, once per enabled modifier per frame. Keep
+  it fast.
+
+---
+
+## useContainerSize Hook
+
+Because modifiers own sizing, components do not know their pixel dimensions
+from their own options. When a component needs its own size (canvas
+allocation, text wrapping, audio-reactive bar spans), it attaches
+`containerRef` to the element it cares about and reads the size with
+`useContainerSize`:
+
+```typescript
+import { useContainerSize } from "@lyric-video-maker/plugin-base";
+
+function MyComponent({ containerRef, options }: SceneRenderProps<MyOptions>) {
+  const { width, height } = useContainerSize(containerRef);
+  return React.createElement(
+    "div",
+    { ref: containerRef, style: { width: "100%", height: "100%" } },
+    /* render using width / height */
+  );
+}
+```
+
+The hook seeds synchronously inside `useLayoutEffect` so frame 0 has real
+numbers, and refreshes via `ResizeObserver` whenever the box changes (for
+example, when the user edits the Transform modifier). If you need to read the
+size imperatively, `readContainerSize(element)` is exported from the same
+module.
+
+---
+
+## Transform & Timing Helpers
+
+The pure helpers that power the built-in Transform and Timing modifiers are
+exported from `@lyric-video-maker/plugin-base` and are safe to call from any
+plugin code that needs the math directly:
+
+```typescript
+import {
+  computeTransformStyle,
+  computeTimingOpacity,
+  DEFAULT_TRANSFORM_OPTIONS,
+  DEFAULT_TIMING_OPTIONS,
+  transformCategory,
+  timingCategory,
+  type TransformOptions,
+  type TimingOptions
+} from "@lyric-video-maker/plugin-base";
+```
+
+- `computeTransformStyle(options, canvas)` — returns CSSProperties for
+  absolute positioning from a `TransformOptions` value.
+- `computeTimingOpacity(timeMs, options)` — returns opacity 0–1 from a
+  `TimingOptions` value.
+- `transformCategory` / `timingCategory` — pre-built option categories
+  reusable inside a custom modifier's option schema.
+- `DEFAULT_TRANSFORM_OPTIONS` / `DEFAULT_TIMING_OPTIONS` — defaults (full
+  canvas, always visible).
 
 ### TransformOptions
 
@@ -788,42 +993,13 @@ interface TransformOptions {
 }
 ```
 
-### TransformAnchor
-
-Nine-point anchor grid controlling which point on the element sits at the (x, y)
-coordinate:
+Nine-point anchor grid:
 
 ```
 top-left      top-center      top-right
 middle-left   middle-center   middle-right
 bottom-left   bottom-center   bottom-right
 ```
-
-### Usage
-
-```typescript
-const { computeTransformStyle, DEFAULT_TRANSFORM_OPTIONS, transformCategory } = host.transform;
-
-// In options schema:
-options: [transformCategory, /* ...your fields */]
-
-// In defaultOptions:
-defaultOptions: { ...DEFAULT_TRANSFORM_OPTIONS, /* ...your fields */ }
-
-// In Component:
-const style = computeTransformStyle(options, video);
-// Returns CSSProperties with position: absolute, left, top, width, height,
-// transform (translate + rotate + scale), and transformOrigin.
-```
-
-The defaults (`x: 0, y: 0, width: 100, height: 100, anchor: "top-left"`) fill
-the entire canvas.
-
----
-
-## Timing System
-
-Control when a component is visible and how it fades in/out.
 
 ### TimingOptions
 
@@ -836,25 +1012,6 @@ interface TimingOptions {
   easing: "linear" | "ease-in" | "ease-out" | "ease-in-out";
 }
 ```
-
-### Usage
-
-```typescript
-const { computeTimingOpacity, DEFAULT_TIMING_OPTIONS, timingCategory } = host.transform;
-
-// In options schema:
-options: [transformCategory, timingCategory, /* ...your fields */]
-
-// In defaultOptions:
-defaultOptions: { ...DEFAULT_TRANSFORM_OPTIONS, ...DEFAULT_TIMING_OPTIONS, /* ... */ }
-
-// In Component:
-const opacity = computeTimingOpacity(timeMs, options);
-// Returns 0-1: 0 before startTime, fades in, 1 during visible window, fades out, 0 after endTime.
-```
-
-The defaults (`startTime: 0, endTime: 0, no fades, linear`) produce an
-always-visible component.
 
 ---
 
@@ -958,6 +1115,16 @@ Always commit `dist/plugin.cjs` to the repository. The app does **not** run
 - Scenes can reference built-in component IDs or component IDs from the same
   plugin.
 - Component render order is array order (first = bottom layer).
+- Every component instance must carry a `modifiers: ModifierInstance[]`
+  array (empty is fine). Pre-configuring a modifier stack is how a scene
+  preset ships with a specific layout or fade-in.
+
+### Modifiers
+
+- Modifier IDs must be namespaced: `myplugin.my-modifier`.
+- `apply()` must mutate only `ctx.element.style`.
+- Always write style properties unconditionally — the framework does not clear
+  styles between frames.
 
 ### Performance
 
@@ -972,7 +1139,9 @@ Always commit `dist/plugin.cjs` to the repository. The app does **not** run
 
 ## Full Example
 
-A complete caption box plugin with transform, timing, and custom styling:
+A complete caption box plugin. The component worries only about its own
+visuals — the scene preset gives it a Transform modifier to place it and a
+Timing modifier to schedule its fade.
 
 **lyric-video-plugin.json:**
 
@@ -994,12 +1163,10 @@ A complete caption box plugin with transform, timing, and custom styling:
 import type {
   LyricVideoPluginActivation,
   LyricVideoPluginHost,
-  SceneComponentDefinition,
-  TransformOptions,
-  TimingOptions
+  SceneComponentDefinition
 } from "@lyric-video-maker/plugin-base";
 
-interface CaptionOptions extends TransformOptions, TimingOptions, Record<string, unknown> {
+interface CaptionOptions extends Record<string, unknown> {
   textColor: string;
   backgroundColor: string;
   fontSize: number;
@@ -1007,15 +1174,8 @@ interface CaptionOptions extends TransformOptions, TimingOptions, Record<string,
 
 export function activate(host: LyricVideoPluginHost): LyricVideoPluginActivation {
   const { React } = host;
-  const {
-    transformCategory, timingCategory,
-    DEFAULT_TRANSFORM_OPTIONS, DEFAULT_TIMING_OPTIONS,
-    computeTransformStyle, computeTimingOpacity
-  } = host.transform;
 
   const defaultOptions: CaptionOptions = {
-    ...DEFAULT_TRANSFORM_OPTIONS,
-    ...DEFAULT_TIMING_OPTIONS,
     textColor: "#ffffff",
     backgroundColor: "#111827",
     fontSize: 72
@@ -1027,24 +1187,20 @@ export function activate(host: LyricVideoPluginHost): LyricVideoPluginActivation
     description: "Centered caption box driven by current lyric cue.",
     staticWhenMarkupUnchanged: false,
     options: [
-      transformCategory,
-      timingCategory,
       { id: "textColor", label: "Text color", type: "color", defaultValue: "#ffffff" },
       { id: "backgroundColor", label: "Background color", type: "color", defaultValue: "#111827" },
       { id: "fontSize", label: "Font size", type: "number", defaultValue: 72, min: 24, max: 180, step: 1 }
     ],
     defaultOptions,
-    Component({ options, lyrics, video, timeMs }) {
+    Component({ options, lyrics, containerRef }) {
       const text = lyrics.current?.text ?? "";
-      const transformStyle = computeTransformStyle(options, video);
-      const opacity = computeTimingOpacity(timeMs, options);
-
       return React.createElement(
         "div",
         {
+          ref: containerRef,
           style: {
-            ...transformStyle,
-            opacity,
+            width: "100%",
+            height: "100%",
             display: "grid",
             placeItems: "center",
             background: "transparent"
@@ -1087,6 +1243,30 @@ export function activate(host: LyricVideoPluginHost): LyricVideoPluginActivation
             id: "caption-box-1",
             componentId: "example.caption-box",
             enabled: true,
+            // Pre-configure the modifier stack: place the caption at the
+            // bottom of the frame and fade it in/out over 500 ms.
+            modifiers: [
+              {
+                id: "caption-box-1-transform",
+                modifierId: "transform",
+                enabled: true,
+                options: {
+                  x: 50, y: 85, width: 100, height: 30,
+                  anchor: "middle-center",
+                  rotation: 0, flipHorizontal: false, flipVertical: false
+                }
+              },
+              {
+                id: "caption-box-1-timing",
+                modifierId: "timing",
+                enabled: true,
+                options: {
+                  startTime: 0, endTime: 0,
+                  fadeInDuration: 500, fadeOutDuration: 500,
+                  easing: "ease-in-out"
+                }
+              }
+            ],
             options: defaultOptions as Record<string, unknown>
           }
         ]

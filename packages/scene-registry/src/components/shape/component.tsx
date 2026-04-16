@@ -28,8 +28,8 @@ export const shapeComponent: SceneComponentDefinition<ShapeComponentOptions> = {
   staticWhenMarkupUnchanged: true,
   options: shapeOptionsSchema,
   defaultOptions: DEFAULT_SHAPE_OPTIONS,
-  Component: ({ options, video, timeMs }) => {
-    const initial = buildShapeInitialState(options, video, timeMs);
+  Component: ({ options }) => {
+    const initial = buildShapeInitialState(options);
     return (
       <div
         style={initial.containerStyle as React.CSSProperties}

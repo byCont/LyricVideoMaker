@@ -1,8 +1,7 @@
-import type { TimingOptions } from "../../shared";
 import type { VideoComponentOptions, VideoPlaybackMode } from "./options";
 
 /**
- * Output of the per-frame playback math (cavekit-video-component R7).
+ * Output of the per-frame playback math.
  */
 export interface VideoPlaybackState {
   /** Desired playback position in the video file, in seconds. */
@@ -15,9 +14,7 @@ export interface VideoPlaybackInputs {
   options: Pick<
     VideoComponentOptions,
     "playbackMode" | "videoStartOffsetMs" | "playbackSpeed"
-  > & {
-    startTime: TimingOptions["startTime"];
-  };
+  >;
   durationMs: number;
   timeMs: number;
 }
@@ -34,12 +31,13 @@ export interface VideoPlaybackInputs {
  *   - play-once-clamp: plays once, holds the last frame after end.
  *   - play-once-hide:  plays once, hides after end.
  *
- * Before component start time the timing helper has already hidden the
- * component (the runtime will not call this function in that case).
+ * Elapsed playback time is measured from song start; a Timing modifier
+ * wrapping the component can still hide the video before it is "on", but
+ * this function computes frame math based on the full song timeline.
  */
 export function computeVideoPlaybackState(inputs: VideoPlaybackInputs): VideoPlaybackState {
   const { options, durationMs, timeMs } = inputs;
-  const elapsedSinceStart = Math.max(0, timeMs - options.startTime);
+  const elapsedSinceStart = Math.max(0, timeMs);
   const offsetSeconds = options.videoStartOffsetMs / 1000;
   const durationSeconds = durationMs / 1000;
   const advanced = (elapsedSinceStart / 1000) * options.playbackSpeed + offsetSeconds;

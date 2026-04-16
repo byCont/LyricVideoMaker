@@ -1,5 +1,3 @@
-import type { VideoSettings } from "@lyric-video-maker/core";
-import { computeTransformStyle, computeTimingOpacity } from "../../shared";
 import { withAlpha } from "../../shared/color";
 import { computeTransitionStyle } from "./transitions";
 import { createSeededRng } from "./order";
@@ -133,26 +131,19 @@ function computeKenBurnsTransform(
 }
 
 export interface SlideshowStyles {
-  transformStyle: Record<string, string>;
+  containerStyle: Record<string, string>;
   visualStyle: Record<string, string>;
 }
 
 export function buildSlideshowStyles(
-  options: SlideshowComponentOptions,
-  video: VideoSettings,
-  timeMs: number
+  options: SlideshowComponentOptions
 ): SlideshowStyles {
-  const computed = computeTransformStyle(options, {
-    width: video.width,
-    height: video.height
-  });
-  const transformStyle: Record<string, string> = {};
-  for (const [key, value] of Object.entries(computed)) {
-    if (value !== undefined && value !== null) {
-      transformStyle[key] = String(value);
-    }
-  }
-  transformStyle.opacity = String((options.opacity / 100) * computeTimingOpacity(timeMs, options));
+  const containerStyle: Record<string, string> = {
+    position: "absolute",
+    inset: "0",
+    width: "100%",
+    height: "100%"
+  };
 
   const visualStyle: Record<string, string> = {
     position: "relative",
@@ -172,7 +163,7 @@ export function buildSlideshowStyles(
     visualStyle.filter = shadowFilter;
   }
 
-  return { transformStyle, visualStyle };
+  return { containerStyle, visualStyle };
 }
 
 export function buildImageFilter(options: SlideshowComponentOptions): string {

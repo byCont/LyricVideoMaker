@@ -5,6 +5,7 @@
  * inside headless Chromium. It provides:
  *
  *   window.__registerReactComponent(id, Component)  — register a component
+ *   window.__registerModifier(id, definition)       — register a modifier
  *   window.__mountReactScene(config)                — mount the scene
  *   window.__updateFrameProps(payload)              — update per-frame state
  *
@@ -13,7 +14,7 @@
  * register async tasks that must settle before capture.
  */
 
-import React, { useState } from "react";
+import React, { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { flushSync } from "react-dom";
 
@@ -47,11 +48,20 @@ interface LyricRuntime {
   getCueProgress(cue: LyricCue, ms: number): number;
 }
 
+interface ValidatedModifierInstance {
+  id: string;
+  modifierId: string;
+  modifierName: string;
+  enabled: boolean;
+  options: Record<string, unknown>;
+}
+
 interface ValidatedSceneComponentInstance {
   id: string;
   componentId: string;
   componentName: string;
   enabled: boolean;
+  modifiers: ValidatedModifierInstance[];
   options: Record<string, unknown>;
 }
 
@@ -64,14 +74,33 @@ interface SceneRenderProps<TOptions = Record<string, unknown>> {
   lyrics: LyricRuntime;
   assets: { getUrl(instanceId: string, optionId: string): string | null };
   prepared: Record<string, unknown>;
+  containerRef: React.RefObject<HTMLDivElement | null>;
+}
+
+interface ModifierApplyContext {
+  element: HTMLDivElement;
+  options: Record<string, unknown>;
+  frame: number;
+  timeMs: number;
+  video: VideoSettings;
+  lyrics: { current: LyricCue | null; next: LyricCue | null };
+}
+
+interface ModifierDefinition {
+  id: string;
+  name: string;
+  options?: unknown;
+  defaultOptions?: Record<string, unknown>;
+  apply: (ctx: ModifierApplyContext) => void;
 }
 
 // ---------------------------------------------------------------------------
-// Component registry — populated by the browser bundle before mount.
+// Registries — populated by the browser bundle before mount.
 // ---------------------------------------------------------------------------
 
 type ComponentFunction = (props: SceneRenderProps<any>) => React.ReactElement | null;
 const componentRegistry = new Map<string, ComponentFunction>();
+const modifierRegistry = new Map<string, ModifierDefinition>();
 
 (window as any).__registerReactComponent = function (
   id: string,
@@ -80,15 +109,30 @@ const componentRegistry = new Map<string, ComponentFunction>();
   componentRegistry.set(id, component);
 };
 
+(window as any).__registerModifier = function (
+  id: string,
+  definition: ModifierDefinition
+) {
+  modifierRegistry.set(id, definition);
+};
+
 // ---------------------------------------------------------------------------
 // Scene configuration (sent once at mount time)
 // ---------------------------------------------------------------------------
+
+interface ModifierInstanceConfig {
+  id: string;
+  modifierId: string;
+  enabled: boolean;
+  options: Record<string, unknown>;
+}
 
 interface ComponentInstanceConfig {
   instanceId: string;
   componentId: string;
   componentName: string;
   options: Record<string, unknown>;
+  modifiers: ModifierInstanceConfig[];
   prepared: Record<string, unknown>;
   resolvedAssets: Record<string, string | null>;
 }
@@ -146,6 +190,177 @@ function buildLyricRuntime(cues: LyricCue[], timeMs: number): LyricRuntime {
 }
 
 // ---------------------------------------------------------------------------
+// Modifier wrapper — one <div> per modifier, imperatively styled per frame.
+//
+// The wrapper sets a neutral baseline style (absolute, inset:0, 100% × 100%)
+// via React so the first paint has a correct box before `apply` runs. The
+// modifier's `apply` fn then mutates its wrapper element in a layout effect
+// whose dependencies are (options, frame, timeMs, video). For static
+// modifiers (Transform, Opacity, Visibility) only the first dependency
+// changes, so apply runs on mount and on option edits, not every frame.
+// For Timing, timeMs changes each frame so apply runs each frame.
+// ---------------------------------------------------------------------------
+
+function ModifierWrapper({
+  modifier,
+  frame,
+  timeMs,
+  video,
+  lyrics,
+  children
+}: {
+  modifier: ModifierInstanceConfig;
+  frame: number;
+  timeMs: number;
+  video: VideoSettings;
+  lyrics: LyricRuntime;
+  children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    if (!modifier.enabled) {
+      // Reset to baseline so a toggled-off modifier has no lingering style.
+      element.removeAttribute("style");
+      element.style.position = "absolute";
+      element.style.inset = "0";
+      element.style.width = "100%";
+      element.style.height = "100%";
+      return;
+    }
+    const definition = modifierRegistry.get(modifier.modifierId);
+    if (!definition) return;
+    const simpleLyrics = { current: lyrics.current, next: lyrics.next };
+    definition.apply({
+      element,
+      options: modifier.options,
+      frame,
+      timeMs,
+      video,
+      lyrics: simpleLyrics
+    });
+  }, [
+    modifier.enabled,
+    modifier.modifierId,
+    modifier.options,
+    frame,
+    timeMs,
+    video,
+    lyrics.current,
+    lyrics.next
+  ]);
+
+  return (
+    <div
+      ref={ref}
+      data-modifier-id={modifier.modifierId}
+      data-modifier-instance-id={modifier.id}
+      style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+    >
+      {children}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Component shell — owns the innermost ref the component writes into.
+// ---------------------------------------------------------------------------
+
+function ComponentShell({
+  comp,
+  frame,
+  timeMs,
+  video,
+  lyrics
+}: {
+  comp: ComponentInstanceConfig;
+  frame: number;
+  timeMs: number;
+  video: VideoSettings;
+  lyrics: LyricRuntime;
+}) {
+  const innerRef = useRef<HTMLDivElement | null>(null);
+  const Component = componentRegistry.get(comp.componentId);
+  if (!Component) return null;
+
+  const assets = useMemo(
+    () => ({
+      getUrl: (_instanceId: string, optionId: string) => comp.resolvedAssets[optionId] ?? null
+    }),
+    [comp.resolvedAssets]
+  );
+
+  const instance: ValidatedSceneComponentInstance = useMemo(
+    () => ({
+      id: comp.instanceId,
+      componentId: comp.componentId,
+      componentName: comp.componentName,
+      enabled: true,
+      modifiers: comp.modifiers.map((m) => ({
+        id: m.id,
+        modifierId: m.modifierId,
+        modifierName: m.modifierId,
+        enabled: m.enabled,
+        options: m.options
+      })),
+      options: comp.options
+    }),
+    [comp.instanceId, comp.componentId, comp.componentName, comp.options, comp.modifiers]
+  );
+
+  const props: SceneRenderProps = {
+    instance,
+    options: comp.options,
+    frame,
+    timeMs,
+    video,
+    lyrics,
+    assets,
+    prepared: comp.prepared,
+    containerRef: innerRef
+  };
+
+  const enabledModifiers = comp.modifiers;
+  // Build the wrapper tree inside-out so modifiers[0] ends up outermost.
+  let tree: React.ReactNode = (
+    <div
+      ref={innerRef}
+      data-scene-component-inner=""
+      style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+    >
+      <Component {...props} />
+    </div>
+  );
+  for (let i = enabledModifiers.length - 1; i >= 0; i--) {
+    const modifier = enabledModifiers[i];
+    tree = (
+      <ModifierWrapper
+        key={modifier.id}
+        modifier={modifier}
+        frame={frame}
+        timeMs={timeMs}
+        video={video}
+        lyrics={lyrics}
+      >
+        {tree}
+      </ModifierWrapper>
+    );
+  }
+
+  return (
+    <div
+      data-scene-component-id={comp.componentId}
+      data-scene-instance-id={comp.instanceId}
+      style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
+    >
+      {tree}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Scene root — renders all component layers
 // ---------------------------------------------------------------------------
 
@@ -168,49 +383,16 @@ function SceneRoot({
         background: "#09090f"
       }}
     >
-      {config.components.map((comp) => {
-        const Component = componentRegistry.get(comp.componentId);
-        if (!Component) return null;
-
-        const assets = {
-          getUrl: (_instanceId: string, optionId: string) =>
-            comp.resolvedAssets[optionId] ?? null
-        };
-
-        const props: SceneRenderProps = {
-          instance: {
-            id: comp.instanceId,
-            componentId: comp.componentId,
-            componentName: comp.componentName,
-            enabled: true,
-            options: comp.options
-          },
-          options: comp.options,
-          frame: frameState.frame,
-          timeMs: frameState.timeMs,
-          video: config.video,
-          lyrics,
-          assets,
-          prepared: comp.prepared
-        };
-
-        return (
-          <div
-            key={comp.instanceId}
-            data-scene-component-id={comp.componentId}
-            data-scene-instance-id={comp.instanceId}
-            style={{
-              position: "absolute",
-              inset: 0,
-              width: "100%",
-              height: "100%",
-              overflow: "hidden"
-            }}
-          >
-            <Component {...props} />
-          </div>
-        );
-      })}
+      {config.components.map((comp) => (
+        <ComponentShell
+          key={comp.instanceId}
+          comp={comp}
+          frame={frameState.frame}
+          timeMs={frameState.timeMs}
+          video={config.video}
+          lyrics={lyrics}
+        />
+      ))}
     </div>
   );
 }

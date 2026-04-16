@@ -1,41 +1,26 @@
 import type {
-  LyricRuntime,
   LyricVideoPluginActivation,
   LyricVideoPluginHost,
-  SceneComponentDefinition,
-  TransformOptions,
-  TimingOptions
+  SceneComponentDefinition
 } from "@lyric-video-maker/plugin-base";
 import { createPluginAssetUri } from "@lyric-video-maker/plugin-base";
 
-interface CaptionOptions extends TransformOptions, TimingOptions, Record<string, unknown> {
+interface CaptionOptions extends Record<string, unknown> {
   textColor: string;
   backgroundColor: string;
   fontSize: number;
 }
 
-export function activate(host: LyricVideoPluginHost): LyricVideoPluginActivation {
-  const { React } = host;
-  const {
-    transformCategory,
-    timingCategory,
-    DEFAULT_TRANSFORM_OPTIONS,
-    DEFAULT_TIMING_OPTIONS,
-    computeTransformStyle,
-    computeTimingOpacity
-  } = host.transform;
+export function activate(_host: LyricVideoPluginHost): LyricVideoPluginActivation {
+  const { React } = _host;
 
   const defaultOptions: CaptionOptions = {
-    ...DEFAULT_TRANSFORM_OPTIONS,
-    ...DEFAULT_TIMING_OPTIONS,
     textColor: "#ffffff",
     backgroundColor: "#111827",
     fontSize: 72
   };
 
   const options: SceneComponentDefinition<CaptionOptions>["options"] = [
-    transformCategory,
-    timingCategory,
     { id: "textColor", label: "Text color", type: "color", defaultValue: "#ffffff" },
     { id: "backgroundColor", label: "Background color", type: "color", defaultValue: "#111827" },
     {
@@ -56,16 +41,14 @@ export function activate(host: LyricVideoPluginHost): LyricVideoPluginActivation
     staticWhenMarkupUnchanged: false,
     options,
     defaultOptions,
-    Component({ options, lyrics, video, timeMs }) {
+    Component({ options, lyrics }) {
       const text = lyrics.current?.text ?? "External caption plugin";
-      const transformStyle = computeTransformStyle(options, video);
-      const opacity = computeTimingOpacity(timeMs, options);
       return React.createElement(
         "div",
         {
           style: {
-            ...transformStyle,
-            opacity,
+            position: "absolute",
+            inset: 0,
             display: "grid",
             placeItems: "center",
             background: "transparent"
@@ -108,6 +91,7 @@ export function activate(host: LyricVideoPluginHost): LyricVideoPluginActivation
             id: "bg",
             componentId: "image",
             enabled: true,
+            modifiers: [],
             options: {
               source: createPluginAssetUri("example.caption-pack", "assets/default-bg.png")
             }
@@ -116,6 +100,7 @@ export function activate(host: LyricVideoPluginHost): LyricVideoPluginActivation
             id: "caption-box-1",
             componentId: "example.caption-box",
             enabled: true,
+            modifiers: [],
             options: defaultOptions as Record<string, unknown>
           }
         ]

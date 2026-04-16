@@ -4,6 +4,7 @@ import type {
   RenderHistoryEntry,
   RenderOutputSettings,
   RenderProgressEvent,
+  SerializedModifierDefinition,
   SerializedSceneComponentDefinition,
   SerializedSceneDefinition,
   VideoSettings
@@ -12,6 +13,7 @@ import type {
 export interface AppBootstrapData {
   scenes: SerializedSceneDefinition[];
   components: SerializedSceneComponentDefinition[];
+  modifiers: SerializedModifierDefinition[];
   plugins: InstalledPluginSummary[];
   fonts: string[];
   history: RenderHistoryEntry[];

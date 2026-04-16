@@ -113,6 +113,7 @@ const scene: SerializedSceneDefinition = {
       id: "bg-1",
       componentId: "image",
       enabled: true,
+      modifiers: [],
       options: {
         imagePath: "cover.png"
       }
@@ -121,12 +122,14 @@ const scene: SerializedSceneDefinition = {
       id: "lyrics-1",
       componentId: "lyrics-by-line",
       enabled: true,
+      modifiers: [],
       options: {}
     },
     {
       id: "equalizer-1",
       componentId: "equalizer",
       enabled: true,
+      modifiers: [],
       options: {}
     }
   ]
@@ -161,7 +164,7 @@ describe("scene validation", () => {
   });
 
   it("validates a stacked scene with duplicate component types", () => {
-    const result = validateSceneComponents(
+    const { components, warnings } = validateSceneComponents(
       {
         ...scene,
         components: [
@@ -170,6 +173,7 @@ describe("scene validation", () => {
             id: "lyrics-2",
             componentId: "lyrics-by-line",
             enabled: true,
+            modifiers: [],
             options: {
               lyricSize: 64
             }
@@ -177,17 +181,20 @@ describe("scene validation", () => {
         ]
       },
       [backgroundImageComponent, lyricsComponent, equalizerComponent],
+      [],
       {
         isFileAccessible: () => true
       }
     );
 
-    expect(result).toEqual([
+    expect(warnings).toEqual([]);
+    expect(components).toEqual([
       {
         id: "bg-1",
         componentId: "image",
         componentName: "Image",
         enabled: true,
+        modifiers: [],
         options: {
           imagePath: "cover.png"
         }
@@ -197,6 +204,7 @@ describe("scene validation", () => {
         componentId: "lyrics-by-line",
         componentName: "Lyrics by Line",
         enabled: true,
+        modifiers: [],
         options: {
           lyricSize: 72,
           lyricFont: DEFAULT_GOOGLE_FONT_FAMILY
@@ -207,6 +215,7 @@ describe("scene validation", () => {
         componentId: "equalizer",
         componentName: "Equalizer",
         enabled: true,
+        modifiers: [],
         options: {
           placement: "bottom-center",
           barCount: 28,
@@ -220,6 +229,7 @@ describe("scene validation", () => {
         componentId: "lyrics-by-line",
         componentName: "Lyrics by Line",
         enabled: true,
+        modifiers: [],
         options: {
           lyricSize: 64,
           lyricFont: DEFAULT_GOOGLE_FONT_FAMILY
@@ -238,18 +248,20 @@ describe("scene validation", () => {
               id: "unknown-1",
               componentId: "unknown-component",
               enabled: true,
+              modifiers: [],
               options: {}
             }
           ]
         },
-        [backgroundImageComponent, lyricsComponent, equalizerComponent]
+        [backgroundImageComponent, lyricsComponent, equalizerComponent],
+        []
       )
     ).toThrow(/Unknown scene component/);
   });
 
   it("rejects missing image assets", () => {
     expect(() =>
-      validateSceneComponents(scene, [backgroundImageComponent, lyricsComponent, equalizerComponent], {
+      validateSceneComponents(scene, [backgroundImageComponent, lyricsComponent, equalizerComponent], [], {
         isFileAccessible: () => false
       })
     ).toThrow(/does not point to a readable file/);
@@ -286,15 +298,17 @@ describe("scene validation", () => {
             scene.components[0],
             {
               id: "lyrics-1",
-            componentId: "lyrics-by-line",
-            enabled: true,
-            options: {
+              componentId: "lyrics-by-line",
+              enabled: true,
+              modifiers: [],
+              options: {
                 lyricFont: "Roboto;body{display:none}"
               }
             }
           ]
         },
         [backgroundImageComponent, lyricsComponent, equalizerComponent],
+        [],
         {
           isFileAccessible: () => true
         }

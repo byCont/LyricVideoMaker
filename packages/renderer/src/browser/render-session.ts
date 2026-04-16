@@ -38,6 +38,13 @@ import { FRAME_READINESS_SCRIPT_SOURCE } from "../live-dom";
 // Payload types (must match react-shell.tsx structurally)
 // ---------------------------------------------------------------------------
 
+interface ReactModifierConfig {
+  id: string;
+  modifierId: string;
+  enabled: boolean;
+  options: Record<string, unknown>;
+}
+
 interface ReactSceneConfig {
   video: RenderJob["video"];
   lyricCues: LyricCue[];
@@ -46,6 +53,7 @@ interface ReactSceneConfig {
     componentId: string;
     componentName: string;
     options: Record<string, unknown>;
+    modifiers: ReactModifierConfig[];
     prepared: Record<string, unknown>;
     resolvedAssets: Record<string, string | null>;
   }>;
@@ -131,6 +139,12 @@ function buildReactSceneConfig({
         componentId: instance.componentId,
         componentName: instance.componentName,
         options: instance.options,
+        modifiers: (instance.modifiers ?? []).map((modifier) => ({
+          id: modifier.id,
+          modifierId: modifier.modifierId,
+          enabled: modifier.enabled,
+          options: modifier.options
+        })),
         prepared: prepared[instance.id] ?? {},
         resolvedAssets
       };
@@ -150,6 +164,7 @@ async function activatePluginInBrowser(
     const register = (
       window as Window & {
         __registerReactComponent?: (id: string, component: Function) => void;
+        __registerModifier?: (id: string, definition: unknown) => void;
         __getPluginHost?: () => unknown;
       }
     );
@@ -164,7 +179,8 @@ async function activatePluginInBrowser(
     const wrapper = new Function("module", "exports", source);
     wrapper(mod, mod.exports);
 
-    // Call activate(host) to get component definitions
+    // Call activate(host) to get component definitions (host.modifiers.register
+    // may also have been called directly during activate — see browser-entry).
     const activate = (mod.exports as { activate?: Function }).activate;
     if (typeof activate !== "function") {
       throw new Error("Plugin bundle does not export activate().");
@@ -172,12 +188,20 @@ async function activatePluginInBrowser(
 
     const activation = activate(host) as {
       components?: Array<{ id: string; Component: Function }>;
+      modifiers?: Array<{ id: string; apply: Function }>;
     };
 
     if (activation?.components) {
       for (const component of activation.components) {
         if (component.id && typeof component.Component === "function") {
           register.__registerReactComponent!(component.id, component.Component);
+        }
+      }
+    }
+    if (activation?.modifiers && register.__registerModifier) {
+      for (const modifier of activation.modifiers) {
+        if (modifier && modifier.id && typeof modifier.apply === "function") {
+          register.__registerModifier(modifier.id, modifier);
         }
       }
     }

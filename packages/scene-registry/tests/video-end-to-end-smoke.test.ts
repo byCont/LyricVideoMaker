@@ -35,7 +35,7 @@ describe("T-059 — Video component end-to-end smoke", () => {
       for (let frame = 0; frame < video.durationInFrames; frame += 1) {
         const timeMs = (frame / video.fps) * 1000;
         const r = computeVideoPlaybackState({
-          options: { playbackMode, videoStartOffsetMs: 0, playbackSpeed: 1, startTime: 0 },
+          options: { playbackMode, videoStartOffsetMs: 0, playbackSpeed: 1 },
           durationMs: SHORT_CLIP_DURATION_MS,
           timeMs
         });
@@ -92,7 +92,7 @@ describe("T-059 — Video component end-to-end smoke", () => {
     ];
     for (const mode of cases) {
       it(`mode=${mode} produces documented behavior at start, middle, end+1`, () => {
-        const optsBase = { playbackMode: mode, videoStartOffsetMs: 0, playbackSpeed: 1, startTime: 0 };
+        const optsBase = { playbackMode: mode, videoStartOffsetMs: 0, playbackSpeed: 1 };
         const start = computeVideoPlaybackState({
           options: optsBase,
           durationMs: SHORT_CLIP_DURATION_MS,

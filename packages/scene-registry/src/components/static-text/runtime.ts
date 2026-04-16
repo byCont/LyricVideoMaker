@@ -1,21 +1,18 @@
-import type { VideoSettings } from "@lyric-video-maker/core";
-import { computeTransformStyle, computeTimingOpacity } from "../../shared";
 import { withAlpha } from "../../shared/color";
 import type { StaticTextComponentOptions } from "./options";
 
 export interface StaticTextInitialState {
   html: string;
   containerStyle: Record<string, string>;
-  initialOpacity: number;
   resolvedText: string;
 }
 
 /**
- * Token metadata available to Static Text token substitution (T-029).
+ * Token metadata available to Static Text token substitution.
  * This is the subset of render context metadata keys that the component
  * knows about today. Keys absent from this record are treated as
- * "unavailable" and left literal. The set is INTENTIONALLY small — the
- * kit is explicit that expanding it is a documented follow-up.
+ * "unavailable" and left literal. The set is intentionally small — expanding
+ * it is a documented follow-up.
  */
 export interface StaticTextTokenMetadata {
   songTitle?: string;
@@ -24,35 +21,24 @@ export interface StaticTextTokenMetadata {
 
 export function buildStaticTextInitialState(
   options: StaticTextComponentOptions,
-  video: VideoSettings,
-  timeMs: number,
   metadata: StaticTextTokenMetadata = {}
 ): StaticTextInitialState {
-  const transformStyle = computeTransformStyle(options, {
-    width: video.width,
-    height: video.height
-  });
-  const containerStyle: Record<string, string> = {};
-  for (const [key, value] of Object.entries(transformStyle)) {
-    if (value !== undefined && value !== null) {
-      containerStyle[key] = String(value);
-    }
-  }
-  containerStyle.display = "flex";
-  containerStyle.alignItems = "center";
-  containerStyle.justifyContent =
-    options.textAlign === "left"
-      ? "flex-start"
-      : options.textAlign === "right"
-        ? "flex-end"
-        : "center";
-  containerStyle.padding = `${options.paddingVertical}px ${options.paddingHorizontal}px`;
-  containerStyle.boxSizing = "border-box";
-
-  const filter = buildEffectFilter(options);
-  if (filter !== "none") {
-    containerStyle.filter = filter;
-  }
+  const containerStyle: Record<string, string> = {
+    position: "absolute",
+    inset: "0",
+    width: "100%",
+    height: "100%",
+    display: "flex",
+    alignItems: "center",
+    padding: `${options.paddingVertical}px ${options.paddingHorizontal}px`,
+    boxSizing: "border-box",
+    justifyContent:
+      options.textAlign === "left"
+        ? "flex-start"
+        : options.textAlign === "right"
+          ? "flex-end"
+          : "center"
+  };
 
   const resolvedText = applyTokenSubstitution(
     applyTextCase(options.text, options.textCase),
@@ -60,12 +46,10 @@ export function buildStaticTextInitialState(
     metadata
   );
   const html = buildTextMarkup(options, resolvedText);
-  const initialOpacity = computeTimingOpacity(timeMs, options);
 
   return {
     html,
     containerStyle,
-    initialOpacity,
     resolvedText
   };
 }
@@ -85,11 +69,10 @@ function applyTextCase(text: string, textCase: StaticTextComponentOptions["textC
 }
 
 /**
- * Token substitution (T-029): when `enabled` is true, replace {token}
- * sequences in `text` whose key exists in `metadata`. Tokens referring to
- * unavailable keys are left as literal text (including the braces) with
- * no crash. When `enabled` is false, curly-brace sequences are rendered
- * verbatim.
+ * Token substitution: when `enabled` is true, replace {token} sequences in
+ * `text` whose key exists in `metadata`. Tokens referring to unavailable
+ * keys are left as literal text (including the braces) with no crash.
+ * When `enabled` is false, curly-brace sequences are rendered verbatim.
  */
 export function applyTokenSubstitution(
   text: string,
@@ -129,9 +112,6 @@ function buildTextEffectStyle(options: StaticTextComponentOptions): string {
   const textShadows: string[] = [];
   if (options.borderEnabled && options.borderThickness > 0) {
     const t = options.borderThickness;
-    // Simulate a uniform border by compositing offset text shadows in eight
-    // directions. Composes with the drop-shadow/glow below without either
-    // effect suppressing the other.
     textShadows.push(
       `-${t}px -${t}px 0 ${options.borderColor}`,
       `${t}px -${t}px 0 ${options.borderColor}`,
@@ -152,10 +132,6 @@ function buildTextEffectStyle(options: StaticTextComponentOptions): string {
   return textShadows.length > 0 ? `text-shadow:${textShadows.join(", ")};` : "";
 }
 
-function buildEffectFilter(_options: StaticTextComponentOptions): string {
-  return "none";
-}
-
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -168,5 +144,3 @@ function escapeHtml(value: string): string {
 function escapeAttr(value: string): string {
   return value.replace(/"/g, "&quot;");
 }
-
-export { computeTimingOpacity };

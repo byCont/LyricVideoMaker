@@ -1,14 +1,6 @@
 import type { SceneOptionCategory } from "@lyric-video-maker/core";
-import {
-  DEFAULT_TIMING_OPTIONS,
-  DEFAULT_TRANSFORM_OPTIONS,
-  timingCategory,
-  transformCategory,
-  type TimingOptions,
-  type TransformOptions
-} from "../../shared";
 
-/** Six supported shape primitives (cavekit-shape-component R2). */
+/** Six supported shape primitives. */
 export type ShapeType = "rectangle" | "circle" | "ellipse" | "triangle" | "line" | "polygon";
 
 export const SHAPE_TYPE_VALUES: readonly ShapeType[] = [
@@ -22,11 +14,8 @@ export const SHAPE_TYPE_VALUES: readonly ShapeType[] = [
 
 export type ShapeFillMode = "solid" | "gradient";
 
-/**
- * Shape component options — intersection of Shape-specific fields with the
- * shared Transform and Timing option types (cavekit-shape-component R2).
- */
-export interface ShapeComponentOptions extends TransformOptions, TimingOptions {
+/** Shape component options. Position and fade handled by modifier stack. */
+export interface ShapeComponentOptions {
   // Geometry
   shapeType: ShapeType;
   polygonSides: number;
@@ -65,8 +54,6 @@ export interface ShapeComponentOptions extends TransformOptions, TimingOptions {
 }
 
 export const DEFAULT_SHAPE_OPTIONS: ShapeComponentOptions = {
-  ...DEFAULT_TRANSFORM_OPTIONS,
-  ...DEFAULT_TIMING_OPTIONS,
   shapeType: "rectangle",
   polygonSides: 6,
   cornerRadius: 0,
@@ -184,18 +171,12 @@ const effectsCategory: SceneOptionCategory = {
 };
 
 /**
- * Shape options schema (cavekit-shape-component R3).
- *
- * Category order: Geometry → Transform → Fill → Stroke → Effects → Timing.
- * Transform and Timing entries are sourced from the shared helpers barrel
- * — never re-declared. Timing is collapsed by default so the common
- * always-visible case does not clutter the editor.
+ * Shape options schema. Transform and Timing are now part of the Modifier
+ * stack, not the component schema.
  */
 export const shapeOptionsSchema = [
   geometryCategory,
-  transformCategory,
   fillCategory,
   strokeCategory,
-  effectsCategory,
-  timingCategory
+  effectsCategory
 ];

@@ -5,9 +5,10 @@
  * into Chromium render pages. It imports:
  *   1. The React shell framework (react-shell.tsx)
  *   2. All built-in scene component Component functions
+ *   3. All built-in modifier definitions
  *
  * Components are registered into the browser-side registry so the React shell
- * can look them up by componentId at render time.
+ * can look them up by componentId at render time; modifiers the same way.
  *
  * This file is NOT part of the renderer's normal module graph — it is bundled
  * separately by scripts/build-browser-bundle.mjs.
@@ -30,15 +31,13 @@ import { slideshowComponent } from "~scene-registry/components/slideshow/compone
 // Video uses a separate react-component file to avoid pulling in prepare→probe→child_process
 import { VideoRenderComponent } from "~scene-registry/components/video/react-component";
 
-// Transform/timing utilities for plugin host
+// Built-in modifier definitions
 import {
-  computeTransformStyle,
-  computeTimingOpacity,
-  transformCategory,
-  timingCategory,
-  DEFAULT_TRANSFORM_OPTIONS,
-  DEFAULT_TIMING_OPTIONS
-} from "@lyric-video-maker/plugin-base";
+  transformModifier,
+  timingModifier,
+  opacityModifier,
+  visibilityModifier
+} from "~scene-registry/modifiers";
 
 // Register all built-in components
 const register = (window as any).__registerReactComponent;
@@ -52,19 +51,24 @@ register("lyrics-by-line", lyricsByLineComponent.Component);
 register("video", VideoRenderComponent);
 register("slideshow", slideshowComponent.Component);
 
+// Register all built-in modifiers
+const registerModifier = (window as any).__registerModifier;
+registerModifier(transformModifier.id, transformModifier);
+registerModifier(timingModifier.id, timingModifier);
+registerModifier(opacityModifier.id, opacityModifier);
+registerModifier(visibilityModifier.id, visibilityModifier);
+
 // Plugin host factory — used by activatePluginInBrowser to provide
 // the host object that external plugins receive in activate(host).
 (window as any).__getPluginHost = function () {
   return {
     React,
     core: {},
-    transform: {
-      computeTransformStyle,
-      computeTimingOpacity,
-      transformCategory,
-      timingCategory,
-      DEFAULT_TRANSFORM_OPTIONS,
-      DEFAULT_TIMING_OPTIONS
+    modifiers: {
+      register(definition: { id: string }) {
+        if (!definition || typeof definition !== "object" || !definition.id) return;
+        registerModifier(definition.id, definition);
+      }
     }
   };
 };

@@ -1,3 +1,4 @@
+import type { ModifierDefinition } from "@lyric-video-maker/plugin-base";
 import type { LyricCue } from "./lyric";
 import type {
   SceneComponentDefinition,
@@ -24,6 +25,8 @@ export interface RenderJob {
   sceneId: string;
   sceneName: string;
   components: ValidatedSceneComponentInstance[];
+  /** Non-fatal warnings gathered during scene validation (e.g. unknown modifier id). */
+  loadWarnings: string[];
   video: VideoSettings;
   render: RenderOutputSettings;
   lyrics: LyricCue[];
@@ -80,6 +83,7 @@ export interface CreateRenderJobInput {
   outputPath: string;
   scene: SerializedSceneDefinition;
   componentDefinitions: SceneComponentDefinition<Record<string, unknown>>[];
+  modifierDefinitions: ModifierDefinition<Record<string, unknown>>[];
   cues: LyricCue[];
   durationMs: number;
   createdAt?: Date;

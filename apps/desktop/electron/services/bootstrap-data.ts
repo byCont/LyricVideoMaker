@@ -3,7 +3,11 @@ import {
   serializeSceneComponentDefinition,
   serializeSceneDefinition
 } from "@lyric-video-maker/core";
-import { builtInSceneComponents, builtInScenes } from "@lyric-video-maker/scene-registry";
+import {
+  builtInModifiers,
+  builtInSceneComponents,
+  builtInScenes
+} from "@lyric-video-maker/scene-registry";
 import type { AppBootstrapData } from "../../src/electron-api";
 import type { FfmpegAvailability } from "../ipc/register-ipc-handlers";
 import type { LayoutPreferencesStore } from "./layout-preferences";
@@ -29,6 +33,7 @@ export function createBootstrapData({
   ffmpegAvailability
 }: CreateBootstrapDataDeps): AppBootstrapData {
   const components = [...builtInSceneComponents, ...pluginCatalog.components()];
+  const modifiers = [...builtInModifiers, ...pluginCatalog.modifiers()];
   const scenes = [
     ...builtInScenes.map((scene) => serializeSceneDefinition(scene)),
     ...pluginCatalog.scenes().map((scene) => serializeSceneDefinition(scene)),
@@ -38,6 +43,13 @@ export function createBootstrapData({
   return {
     scenes,
     components: components.map((component) => serializeSceneComponentDefinition(component)),
+    modifiers: modifiers.map((modifier) => ({
+      id: modifier.id,
+      name: modifier.name,
+      description: modifier.description,
+      options: modifier.options,
+      defaultOptions: modifier.defaultOptions as Record<string, unknown>
+    })),
     plugins: pluginCatalog.list(),
     fonts: [...GOOGLE_FONT_FAMILIES],
     history: renderHistory.list(),

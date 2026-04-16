@@ -295,6 +295,7 @@ function createBootstrapData(overrides: Partial<AppBootstrapData> = {}): AppBoot
             id: "lyrics-1",
             componentId: "lyrics",
             enabled: true,
+            modifiers: [],
             options: {
               textColor: "#ffffff",
               imagePath: ""
@@ -303,6 +304,7 @@ function createBootstrapData(overrides: Partial<AppBootstrapData> = {}): AppBoot
         ]
       }
     ],
+    modifiers: [],
     components: [
       {
         id: "background",

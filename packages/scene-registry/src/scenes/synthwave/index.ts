@@ -1,4 +1,5 @@
 import type { SceneDefinition } from "@lyric-video-maker/core";
+import { DEFAULT_TRANSFORM_OPTIONS } from "@lyric-video-maker/plugin-base";
 
 export const synthwaveScene: SceneDefinition = {
   id: "synthwave",
@@ -12,6 +13,7 @@ export const synthwaveScene: SceneDefinition = {
       id: "background-color-1",
       componentId: "background-color",
       enabled: true,
+      modifiers: [],
       options: {
         mode: "gradient",
         direction: "180deg",
@@ -25,12 +27,22 @@ export const synthwaveScene: SceneDefinition = {
       id: "grid-line-1",
       componentId: "shape",
       enabled: true,
+      modifiers: [
+        {
+          id: "grid-line-1-transform",
+          modifierId: "transform",
+          enabled: true,
+          options: {
+            ...DEFAULT_TRANSFORM_OPTIONS,
+            x: 0,
+            y: 85,
+            width: 100,
+            height: 1
+          }
+        }
+      ],
       options: {
         shapeType: "line",
-        x: 0,
-        y: 85,
-        width: 100,
-        height: 1,
         fillEnabled: false,
         strokeEnabled: true,
         strokeColor: "#ff2d95",
@@ -42,12 +54,22 @@ export const synthwaveScene: SceneDefinition = {
       id: "grid-line-2",
       componentId: "shape",
       enabled: true,
+      modifiers: [
+        {
+          id: "grid-line-2-transform",
+          modifierId: "transform",
+          enabled: true,
+          options: {
+            ...DEFAULT_TRANSFORM_OPTIONS,
+            x: 0,
+            y: 92,
+            width: 100,
+            height: 1
+          }
+        }
+      ],
       options: {
         shapeType: "line",
-        x: 0,
-        y: 92,
-        width: 100,
-        height: 1,
         fillEnabled: false,
         strokeEnabled: true,
         strokeColor: "#ff2d95",
@@ -59,9 +81,19 @@ export const synthwaveScene: SceneDefinition = {
       id: "equalizer-1",
       componentId: "equalizer",
       enabled: true,
+      modifiers: [
+        {
+          id: "equalizer-1-transform",
+          modifierId: "transform",
+          enabled: true,
+          options: {
+            ...DEFAULT_TRANSFORM_OPTIONS,
+            y: 70,
+            height: 30
+          }
+        }
+      ],
       options: {
-        y: 70,
-        height: 30,
         graphMode: "line",
         lineStyle: "area",
         lineBaseline: "bottom",
@@ -77,8 +109,18 @@ export const synthwaveScene: SceneDefinition = {
       id: "lyrics-by-line-1",
       componentId: "lyrics-by-line",
       enabled: true,
+      modifiers: [
+        {
+          id: "lyrics-by-line-1-transform",
+          modifierId: "transform",
+          enabled: true,
+          options: {
+            ...DEFAULT_TRANSFORM_OPTIONS,
+            height: 70
+          }
+        }
+      ],
       options: {
-        height: 70,
         lyricColor: "#00f0ff",
         lyricPosition: "middle",
         lyricSize: 76,
@@ -94,10 +136,20 @@ export const synthwaveScene: SceneDefinition = {
       id: "static-text-1",
       componentId: "static-text",
       enabled: true,
+      modifiers: [
+        {
+          id: "static-text-1-transform",
+          modifierId: "transform",
+          enabled: true,
+          options: {
+            ...DEFAULT_TRANSFORM_OPTIONS,
+            y: 3,
+            height: 10
+          }
+        }
+      ],
       options: {
         text: "TRACK TITLE",
-        y: 3,
-        height: 10,
         fontSize: 20,
         fontWeight: 300,
         letterSpacing: 12,
