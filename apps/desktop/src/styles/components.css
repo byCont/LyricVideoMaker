@@ -253,6 +253,116 @@
   color: var(--text-muted);
 }
 
+.modifiers-section {
+  gap: var(--space-stack-md);
+}
+
+.modifier-list {
+  display: grid;
+  align-content: start;
+  gap: var(--space-stack-sm);
+  border: 1px solid var(--pane-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.015);
+  overflow: hidden;
+  padding: 0;
+}
+
+.modifier-row {
+  display: grid;
+  gap: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  background: transparent;
+}
+
+.modifier-row:last-child {
+  border-bottom: 0;
+}
+
+.modifier-row.is-expanded {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.modifier-row.modifier-row-disabled .modifier-row-copy .workspace-nav-title {
+  color: var(--text-muted);
+}
+
+.modifier-row-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+}
+
+.modifier-row-select {
+  width: 100%;
+  text-align: left;
+  padding: 0.4rem var(--space-panel-x);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-inline-sm);
+  cursor: pointer;
+}
+
+.modifier-row-select:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.modifier-row-chevron {
+  width: 0.9rem;
+  color: var(--text-soft);
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.modifier-row-order {
+  /* reuses .workspace-component-order styling */
+}
+
+.modifier-row-copy {
+  min-width: 0;
+  display: grid;
+  gap: 0.05rem;
+}
+
+.modifier-row-actions {
+  padding: 0.3rem 0.55rem 0.3rem 0.2rem;
+  grid-template-columns: repeat(4, auto);
+}
+
+.modifier-row-body {
+  padding: var(--space-stack-sm) var(--space-panel-x) var(--space-panel-y);
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  display: grid;
+  gap: var(--space-stack-md);
+}
+
+.modifier-row-unknown .modifier-row-main {
+  padding: 0.4rem var(--space-panel-x);
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--space-inline-sm);
+  align-items: center;
+}
+
+.modifiers-empty-state {
+  margin: 0;
+  padding: var(--space-stack-md) var(--space-panel-x);
+  color: var(--text-muted);
+  border: 1px dashed var(--pane-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.01);
+}
+
+.modifiers-add-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-stack-sm);
+  align-items: end;
+}
+
 .plugin-import-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -839,6 +949,19 @@
   .workspace-component-actions {
     grid-template-columns: repeat(5, auto);
     padding-top: 0;
+  }
+
+  .modifier-row-main {
+    grid-template-columns: 1fr;
+  }
+
+  .modifier-row-actions {
+    grid-template-columns: repeat(4, auto);
+    padding-top: 0;
+  }
+
+  .modifiers-add-row {
+    grid-template-columns: 1fr;
   }
 
   .option-row {
