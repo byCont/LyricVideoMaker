@@ -7,7 +7,7 @@
   "main": "./dist-electron/main.js",
   "scripts": {
     "build": "vite build && tsup electron/main.ts electron/preload.ts electron/preview-worker-thread.ts --format cjs --out-dir dist-electron --external electron",
-    "dev": "npm run build && electron ."
+    "dev": "pnpm run build && electron ."
   },
   "dependencies": {
     "@lyric-video-maker/core": "file:../../packages/core",

@@ -31,21 +31,21 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
     mod
   ));
 
-  // node_modules/react/cjs/react.production.min.js
+  // ../../node_modules/.pnpm/react@18.3.1/node_modules/react/cjs/react.production.min.js
   var require_react_production_min = __commonJS({
-    "node_modules/react/cjs/react.production.min.js"(exports) {
+    "../../node_modules/.pnpm/react@18.3.1/node_modules/react/cjs/react.production.min.js"(exports) {
       "use strict";
-      var l = /* @__PURE__ */ Symbol.for("react.element");
-      var n = /* @__PURE__ */ Symbol.for("react.portal");
-      var p = /* @__PURE__ */ Symbol.for("react.fragment");
-      var q = /* @__PURE__ */ Symbol.for("react.strict_mode");
-      var r = /* @__PURE__ */ Symbol.for("react.profiler");
-      var t = /* @__PURE__ */ Symbol.for("react.provider");
-      var u = /* @__PURE__ */ Symbol.for("react.context");
-      var v = /* @__PURE__ */ Symbol.for("react.forward_ref");
-      var w = /* @__PURE__ */ Symbol.for("react.suspense");
-      var x = /* @__PURE__ */ Symbol.for("react.memo");
-      var y = /* @__PURE__ */ Symbol.for("react.lazy");
+      var l = Symbol.for("react.element");
+      var n = Symbol.for("react.portal");
+      var p = Symbol.for("react.fragment");
+      var q = Symbol.for("react.strict_mode");
+      var r = Symbol.for("react.profiler");
+      var t = Symbol.for("react.provider");
+      var u = Symbol.for("react.context");
+      var v = Symbol.for("react.forward_ref");
+      var w = Symbol.for("react.suspense");
+      var x = Symbol.for("react.memo");
+      var y = Symbol.for("react.lazy");
       var z = Symbol.iterator;
       function A(a) {
         if (null === a || "object" !== typeof a) return null;
@@ -304,9 +304,9 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
     }
   });
 
-  // node_modules/react/index.js
+  // ../../node_modules/.pnpm/react@18.3.1/node_modules/react/index.js
   var require_react = __commonJS({
-    "node_modules/react/index.js"(exports, module) {
+    "../../node_modules/.pnpm/react@18.3.1/node_modules/react/index.js"(exports, module) {
       "use strict";
       if (true) {
         module.exports = require_react_production_min();
@@ -316,9 +316,9 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
     }
   });
 
-  // ../../node_modules/scheduler/cjs/scheduler.production.min.js
+  // ../../node_modules/.pnpm/scheduler@0.23.2/node_modules/scheduler/cjs/scheduler.production.min.js
   var require_scheduler_production_min = __commonJS({
-    "../../node_modules/scheduler/cjs/scheduler.production.min.js"(exports) {
+    "../../node_modules/.pnpm/scheduler@0.23.2/node_modules/scheduler/cjs/scheduler.production.min.js"(exports) {
       "use strict";
       function f(a, b) {
         var c = a.length;
@@ -569,9 +569,9 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
     }
   });
 
-  // ../../node_modules/scheduler/index.js
+  // ../../node_modules/.pnpm/scheduler@0.23.2/node_modules/scheduler/index.js
   var require_scheduler = __commonJS({
-    "../../node_modules/scheduler/index.js"(exports, module) {
+    "../../node_modules/.pnpm/scheduler@0.23.2/node_modules/scheduler/index.js"(exports, module) {
       "use strict";
       if (true) {
         module.exports = require_scheduler_production_min();
@@ -581,9 +581,9 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
     }
   });
 
-  // node_modules/react-dom/cjs/react-dom.production.min.js
+  // ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.production.min.js
   var require_react_dom_production_min = __commonJS({
-    "node_modules/react-dom/cjs/react-dom.production.min.js"(exports) {
+    "../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.production.min.js"(exports) {
       "use strict";
       var aa = require_react();
       var ca = require_scheduler();
@@ -713,19 +713,24 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
         if (null !== e ? 0 !== e.type : d || !(2 < b.length) || "o" !== b[0] && "O" !== b[0] || "n" !== b[1] && "N" !== b[1]) qa(b, c, e, d) && (c = null), d || null === e ? oa(b) && (null === c ? a.removeAttribute(b) : a.setAttribute(b, "" + c)) : e.mustUseProperty ? a[e.propertyName] = null === c ? 3 === e.type ? false : "" : c : (b = e.attributeName, d = e.attributeNamespace, null === c ? a.removeAttribute(b) : (e = e.type, c = 3 === e || 4 === e && true === c ? "" : "" + c, d ? a.setAttributeNS(d, b, c) : a.setAttribute(b, c)));
       }
       var ua = aa.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
-      var va = /* @__PURE__ */ Symbol.for("react.element");
-      var wa = /* @__PURE__ */ Symbol.for("react.portal");
-      var ya = /* @__PURE__ */ Symbol.for("react.fragment");
-      var za = /* @__PURE__ */ Symbol.for("react.strict_mode");
-      var Aa = /* @__PURE__ */ Symbol.for("react.profiler");
-      var Ba = /* @__PURE__ */ Symbol.for("react.provider");
-      var Ca = /* @__PURE__ */ Symbol.for("react.context");
-      var Da = /* @__PURE__ */ Symbol.for("react.forward_ref");
-      var Ea = /* @__PURE__ */ Symbol.for("react.suspense");
-      var Fa = /* @__PURE__ */ Symbol.for("react.suspense_list");
-      var Ga = /* @__PURE__ */ Symbol.for("react.memo");
-      var Ha = /* @__PURE__ */ Symbol.for("react.lazy");
-      var Ia = /* @__PURE__ */ Symbol.for("react.offscreen");
+      var va = Symbol.for("react.element");
+      var wa = Symbol.for("react.portal");
+      var ya = Symbol.for("react.fragment");
+      var za = Symbol.for("react.strict_mode");
+      var Aa = Symbol.for("react.profiler");
+      var Ba = Symbol.for("react.provider");
+      var Ca = Symbol.for("react.context");
+      var Da = Symbol.for("react.forward_ref");
+      var Ea = Symbol.for("react.suspense");
+      var Fa = Symbol.for("react.suspense_list");
+      var Ga = Symbol.for("react.memo");
+      var Ha = Symbol.for("react.lazy");
+      Symbol.for("react.scope");
+      Symbol.for("react.debug_trace_mode");
+      var Ia = Symbol.for("react.offscreen");
+      Symbol.for("react.legacy_hidden");
+      Symbol.for("react.cache");
+      Symbol.for("react.tracing_marker");
       var Ja = Symbol.iterator;
       function Ka(a) {
         if (null === a || "object" !== typeof a) return null;
@@ -7186,9 +7191,9 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
     }
   });
 
-  // node_modules/react-dom/index.js
+  // ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/index.js
   var require_react_dom = __commonJS({
-    "node_modules/react-dom/index.js"(exports, module) {
+    "../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/index.js"(exports, module) {
       "use strict";
       function checkDCE() {
         if (typeof __REACT_DEVTOOLS_GLOBAL_HOOK__ === "undefined" || typeof __REACT_DEVTOOLS_GLOBAL_HOOK__.checkDCE !== "function") {
@@ -7212,9 +7217,9 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
     }
   });
 
-  // node_modules/react-dom/client.js
+  // ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/client.js
   var require_client = __commonJS({
-    "node_modules/react-dom/client.js"(exports) {
+    "../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/client.js"(exports) {
       "use strict";
       var m = require_react_dom();
       if (true) {
@@ -7243,13 +7248,13 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
     }
   });
 
-  // node_modules/react/cjs/react-jsx-runtime.production.min.js
+  // ../../node_modules/.pnpm/react@18.3.1/node_modules/react/cjs/react-jsx-runtime.production.min.js
   var require_react_jsx_runtime_production_min = __commonJS({
-    "node_modules/react/cjs/react-jsx-runtime.production.min.js"(exports) {
+    "../../node_modules/.pnpm/react@18.3.1/node_modules/react/cjs/react-jsx-runtime.production.min.js"(exports) {
       "use strict";
       var f = require_react();
-      var k = /* @__PURE__ */ Symbol.for("react.element");
-      var l = /* @__PURE__ */ Symbol.for("react.fragment");
+      var k = Symbol.for("react.element");
+      var l = Symbol.for("react.fragment");
       var m = Object.prototype.hasOwnProperty;
       var n = f.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED.ReactCurrentOwner;
       var p = { key: true, ref: true, __self: true, __source: true };
@@ -7268,9 +7273,9 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
     }
   });
 
-  // node_modules/react/jsx-runtime.js
+  // ../../node_modules/.pnpm/react@18.3.1/node_modules/react/jsx-runtime.js
   var require_jsx_runtime = __commonJS({
-    "node_modules/react/jsx-runtime.js"(exports, module) {
+    "../../node_modules/.pnpm/react@18.3.1/node_modules/react/jsx-runtime.js"(exports, module) {
       "use strict";
       if (true) {
         module.exports = require_react_jsx_runtime_production_min();
@@ -10018,7 +10023,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
     }
   }
 
-  // ../../node_modules/@chenglou/pretext/dist/generated/bidi-data.js
+  // ../../node_modules/.pnpm/@chenglou+pretext@0.0.5/node_modules/@chenglou/pretext/dist/generated/bidi-data.js
   var latin1BidiTypes = [
     "BN",
     "BN",
@@ -10994,7 +10999,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
     [1114110, 1114111, "BN"]
   ];
 
-  // ../../node_modules/@chenglou/pretext/dist/bidi.js
+  // ../../node_modules/.pnpm/@chenglou+pretext@0.0.5/node_modules/@chenglou/pretext/dist/bidi.js
   function classifyCodePoint(codePoint) {
     if (codePoint <= 255)
       return latin1BidiTypes[codePoint];
@@ -11152,7 +11157,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
     return segLevels;
   }
 
-  // ../../node_modules/@chenglou/pretext/dist/analysis.js
+  // ../../node_modules/.pnpm/@chenglou+pretext@0.0.5/node_modules/@chenglou/pretext/dist/analysis.js
   var collapsibleWhitespaceRunRe = /[ \\t\\n\\r\\f]+/g;
   var needsWhitespaceNormalizationRe = /[\\t\\n\\r\\f]| {2,}|^ | $/;
   function getWhiteSpaceProfile(whiteSpace) {
@@ -12137,7 +12142,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
     };
   }
 
-  // ../../node_modules/@chenglou/pretext/dist/measurement.js
+  // ../../node_modules/.pnpm/@chenglou+pretext@0.0.5/node_modules/@chenglou/pretext/dist/measurement.js
   var measureContext = null;
   var segmentMetricCaches = /* @__PURE__ */ new Map();
   var cachedEngineProfile = null;
@@ -12327,7 +12332,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
     return { cache, fontSize, emojiCorrection };
   }
 
-  // ../../node_modules/@chenglou/pretext/dist/line-break.js
+  // ../../node_modules/.pnpm/@chenglou+pretext@0.0.5/node_modules/@chenglou/pretext/dist/line-break.js
   function normalizeSimpleLineStartSegmentIndex(prepared, segmentIndex) {
     while (segmentIndex < prepared.widths.length) {
       const kind = prepared.kinds[segmentIndex];
@@ -12712,7 +12717,7 @@ export const BROWSER_BUNDLE_SOURCE = `"use strict";
     return lineCount;
   }
 
-  // ../../node_modules/@chenglou/pretext/dist/layout.js
+  // ../../node_modules/.pnpm/@chenglou+pretext@0.0.5/node_modules/@chenglou/pretext/dist/layout.js
   var sharedGraphemeSegmenter2 = null;
   function getSharedGraphemeSegmenter2() {
     if (sharedGraphemeSegmenter2 === null) {
