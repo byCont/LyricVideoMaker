@@ -68,7 +68,7 @@ function getFileFilters(kind: FilePickKind) {
     case "audio":
       return [{ name: "Audio Files", extensions: ["mp3"] }];
     case "subtitle":
-      return [{ name: "Subtitle Files", extensions: ["srt"] }];
+      return [{ name: "Subtitle Files", extensions: ["srt", "lrc"] }];
     case "lyrics-text":
       return [{ name: "Text Files", extensions: ["txt"] }];
     case "image":

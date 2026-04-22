@@ -14,6 +14,7 @@ import { PreviewPanel } from "./features/preview/preview-panel";
 import { RenderProgressDialog } from "./features/render-progress/render-progress-dialog";
 import { SceneDetailsEditor } from "./features/scene-editor/scene-details-editor";
 import { SubtitleGenerationDialog } from "./features/subtitle-generation/subtitle-generation-dialog";
+import { SubtitleEditorDialog } from "./features/subtitle-generation/subtitle-editor-dialog";
 import { WorkspaceNavPanel } from "./features/workspace-nav/workspace-nav-panel";
 import { FPS_PRESETS, VIDEO_SIZE_PRESETS } from "./lib/video-presets";
 import type { FilePickKind } from "./electron-api";
@@ -22,6 +23,7 @@ import { isComponentSelection } from "./state/workspace-types";
 export function App() {
   const [error, setError] = useState("");
   const [componentToAddId, setComponentToAddId] = useState("");
+  const [isSubtitleEditorOpen, setIsSubtitleEditorOpen] = useState(false);
   const { bootstrap, setBootstrap } = useBootstrap((data) => {
     if (data.scenes[0]) {
       composer.setComposer((current) => ({
@@ -304,6 +306,7 @@ export function App() {
             ffmpegAvailable={loadedBootstrap.ffmpegAvailable}
             onPickPath={(kind) => void handlePickPath(kind)}
             onOpenSubtitleGenerator={() => subtitleGeneration.open(composer.composer.audioPath)}
+            onOpenSubtitleEditor={() => setIsSubtitleEditorOpen(true)}
             onSetupFfmpeg={() => void handleSetupFfmpeg()}
             onVideoSizePresetChange={composer.applyVideoSizePresetId}
             onFpsPresetChange={composer.applyFpsPresetId}
@@ -396,6 +399,13 @@ export function App() {
         onStart={() => void subtitleGeneration.start(composer.composer.audioPath)}
         onCancel={() => void subtitleGeneration.cancel()}
         onDismiss={subtitleGeneration.dismiss}
+      />
+      <SubtitleEditorDialog
+        isOpen={isSubtitleEditorOpen}
+        cues={composer.composer.subtitleCues}
+        audioPath={composer.composer.audioPath}
+        onSave={(cues) => void composer.saveSubtitleCues(cues)}
+        onDismiss={() => setIsSubtitleEditorOpen(false)}
       />
     </div>
   );

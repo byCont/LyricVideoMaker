@@ -73,3 +73,21 @@ export function parseSrtTimestamp(value: string): number {
 
   return (((hours * 60 + minutes) * 60 + seconds) * 1000) + milliseconds;
 }
+
+export function serializeSrt(cues: LyricCue[]): string {
+  return cues
+    .map((cue, i) => {
+      const start = formatSrtTimestamp(cue.startMs);
+      const end = formatSrtTimestamp(cue.endMs);
+      return `${i + 1}\n${start} --> ${end}\n${cue.text}`;
+    })
+    .join("\n\n");
+}
+
+function formatSrtTimestamp(ms: number): string {
+  const hours = Math.floor(ms / 3600000);
+  const minutes = Math.floor((ms % 3600000) / 60000);
+  const seconds = Math.floor((ms % 60000) / 1000);
+  const milliseconds = ms % 1000;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")},${String(milliseconds).padStart(3, "0")}`;
+}

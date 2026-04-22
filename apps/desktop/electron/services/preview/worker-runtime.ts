@@ -170,7 +170,11 @@ async function getOrCreatePreviewSession(request: RenderPreviewRequest) {
     }
   });
   const key = getPreviewSessionKey(request, job.video.width, job.video.height);
-  const reusedExistingSession = Boolean(previewSessionState && previewSessionState.key === key);
+  const reusedExistingSession = Boolean(
+    previewSessionState && 
+    previewSessionState.key === key && 
+    previewSessionState.cues === cues
+  );
 
   if (!reusedExistingSession) {
     await disposePreviewSession();

@@ -16,6 +16,7 @@ import type { ComposerState } from "../state/composer-types";
 export const emptyComposerState: ComposerState = {
   audioPath: "",
   subtitlePath: "",
+  subtitleCues: [],
   outputPath: "",
   scene: null,
   video: {

@@ -318,9 +318,7 @@
   line-height: 1;
 }
 
-.modifier-row-order {
-  /* reuses .workspace-component-order styling */
-}
+
 
 .modifier-row-copy {
   min-width: 0;
@@ -1002,4 +1000,103 @@
     grid-template-columns: 1fr;
     gap: 0.55rem;
   }
+}
+
+/* Subtitle Editor Dialog */
+.subtitle-editor-dialog-card {
+  width: min(800px, 95vw);
+  max-height: 90vh;
+  display: grid;
+  grid-template-rows: auto auto auto 1fr auto;
+  overflow: hidden;
+}
+
+.subtitle-editor-body {
+  padding: 0;
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.subtitle-editor-audio-player {
+  padding: var(--space-stack-md) var(--space-panel-x);
+  border-bottom: 1px solid var(--pane-border);
+}
+
+.subtitle-editor-audio-player audio {
+  width: 100%;
+}
+
+
+.subtitle-editor-global-actions {
+  padding: var(--space-stack-sm) var(--space-panel-x);
+  display: flex;
+  gap: var(--space-stack-sm);
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid var(--pane-border);
+}
+
+.subtitle-cue-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.subtitle-cue-entry {
+  padding: var(--space-stack-md) var(--space-panel-x);
+  border-bottom: 1px solid var(--pane-border);
+  transition: background 0.2s ease;
+  cursor: pointer;
+}
+
+.subtitle-cue-entry:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.subtitle-cue-entry.is-active {
+  background: linear-gradient(90deg, rgba(111, 170, 255, 0.18), rgba(111, 170, 255, 0.04));
+  box-shadow: inset 3px 0 0 var(--accent-strong);
+}
+
+.cue-timing-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-inline-sm);
+  margin-bottom: var(--space-stack-sm);
+  flex-wrap: wrap;
+}
+
+.time-input {
+  width: 100px;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 6px;
+  border: 1px solid var(--field-border);
+  background: var(--field-bg);
+  color: #f5f8ff;
+}
+
+.timing-sep {
+  color: var(--text-soft);
+}
+
+.cue-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 0.2rem;
+}
+
+.cue-text-input {
+  width: 100%;
+  min-height: 60px;
+  border-radius: 6px;
+  border: 1px solid var(--field-border);
+  background: var(--field-bg);
+  padding: 0.5rem;
+  color: #f5f8ff;
+  font-size: 1rem;
+  resize: vertical;
+}
+
+.subtitle-cue-entry.is-active .cue-text-input {
+  border-color: var(--accent);
 }

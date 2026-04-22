@@ -4,11 +4,13 @@ import { lyricVideoApp } from "../ipc/lyric-video-app";
 export function usePreviewAudio({
   audioPath,
   isPlaying,
-  requestedTimeMs
+  requestedTimeMs,
+  volume = 1
 }: {
   audioPath: string;
   isPlaying: boolean;
   requestedTimeMs: number;
+  volume?: number;
 }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const blobUrlRef = useRef<string | null>(null);
@@ -20,6 +22,12 @@ export function usePreviewAudio({
   if (!audioRef.current) {
     audioRef.current = new Audio();
   }
+
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = Math.max(0, Math.min(1, volume));
+    }
+  }, [volume]);
 
   // Load audio bytes when audioPath changes
   useEffect(() => {

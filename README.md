@@ -38,7 +38,7 @@ examples/              Example plugins
 ### Setup
 
 ```bash
-git clone https://github.com/mrkmg/LyricVideoMaker.git
+git clone https://github.com/bycont/LyricVideoMaker.git
 cd LyricVideoMaker
 npm ci
 npm run setup:runtime   # downloads bundled Chromium + builds subtitle sidecar

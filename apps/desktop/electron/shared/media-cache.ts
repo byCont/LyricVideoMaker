@@ -1,5 +1,5 @@
-import { readFile } from "node:fs/promises";
-import { parseSrt, type LyricCue } from "@lyric-video-maker/core";
+import { readFile, stat } from "node:fs/promises";
+import { parseLrc, parseSrt, type LyricCue } from "@lyric-video-maker/core";
 import { probeAudioDurationMs } from "@lyric-video-maker/renderer";
 
 /**
@@ -9,15 +9,24 @@ import { probeAudioDurationMs } from "@lyric-video-maker/renderer";
  * across the worker boundary would require IPC and is intentionally avoided.
  */
 export function createSubtitleCueLoader() {
-  const cache = new Map<string, LyricCue[]>();
+  const cache = new Map<string, { cues: LyricCue[]; mtime: number }>();
   return async (subtitlePath: string) => {
-    const cached = cache.get(subtitlePath);
-    if (cached) {
-      return cached;
+    let fileStat;
+    try {
+      fileStat = await stat(subtitlePath);
+    } catch {
+      return [];
     }
+
+    const cached = cache.get(subtitlePath);
+    if (cached && cached.mtime === fileStat.mtimeMs) {
+      return cached.cues;
+    }
+
     const subtitleSource = await readFile(subtitlePath, "utf8");
-    const cues = parseSrt(subtitleSource);
-    cache.set(subtitlePath, cues);
+    const isLrc = subtitlePath.toLowerCase().endsWith(".lrc");
+    const cues = isLrc ? parseLrc(subtitleSource) : parseSrt(subtitleSource);
+    cache.set(subtitlePath, { cues, mtime: fileStat.mtimeMs });
     return cues;
   };
 }

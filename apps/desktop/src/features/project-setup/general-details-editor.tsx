@@ -16,6 +16,7 @@ export function GeneralDetailsEditor({
   ffmpegAvailable,
   onPickPath,
   onOpenSubtitleGenerator,
+  onOpenSubtitleEditor,
   onSetupFfmpeg,
   onVideoSizePresetChange,
   onFpsPresetChange,
@@ -38,6 +39,7 @@ export function GeneralDetailsEditor({
   ffmpegAvailable: boolean;
   onPickPath: (kind: FilePickKind) => void;
   onOpenSubtitleGenerator: () => void;
+  onOpenSubtitleEditor: () => void;
   onSetupFfmpeg: () => void;
   onVideoSizePresetChange: (presetId: string) => void;
   onFpsPresetChange: (presetId: string) => void;
@@ -109,7 +111,15 @@ export function GeneralDetailsEditor({
                     className="secondary"
                     onClick={() => onPickPath("subtitle")}
                   >
-                    Pick SRT
+                    Pick SRT / LRC
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    disabled={!composer.subtitlePath || isSubmitting || hasActiveRender}
+                    onClick={onOpenSubtitleEditor}
+                  >
+                    Edit
                   </button>
                   <button
                     type="button"

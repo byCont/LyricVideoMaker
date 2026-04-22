@@ -26,7 +26,9 @@ export interface ComposerActions {
   composer: ComposerState;
   setComposer: React.Dispatch<React.SetStateAction<ComposerState>>;
   setAudioPath(path: string): void;
-  setSubtitlePath(path: string): void;
+  setSubtitlePath(path: string): Promise<void>;
+  setSubtitleCues(cues: import("@lyric-video-maker/core").LyricCue[]): void;
+  saveSubtitleCues(cues: import("@lyric-video-maker/core").LyricCue[]): Promise<void>;
   setOutputPath(path: string): void;
   setSceneName(name: string): void;
   setSceneDescription(description: string): void;
@@ -81,9 +83,46 @@ export function useComposer(
     setComposer((current) => ({ ...current, audioPath: path }));
   }, []);
 
-  const setSubtitlePath = useCallback((path: string) => {
+  const setSubtitlePath = useCallback(async (path: string) => {
     setComposer((current) => ({ ...current, subtitlePath: path }));
+    if (path) {
+      try {
+        const cues = await lyricVideoApp.parseSubtitles(path);
+        setComposer((current) => ({ ...current, subtitleCues: cues }));
+      } catch (error) {
+        console.error("Failed to parse subtitles:", error);
+      }
+    }
   }, []);
+
+  const setSubtitleCues = useCallback((cues: import("@lyric-video-maker/core").LyricCue[]) => {
+    setComposer((current) => ({ ...current, subtitleCues: cues }));
+  }, []);
+
+  const saveSubtitleCues = useCallback(
+    async (cues: import("@lyric-video-maker/core").LyricCue[]) => {
+      if (!composer.subtitlePath) return;
+      
+      let targetPath = composer.subtitlePath;
+      if (!targetPath.endsWith(`-edited${targetPath.substring(targetPath.lastIndexOf("."))}`) && !targetPath.includes("-edited.")) {
+        const lastDotIndex = targetPath.lastIndexOf(".");
+        if (lastDotIndex > 0) {
+          targetPath = `${targetPath.substring(0, lastDotIndex)}-edited${targetPath.substring(lastDotIndex)}`;
+        } else {
+          targetPath = `${targetPath}-edited`;
+        }
+      }
+
+      await lyricVideoApp.saveSubtitles(targetPath, cues);
+      
+      setComposer((current) => ({
+        ...current,
+        subtitlePath: targetPath,
+        subtitleCues: cues
+      }));
+    },
+    [composer.subtitlePath]
+  );
 
   const setOutputPath = useCallback((path: string) => {
     setComposer((current) => ({ ...current, outputPath: path }));
@@ -452,6 +491,8 @@ export function useComposer(
     setComposer,
     setAudioPath,
     setSubtitlePath,
+    setSubtitleCues,
+    saveSubtitleCues,
     setOutputPath,
     setSceneName,
     setSceneDescription,

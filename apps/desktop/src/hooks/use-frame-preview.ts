@@ -93,7 +93,7 @@ export function useFramePreview({
     inFlightRequestRef.current = null;
     queuedRequestRef.current = null;
     void lyricVideoApp.disposePreview();
-  }, [composer.audioPath, composer.scene, composer.subtitlePath, composer.video, enabled, paused]);
+  }, [composer.audioPath, composer.scene, composer.subtitlePath, composer.subtitleCues, composer.video, enabled, paused]);
 
   useEffect(() => {
     const scene = deferredComposer.scene;
@@ -127,6 +127,7 @@ export function useFramePreview({
     deferredComposer.audioPath,
     deferredComposer.scene,
     deferredComposer.subtitlePath,
+    deferredComposer.subtitleCues,
     deferredComposer.video,
     deferredRequestedTimeMs,
     enabled,

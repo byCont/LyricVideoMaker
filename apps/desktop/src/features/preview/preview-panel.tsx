@@ -1,4 +1,4 @@
-import React, { type CSSProperties } from "react";
+import React, { type CSSProperties, useState } from "react";
 import { durationMsToFrameCount } from "@lyric-video-maker/core";
 import type { ComposerState } from "../../state/composer-types";
 import { InfoTip } from "../../components/ui/form-fields";
@@ -16,6 +16,7 @@ export function PreviewPanel({
   profilerEnabled?: boolean;
   ffmpegAvailable: boolean;
 }) {
+  const [volume, setVolume] = useState(1);
   const {
     enabled: framePreviewEnabled,
     preview,
@@ -33,7 +34,8 @@ export function PreviewPanel({
   usePreviewAudio({
     audioPath: composer.audioPath,
     isPlaying,
-    requestedTimeMs: preview.requestedTimeMs
+    requestedTimeMs: preview.requestedTimeMs,
+    volume
   });
   const enabled = framePreviewEnabled && ffmpegAvailable;
   const video = composer.video;
@@ -93,7 +95,7 @@ export function PreviewPanel({
           ) : (
             <div className="preview-empty">{emptyStateMessage}</div>
           )}
-          {preview.isLoading && enabled ? (
+          {preview.isLoading && enabled && !isPlaying ? (
             <div className="preview-loading">Refreshing preview...</div>
           ) : null}
         </div>
@@ -143,44 +145,62 @@ export function PreviewPanel({
         ) : null}
         {preview.error ? <p className="error-banner">{preview.error}</p> : null}
 
-        <div className="preview-transport">
-          <button
-            className="secondary icon-button"
-            disabled={!enabled || paused || !preview.result || preview.result.frame <= 0}
-            onClick={stepBackward}
-            title="Previous frame"
-          >
-            {"\u23EE"}
-          </button>
-          <button
-            className={`secondary icon-button preview-play-button${isPlaying ? " is-active" : ""}`}
-            disabled={!enabled || paused}
-            onClick={togglePlayback}
-            title={isPlaying ? "Pause" : "Play"}
-          >
-            {isPlaying ? "\u23F8" : "\u25B6"}
-          </button>
-          <button
-            className="secondary icon-button"
-            disabled={!enabled || paused || !preview.result || preview.result.frame >= frameCount - 1}
-            onClick={stepForward}
-            title="Next frame"
-          >
-            {"\u23ED"}
-          </button>
-        </div>
+        <div className="preview-transport-row" style={{ display: "flex", alignItems: "center", gap: "var(--space-inline-md)" }}>
+          <div className="preview-transport" style={{ display: "flex", alignItems: "center", gap: "var(--space-inline-sm)" }}>
+            <button
+              className="secondary icon-button"
+              disabled={!enabled || paused || !preview.result || preview.result.frame <= 0}
+              onClick={stepBackward}
+              title="Previous frame"
+            >
+              {"\u23EE"}
+            </button>
+            <button
+              className={`secondary icon-button preview-play-button${isPlaying ? " is-active" : ""}`}
+              disabled={!enabled || paused}
+              onClick={togglePlayback}
+              title={isPlaying ? "Pause" : "Play"}
+            >
+              {isPlaying ? "\u23F8" : "\u25B6"}
+            </button>
+            <button
+              className="secondary icon-button"
+              disabled={!enabled || paused || !preview.result || preview.result.frame >= frameCount - 1}
+              onClick={stepForward}
+              title="Next frame"
+            >
+              {"\u23ED"}
+            </button>
+          </div>
 
-        <label className="field preview-scrubber">
-          <input
-            type="range"
-            min={0}
-            max={rangeMax}
-            step={Math.max(1, Math.round(1000 / video.fps))}
-            value={sliderValue}
-            disabled={!enabled || paused || rangeMax <= 0}
-            onChange={(event) => updatePreviewTime(Number(event.target.value))}
-          />
-        </label>
+          <label className="field preview-scrubber" style={{ flex: 1, margin: 0 }}>
+            <input
+              type="range"
+              min={0}
+              max={rangeMax}
+              step={Math.max(1, Math.round(1000 / video.fps))}
+              value={sliderValue}
+              disabled={!enabled || paused || rangeMax <= 0}
+              onChange={(event) => updatePreviewTime(Number(event.target.value))}
+            />
+          </label>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <span style={{ fontSize: "1rem", color: "var(--text-soft)" }}>
+              {volume === 0 ? "🔇" : volume > 0.5 ? "🔊" : "🔉"}
+            </span>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={volume}
+              onChange={(e) => setVolume(Number(e.target.value))}
+              style={{ width: "80px", margin: 0, appearance: "auto" }}
+              title="Volume"
+            />
+          </div>
+        </div>
       </div>
     </section>
   );

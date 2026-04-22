@@ -110,6 +110,8 @@ export interface ElectronApi {
   renderPreviewFrame(request: RenderPreviewRequest): Promise<RenderPreviewResponse>;
   startSubtitleGeneration(request: StartSubtitleGenerationRequest): Promise<SubtitleGenerationResult>;
   cancelSubtitleGeneration(): Promise<void>;
+  parseSubtitles(filePath: string): Promise<LyricCue[]>;
+  saveSubtitles(filePath: string, cues: LyricCue[]): Promise<void>;
   saveScene(scene: SerializedSceneDefinition): Promise<SerializedSceneDefinition>;
   deleteScene(sceneId: string): Promise<void>;
   importScene(): Promise<SerializedSceneDefinition | null>;
